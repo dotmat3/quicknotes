@@ -83,4 +83,25 @@ export default async function (page) {
   await page.keyboard.press('Control+w');
   await page.waitForTimeout(150);
   assert((await tabsOf(0)).length === n - 1, 'Ctrl W chiude la scheda attiva');
+
+  // Il tasto centrale chiude la scheda sotto il puntatore, anche se non è attiva.
+  await page.keyboard.press('Control+3');
+  await page.waitForTimeout(200);
+  const before3 = await tabsOf(0);
+  await groups.nth(0).locator('.tab', { hasText: before3.find((t) => t !== 'Azioni') }).click({ button: 'middle' });
+  await page.waitForTimeout(150);
+  const after3 = await tabsOf(0);
+  assert(after3.length === before3.length - 1 && after3.includes('Azioni'), `il tasto centrale chiude la scheda: ${after3.join(', ')}`);
+
+  // Il menu ⋯ compare solo dove ha voci utili.
+  assert((await page.getByRole('button', { name: 'Altre opzioni' }).count()) === 0, 'nelle viste senza opzioni il pulsante ⋯ non c\'è');
+  await page.keyboard.press('Control+4');
+  await page.waitForSelector('main.pane .row');
+  await page.locator('main.pane .row').first().click();
+  await page.waitForSelector('.stats');
+  await page.getByRole('button', { name: 'Altre opzioni' }).click();
+  await page.getByRole('menuitem', { name: /^Cerca @/ }).click();
+  await page.waitForSelector('.dialog input');
+  assert((await page.locator('.dialog input').inputValue()).startsWith('@'), 'nella pagina persona il menu cerca la persona nelle note');
+  await page.keyboard.press('Escape');
 }

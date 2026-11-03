@@ -184,6 +184,7 @@
   </div>
   {#if mode !== 'live'}
     <div class="modebar" role="group" aria-label="Modalità della nota">
+      <span class="gfm" title="Tabelle, avvisi, note a piè di pagina, codice con i colori, link nudi">GitHub Markdown</span>
       {#each MODES as [m, label] (m)}
         <button class:on={mode === m} aria-pressed={mode === m} onclick={() => setMode(viewKey, m)}>{label}</button>
       {/each}
@@ -213,6 +214,7 @@
   .body.split .side { padding-left: 32px; border-left: 1px solid var(--border2); }
   .gone { display: none; }
   .modebar { position: sticky; bottom: 12px; z-index: 6; display: flex; width: max-content; margin: 0 auto; padding: 3px; gap: 2px; border-radius: 9px; background: var(--chrome); border: 1px solid var(--border3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+  .gfm { align-self: center; padding: 0 10px 0 8px; font-size: 11.5px; color: var(--subtle); }
   .modebar button { height: 26px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12.5px; }
   .modebar button:hover { background: var(--hover); }
   .modebar button.on { background: var(--hover); color: var(--text); font-weight: 500; }

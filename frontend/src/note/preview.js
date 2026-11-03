@@ -2,14 +2,29 @@
 // da Claude o da una cartella sincronizzata, e la pagina può chiamare i comandi dell'app.
 import DOMPurify from 'dompurify';
 import { Marked } from 'marked';
-import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, dueLabel } from './editor/rules.js';
+import { LanguageDescription } from '@codemirror/language';
+import { languages } from '@codemirror/language-data';
+import { classHighlighter, highlightCode } from '@lezer/highlight';
+import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, alertIcon, dueLabel } from './editor/rules.js';
 import './preview.css';
 
-const md = new Marked({ gfm: true, breaks: true });
+const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// La lingua dei blocchi di codice resta in un attributo data-, perché le classi della nota vengono tolte.
+const md = new Marked({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    code({ text, lang }) {
+      const name = (lang ?? '').trim().split(/\s+/)[0];
+      return `<pre${name ? ` data-lang="${escapeHtml(name)}"` : ''}><code>${escapeHtml(text)}</code></pre>\n`;
+    },
+  },
+});
 
 // Niente stili, classi o id dalla nota: non devono poter imitare i controlli dell'app.
 const PURIFY = {
-  FORBID_TAGS: ['style', 'form', 'button', 'textarea', 'select', 'option', 'iframe', 'object', 'embed', 'audio', 'video', 'source', 'svg', 'math', 'dialog', 'details', 'summary'],
+  FORBID_TAGS: ['style', 'form', 'button', 'textarea', 'select', 'option', 'iframe', 'object', 'embed', 'audio', 'video', 'source', 'svg', 'math', 'dialog'],
   FORBID_ATTR: ['style', 'class', 'id', 'name', 'for', 'form'],
   RETURN_DOM_FRAGMENT: true,
 };
@@ -125,7 +140,9 @@ function decorate(root, ctx) {
     if (!p.childNodes.length) p.remove();
     const box = el('div', `pv-alert pv-alert-${kind.toLowerCase()}`);
     box.setAttribute('role', 'note');
-    box.append(el('p', 'pv-alert-title', ALERT_LABELS[kind]), ...bq.childNodes);
+    const title = el('p', 'pv-alert-title');
+    title.append(alertIcon(kind), ALERT_LABELS[kind]);
+    box.append(title, ...bq.childNodes);
     bq.replaceWith(box);
   }
 
@@ -188,7 +205,34 @@ export function renderMarkdown(text, tagColor) {
     root.append(section);
   }
   decorate(root, { tagColor, notes, order });
+  for (const pre of root.querySelectorAll('pre[data-lang]')) pre.prepend(el('span', 'pv-code-lang', pre.dataset.lang));
+  highlightBlocks(root);
   return root;
+}
+
+// Colori della sintassi nei blocchi di codice, con le stesse grammatiche dell'editor. Le lingue si caricano
+// solo quando servono; se una lingua non è nota il blocco resta in tinta unica.
+async function highlightBlocks(root) {
+  for (const pre of root.querySelectorAll('pre[data-lang]')) {
+    const desc = LanguageDescription.matchLanguageName(languages, pre.dataset.lang, true);
+    const code = pre.querySelector('code');
+    if (!desc || !code) continue;
+    try {
+      const support = desc.support ?? (await desc.load());
+      const text = code.textContent;
+      const frag = document.createDocumentFragment();
+      highlightCode(
+        text,
+        support.language.parser.parse(text),
+        classHighlighter,
+        (t, cls) => frag.append(cls ? el('span', cls, t) : t),
+        () => frag.append('\n'),
+      );
+      code.replaceChildren(frag);
+    } catch {
+      // Lingua non disponibile: resta il testo semplice.
+    }
+  }
 }
 
 // Clic nell'Anteprima: i [[link]] restano nell'app, gli altri passano da `onOpen`.

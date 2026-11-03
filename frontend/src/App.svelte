@@ -50,6 +50,10 @@
     openPage(`note:${n.id}`, n.title);
   }
 
+  function ctrlHeld(e) {
+    document.documentElement.classList.toggle('qn-ctrl', e.ctrlKey || e.metaKey);
+  }
+
   function onKey(e) {
     if (!e.ctrlKey && !e.metaKey) return;
     const k = e.key.toLowerCase();
@@ -80,7 +84,12 @@
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window
+  onkeydown={(e) => { ctrlHeld(e); onKey(e); }}
+  onkeyup={ctrlHeld}
+  onmousemove={ctrlHeld}
+  onblur={() => document.documentElement.classList.remove('qn-ctrl')}
+/>
 
 <div class="app">
 <TitleBar />

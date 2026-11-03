@@ -2,7 +2,7 @@
 // caselle cliccabili, @persone e #etichette sono evidenziate, scadenze e decisioni diventano etichette.
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
-import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, dueLabel, isoToday, withChecked } from './rules.js';
+import { ALERT_LABELS, DECISION, DONE, DUE, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, dueLabel, isoToday, withChecked } from './rules.js';
 
 const SKIP_NODES = new Set(['InlineCode', 'URL', 'CodeText', 'FencedCode', 'CodeBlock', 'Autolink']);
 const ALERT = /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i;
@@ -66,6 +66,25 @@ class LabelWidget extends WidgetType {
   }
 }
 
+class AlertTitleWidget extends WidgetType {
+  constructor(kind) {
+    super();
+    this.kind = kind;
+  }
+  eq(other) {
+    return other.kind === this.kind;
+  }
+  toDOM() {
+    const el = document.createElement('span');
+    el.className = 'cm-alert-title';
+    el.append(alertIcon(this.kind), ALERT_LABELS[this.kind]);
+    return el;
+  }
+}
+
+// Testo che si sta scrivendo: si apre con Ctrl+clic, e la manina compare solo tenendo premuto Ctrl.
+const CTRL = { 'data-needs-ctrl': '' };
+
 const bullet = Decoration.replace({ widget: new BulletWidget() });
 const hide = Decoration.replace({});
 const lineDeco = (cls) => Decoration.line({ class: cls });
@@ -121,7 +140,10 @@ function build(view, focused, tagColor) {
             pos = line.to + 1;
           }
           if (name === 'FencedCode' && !isActive(node.from)) {
-            node.node.getChildren('CodeMark').forEach((m) => decos.push(mark('cm-fence-mark').range(m.from, m.to)));
+            // Fuori dal blocco i ``` spariscono e resta solo il nome della lingua, come nell'Anteprima.
+            node.node.getChildren('CodeMark').forEach((m) => replace(m.from, m.to));
+            const info = node.node.getChild('CodeInfo');
+            if (info) decos.push(mark('cm-code-lang').range(info.from, info.to));
           }
           return false;
         }
@@ -167,12 +189,18 @@ function build(view, focused, tagColor) {
           if (!isActive(node.from)) node.node.getChildren('CodeMark').forEach((m) => replace(m.from, m.to));
           return false;
         }
+        if (name === 'URL' && node.node.parent?.name !== 'Link' && node.node.parent?.name !== 'Image') {
+          // Indirizzo scritto nudo, come su GitHub: è già un link.
+          const active = isActive(node.from);
+          decos.push(Decoration.mark({ class: 'cm-link', attributes: { 'data-href': doc.sliceString(node.from, node.to), ...(active ? CTRL : {}) } }).range(node.from, node.to));
+          return false;
+        }
         if (name === 'Link') {
           const marks = node.node.getChildren('LinkMark');
           if (marks.length >= 2 && marks[0].to < marks[1].from) {
             const url = node.node.getChild('URL');
-            // Fuori dalla riga del cursore il link si apre con un clic, come i [[link]].
-            const href = url && !isActive(node.from) ? { attributes: { 'data-href': doc.sliceString(url.from, url.to) } } : {};
+            // Fuori dalla riga del cursore il link si apre con un clic, come i [[link]]; sulla riga con Ctrl+clic.
+            const href = url ? { attributes: { 'data-href': doc.sliceString(url.from, url.to), ...(isActive(node.from) ? CTRL : {}) } } : {};
             decos.push(Decoration.mark({ class: 'cm-link', ...href }).range(marks[0].to, marks[1].from));
             if (!isActive(node.from)) {
               replace(node.from, marks[0].to);
@@ -217,27 +245,31 @@ function build(view, focused, tagColor) {
       if (alert) {
         alertKind = alert[1].toUpperCase();
         decos.push(lineDeco(`cm-alert cm-alert-${alertKind.toLowerCase()} cm-alert-head`).range(line.from));
-        if (!lineActive) replace(line.from, line.to, Decoration.replace({ widget: new LabelWidget('cm-alert-title', ALERT_LABELS[alertKind]) }));
+        if (!lineActive) replace(line.from, line.to, Decoration.replace({ widget: new AlertTitleWidget(alertKind) }));
         continue;
       }
       if (alertKind && text.startsWith('>')) decos.push(lineDeco(`cm-alert cm-alert-${alertKind.toLowerCase()}`).range(line.from));
       else alertKind = null;
 
       for (const m of text.matchAll(MENTION)) {
-        if (!skip(m.index)) decos.push(Decoration.mark({ class: 'cm-mention', attributes: { 'data-person': m[1] } }).range(line.from + m.index, line.from + m.index + m[0].length));
+        if (!skip(m.index)) decos.push(Decoration.mark({ class: 'cm-mention', attributes: { 'data-person': m[1], ...CTRL } }).range(line.from + m.index, line.from + m.index + m[0].length));
       }
       for (const m of text.matchAll(TAG)) {
         if (skip(m.index)) continue;
         const color = done ? undefined : `color:${tagColor(m[1])}`;
-        decos.push(Decoration.mark({ class: 'cm-tag', attributes: { 'data-tag': m[1], ...(color ? { style: color } : {}) } }).range(line.from + m.index, line.from + m.index + m[0].length));
+        decos.push(Decoration.mark({ class: 'cm-tag', attributes: { 'data-tag': m[1], ...CTRL, ...(color ? { style: color } : {}) } }).range(line.from + m.index, line.from + m.index + m[0].length));
       }
       for (const m of text.matchAll(WIKI)) {
         if (m[1] || skip(m.index)) continue;
         const a = line.from + m.index;
         const b = a + m[0].length;
         const label = (m[3] || m[2]).trim();
-        if (lineActive) decos.push(mark('cm-wiki-raw').range(a, b));
+        if (lineActive) decos.push(Decoration.mark({ class: 'cm-wiki-raw', attributes: { 'data-wiki': m[2].trim(), ...CTRL } }).range(a, b));
         else replace(a, b, Decoration.replace({ widget: new WikiWidget(m[2].trim(), label) }));
+      }
+      for (const m of text.matchAll(FOOTNOTE)) {
+        if (skip(m.index)) continue;
+        decos.push(mark(m[2] && m.index === 0 ? 'cm-fn cm-fn-def' : 'cm-fn').range(line.from + m.index, line.from + m.index + m[0].length - m[2].length));
       }
       for (const m of text.matchAll(DUE)) {
         if (skip(m.index)) continue;

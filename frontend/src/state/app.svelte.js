@@ -20,6 +20,7 @@ export const app = $state({
   boardDone: ui.boardDone !== false,
   counts: { todayDone: 0, todayTotal: 0, open: 0, late: 0, people: 0 },
   palette: false,
+  paletteQuery: '',
   toast: '',
   titles: ui.titles ?? {},
   today: boot.today,

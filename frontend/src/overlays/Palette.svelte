@@ -7,7 +7,8 @@
   import { pageArg } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
 
-  let q = $state('');
+  let q = $state(app.paletteQuery ?? '');
+  app.paletteQuery = '';
   let hits = $state([]);
   let recent = $state([]);
   let sel = $state(0);

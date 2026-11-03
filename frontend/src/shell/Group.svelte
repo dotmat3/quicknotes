@@ -111,6 +111,8 @@
           ondragover={(e) => tabOver(e, id)}
           ondrop={(e) => tabDrop(e, id)}
           ondragend={dragEnd}
+          onmousedown={(e) => { if (e.button === 1) e.preventDefault(); }}
+          onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); closeTabs(g.id, [id]); } }}
         >
           <button class="tab-main" role="tab" aria-selected={on} {title} onclick={() => activate(g.id, id)} oncontextmenu={(e) => { e.preventDefault(); menu = id; layout.focus = g.id; }}>
             <Icon name={pageIcon(id, isDaily(id))} style="color:{iconColor(id, on)}" />

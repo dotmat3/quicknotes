@@ -1,6 +1,6 @@
 <script>
-  import { app } from '../state/app.svelte.js';
-  import { MODES, modes, setMode } from '../state/documents.svelte.js';
+  import { app, showToast } from '../state/app.svelte.js';
+  import { MODES, docs, modes, setMode } from '../state/documents.svelte.js';
   import { pageKind, pageArg, pageTitle } from './nav.js';
   import NotePage from '../note/NotePage.svelte';
   import Icon from './Icon.svelte';
@@ -40,9 +40,44 @@
     items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 
-  function pick(m) {
+  // Voci del menu ⋯ per il tipo di pagina. Dove non ci sono voci utili, il pulsante non compare.
+  const items = $derived.by(() => {
+    if (kind === 'note') {
+      return [
+        ...MODES.map(([m, label]) => ({ label, radio: true, checked: mode === m, run: () => setMode(viewKey, m) })),
+        { label: 'Copia il link alla nota', sep: true, run: copyLink },
+      ];
+    }
+    if (kind === 'person') return [{ label: `Cerca @${pageArg(page)} nelle note`, run: () => search(`@${pageArg(page)} `) }];
+    if (kind === 'tag') return [{ label: `Cerca #${pageArg(page)} nelle note`, run: () => search(`#${pageArg(page)} `) }];
+    return [];
+  });
+
+  function search(query) {
+    app.paletteQuery = query;
+    app.palette = true;
+  }
+
+  // Il link [[id|Titolo]] da incollare in un'altra nota.
+  async function copyLink() {
+    const id = pageArg(page);
+    const title = docs[id]?.note?.title ?? id;
+    const text = `[[${id}|${title}]]`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    showToast(`Copiato: ${text}`);
+  }
+
+  function pick(it) {
     menu = false;
-    setMode(viewKey, m);
+    it.run();
   }
 </script>
 
@@ -53,20 +88,23 @@
       <Icon name="star" style={fav ? 'fill:currentColor' : ''} />
     </button>
   {/if}
-  <div class="more">
-    <button class="icon-btn" bind:this={menuBtn} aria-label="Altre opzioni" aria-haspopup="menu" aria-expanded={menu} disabled={kind !== 'note'} onclick={() => (menu = !menu)}><Icon name="more" /></button>
-    {#if menu}
-      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <div class="menu note-menu" role="menu" aria-label="Opzioni della nota" tabindex="-1" onkeydown={menuKey}>
-        {#each MODES as [m, label] (m)}
-          <button class="menu-item" role="menuitemradio" aria-checked={mode === m} onclick={() => pick(m)} {@attach (el) => { if (mode === m) el.focus(); }}>
-            <span class="check">{#if mode === m}<Icon name="check" size={14} />{/if}</span>
-            <span style="flex:1">{label}</span>
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </div>
+  {#if items.length}
+    <div class="more">
+      <button class="icon-btn" bind:this={menuBtn} aria-label="Altre opzioni" aria-haspopup="menu" aria-expanded={menu} onclick={() => (menu = !menu)}><Icon name="more" /></button>
+      {#if menu}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div class="menu note-menu" role="menu" aria-label={kind === 'note' ? 'Opzioni della nota' : 'Altre opzioni'} tabindex="-1" onkeydown={menuKey}>
+          {#each items as it, i (it.label)}
+            {#if it.sep}<div class="menu-sep" role="separator"></div>{/if}
+            <button class="menu-item" role={it.radio ? 'menuitemradio' : 'menuitem'} aria-checked={it.radio ? it.checked : undefined} onclick={() => pick(it)} {@attach (el) => { if (it.checked || (i === 0 && !items.some((x) => x.checked))) el.focus(); }}>
+              {#if it.radio}<span class="check">{#if it.checked}<Icon name="check" size={14} />{/if}</span>{/if}
+              <span style="flex:1">{it.label}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 {#if menu}

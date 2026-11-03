@@ -77,7 +77,7 @@ docs/
 | MCP | Scritto a mano su `serde_json` | Solo strumenti e prompt; verificato con il client dell'SDK ufficiale |
 | Microfono e riproduzione | `cpal`, `hound`, `rodio` | |
 | Trascrizione locale | `whisper-rs` (whisper.cpp) | Dietro una feature: richiede CMake e libclang per compilare |
-| Editor | CodeMirror 6, con `@codemirror/search` per Ctrl F | |
+| Editor | CodeMirror 6, con `@codemirror/search` per Ctrl F e `@codemirror/language-data` per i blocchi di codice | Le grammatiche delle lingue si caricano solo quando compaiono; servono anche ai colori del codice nell'Anteprima |
 | Apertura dei link web | `tauri-plugin-opener`, usato solo da Rust | |
 | Grafo | `d3-force`, disegnato su canvas | Nel blocco della vista Grafo |
 | Markdown nell'Anteprima e nell'esportazione | `marked` e `DOMPurify` | |

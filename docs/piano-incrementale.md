@@ -30,7 +30,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs` | Con `demo-note.mjs` | |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
@@ -122,11 +122,13 @@ CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modi
 **Fatta quando:** si può usare l'app per scrivere davvero, senza mai perdere testo chiudendola; misurata la latenza di scrittura.
 **Provati** (`prova-editor.mjs`, `prova-modalita.mjs`): tabelle nell'anteprima viva, menu `⋯` con le modalità Anteprima viva, Sorgente, Affiancata e Anteprima, Anteprima sanificata, note a piè di pagina, link `[[…]]` ed esterni, `open_url` che rifiuta i file, Ctrl F, completamento di `@`, `#` e `[[`. Latenza misurata.
 **Spostato alla tappa 12:** il minutaggio `[mm:ss]`, che serve solo con l'audio.
+**GitHub Markdown come nella tavola Markdown** (`prova-gfm.mjs`): avvisi con icona ed etichette del design (Nota, Suggerimento, Importante, Avvertenza, Attenzione); scrivendo `> [!` compare l'elenco dei tipi con icona e descrizione; blocchi di codice con il nome della lingua e i colori della sintassi, nell'editor e nell'Anteprima (`@codemirror/language-data`, lingue caricate quando servono); note a piè di pagina e indirizzi nudi anche nell'anteprima viva; in Sorgente i segni hanno i colori della tavola; `<details>` ammesso nell'Anteprima.
 
 ### ✅ 7. Schede e gruppi
 
 Più schede, fino a 4 gruppi, divisione, trascinamento, riapertura, stessa nota in due gruppi sincronizzata, annulla e cursore conservati.
 **Fatta quando:** i comportamenti della tavola Home funzionano tutti con note vere.
+**Tasto centrale del mouse:** chiude la scheda sotto il puntatore, anche se non è attiva (`prova-gruppi.mjs`).
 **Correzione del 3 novembre:** nell'app vera il trascinamento delle schede non partiva, perché su Windows il gestore di trascinamento di Tauri intercetta tutto. Ora è disattivato (`disable_drag_drop_handler`). Le prove non se ne accorgevano: Playwright simula il trascinamento senza passare dal sistema.
 **Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio (`prova-schede.mjs`, `prova-riavvio.mjs`, `prova-editor.mjs`). Divisore e doppio clic, ingrandimento, menu contestuale delle schede, chiusura di un gruppo, Ctrl 1…6 e Ctrl W (`prova-gruppi.mjs`).
 
@@ -231,4 +233,6 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | La finestra di riserva, mostrata dopo 3 secondi se la pagina non risponde, non compare se la pagina l'ha già mostrata | Prima poteva rimostrare una finestra appena chiusa |
 | 2026-11-03 | Grafo completo con `d3-force` su canvas, letto dall'indice in una sola interrogazione (`full_graph`) | Richiesta dell'utente: come Obsidian. Il canvas regge migliaia di nodi; un elenco nascosto di pulsanti lo rende usabile da tastiera |
 | 2026-11-03 | "Note isolate" parte spento | L'app crea una nota del giorno vuota a ogni avvio: accese, riempirebbero il grafo di punti |
+| 2026-11-03 | Una regola sola per i clic: il contenuto reso (link resi, Anteprima, tabelle, schede, grafo) si apre con un clic e ha sempre la manina; il testo che si sta scrivendo (`@`, `#`, link sulla riga del cursore, tutto in Sorgente) si apre con Ctrl+clic e la manina compare solo con Ctrl premuto | Richiesta dell'utente. Prima nelle tabelle `@` e `#` avevano la manina ma non si aprivano, e in Sorgente non si apriva nulla |
+| 2026-11-03 | Il menu `⋯` compare solo dove ha voci: nota (modalità, "Copia il link alla nota"), persona ed etichetta ("Cerca … nelle note"). Nelle viste e nelle Impostazioni non c'è | Richiesta dell'utente: prima nelle viste era un pulsante disattivato |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

@@ -56,6 +56,8 @@
 
 .cm-alert { padding-left: 16px !important; border-left: 3px solid var(--alert); color: var(--text2); }
 .cm-alert-head { color: var(--alert); font-weight: 500; }
+.cm-alert-title { display: inline-flex; align-items: center; gap: 8px; }
+.cm-alert-title .qn-ai { color: var(--alert); }
 .cm-alert-note { --alert: #4493f8; }
 .cm-alert-tip { --alert: #3fb950; }
 .cm-alert-important { --alert: #ab7df8; }
@@ -98,3 +100,26 @@
 .cm-editor .cm-search button[name='close']:hover { background: var(--hover); }
 .cm-editor .cm-searchMatch { background: color-mix(in srgb, var(--accent) 22%, transparent); border-radius: 2px; }
 .cm-editor .cm-searchMatch-selected { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* GitHub Markdown: nome della lingua dei blocchi di codice, note a piè di pagina, link nudi. */
+.cm-code-lang { font-size: 11px; color: var(--subtle); }
+.cm-fn { color: var(--dec); font-size: 0.85em; }
+.cm-fn-def { font-weight: 500; }
+
+/* Sorgente: segni colorati come nella tavola Markdown. */
+.cm-source .tok-heading { color: var(--text); font-weight: 600; }
+.cm-source .tok-processingInstruction, .cm-source .tok-meta, .cm-source .tok-contentSeparator { color: var(--subtle); }
+.cm-source .cm-inline-code, .cm-source .tok-monospace { color: color-mix(in srgb, var(--accent) 78%, var(--text)); }
+.cm-source .tok-link, .cm-source .tok-url, .cm-source .cm-src-url { color: var(--person); }
+.cm-source .cm-src-url { text-decoration: underline; text-underline-offset: 3px; }
+.cm-source .cm-src-wiki { color: var(--accent); }
+.cm-alert-mark, .cm-alert-mark * { color: var(--alert) !important; font-weight: 600; }
+
+/* Cosa si apre con un clic: il contenuto reso ha sempre la manina; il testo che si sta scrivendo solo con Ctrl. */
+.cm-content [data-wiki]:not([data-needs-ctrl]), .cm-content [data-href]:not([data-needs-ctrl]) { cursor: pointer; }
+.qn-ctrl .cm-content [data-needs-ctrl] { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Elenco dei tipi di avviso. */
+.cm-tooltip-autocomplete .qn-ai { margin-right: 10px; vertical-align: -3px; }
+.cm-alert-option { display: inline-flex; flex-direction: column; margin-left: 10px; vertical-align: top; font-family: inherit; }
+.cm-alert-option-desc { font-size: 11.5px; color: var(--subtle); }

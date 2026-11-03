@@ -7,7 +7,23 @@ export const DONE = /\bdone\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
 export const DECISION = /!(?:decisione|decision|dec)(?![\p{L}\p{N}_])/giu;
 export const WIKI = /(!?)\[\[([^\]\n|]+)(?:\|([^\]\n]*))?\]\]/g;
 export const ACTION = /^(\s*)[-*+]\s+\[( |x|X)\]\s*(.*)$/;
-export const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Attenzione', CAUTION: 'Pericolo' };
+export const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Avvertenza', CAUTION: 'Attenzione' };
+export const ALERT_DESCRIPTIONS = {
+  NOTE: 'Informazioni utili anche a una lettura veloce',
+  TIP: 'Un modo migliore o più semplice di fare qualcosa',
+  IMPORTANT: 'Necessario per raggiungere l’obiettivo',
+  WARNING: 'Richiede attenzione immediata per evitare problemi',
+  CAUTION: 'Rischi o conseguenze negative di un’azione',
+};
+export const FOOTNOTE = /\[\^([^\]\s]+)\](:?)/g;
+
+// Icona di un avviso: una maschera CSS, così non serve SVG nell'HTML.
+export function alertIcon(kind) {
+  const el = document.createElement('span');
+  el.className = `qn-ai qn-ai-${kind.toLowerCase()}`;
+  el.setAttribute('aria-hidden', 'true');
+  return el;
+}
 
 const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const DAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
