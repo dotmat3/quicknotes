@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quicknotes"
+dynamic = ["version"]
+description = "Note di meeting e giornate in Markdown, con app desktop e server MCP per Claude"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pywebview==6.2.1", "pyyaml==6.0.3"]
+
+[project.gui-scripts]
+quicknotes = "quicknotes.__main__:main"
+
+[tool.setuptools]
+packages = ["quicknotes"]
+
+[tool.setuptools.dynamic]
+version = { attr = "quicknotes.__version__" }
+
+[tool.setuptools.package-data]
+quicknotes = ["icon.ico", "webui/*", "webui/**/*"]

@@ -1,6 +1,6 @@
-// Prova dal vivo della versione Python (branch prova-pywebview): avvia l'app su note di prova, la guida via
+// Prova dal vivo dell'app: avvia QuickNotes su note di prova, la guida via
 // CDP e controlla scrittura, salvataggio su disco, comandi, modifiche esterne, immagini e chiusura.
-// Uso: node scripts/prova-python.mjs [foto.png]   (prima: cd frontend && npm run build:py)
+// Uso: node scripts/prova-python.mjs [foto.png]   (prima: cd frontend && npm run build)
 // Con QN_PYTHON=<cartella portatile>/python/pythonw.exe prova la cartella portatile al posto della venv.
 import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -23,9 +23,9 @@ const meetingPath = join(notes, `${y}`, m, `${meetingId}.md`);
 writeFileSync(dailyPath, `---\ntype: daily\ntitle: Giornata\ndate: ${today}\n---\n## Priorità\n- [ ] @Marco invia preventivo due:2020-01-01 #clientex\n- [x] fatto\n`);
 writeFileSync(meetingPath, `---\r\ntype: meeting\r\ntitle: Kickoff cliente\r\npeople: [Laura]\r\n---\r\nNe parliamo [[${today}-giornata|oggi]] con @Laura #clientex\r\n`);
 
-const python = resolve(process.env.QN_PYTHON ?? 'python/.venv/Scripts/python.exe');
-const child = spawn(python, ['-m', 'quicknotes_py'], {
-  cwd: resolve('python'),
+const python = resolve(process.env.QN_PYTHON ?? '.venv/Scripts/python.exe');
+const child = spawn(python, ['-m', 'quicknotes'], {
+  cwd: resolve('.'),
   env: { ...process.env, QUICKNOTES_DIR: notes, QUICKNOTES_CONFIG_DIR: join(work, 'cfg'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9334' },
   stdio: 'ignore',
@@ -77,7 +77,10 @@ try {
   check(found?.[0]?.id === meetingId, 'ricerca per titolo');
   const daily = (await invoke(page, 'read_note', { id: `${today}-giornata` })).ok;
   check(daily?.links_in?.[0]?.note_id === meetingId, 'collegamenti in entrata');
-  check((await invoke(page, 'action_board')).missing === true, 'comando non portato: la pagina usa il ripiego');
+  const board = (await invoke(page, 'action_board')).ok;
+  check(board?.open === 2 && board?.late === 1, `bacheca delle azioni ${JSON.stringify({ open: board?.open, late: board?.late })}`);
+  const hits = (await invoke(page, 'search_all', { query: 'preventivo' })).ok;
+  check(hits?.some((h) => h.kind === 'action'), 'Ctrl K trova anche le azioni');
 
   // Una modifica fatta fuori dall'app arriva alla pagina.
   writeFileSync(meetingPath, readFileSync(meetingPath, 'utf8') + 'aggiunta esterna\r\n');
@@ -99,8 +102,8 @@ try {
   if (shot) await page.screenshot({ path: shot });
   check(errors.length === 0, `nessun errore nella pagina${errors.length ? ': ' + errors.join(' | ') : ''}`);
 
-  // Chiusura con la X della finestra (WM_CLOSE), subito dopo aver scritto: il testo deve arrivare su disco
-  // anche se il salvataggio automatico non è ancora partito, e l'app deve terminare senza bloccarsi.
+  // La X della finestra (WM_CLOSE), subito dopo aver scritto: il testo deve arrivare su disco anche se il
+  // salvataggio automatico non è ancora partito, e la finestra va nell'area di notifica senza bloccarsi.
   await page.click('.cm-content');
   await page.keyboard.press('Control+End');
   await page.keyboard.type(' ultima parola');
@@ -108,9 +111,20 @@ try {
   const closed = execSync('powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -like \'python*\' '
     + '-and $_.MainWindowTitle -like \'*QuickNotes\' } | ForEach-Object { $_.CloseMainWindow() }"').toString().trim();
   check(closed === 'True', 'X della finestra premuta');
+  let saved2 = false;
+  for (let i = 0; i < 20 && !saved2; i++) {
+    await page.waitForTimeout(250);
+    saved2 = readFileSync(dailyPath, 'utf8').includes('ultima parola');
+  }
+  check(saved2, 'testo scritto subito prima della chiusura salvato');
+  // WebView2 resta "visible" anche a finestra nascosta: lo dice Windows, che non la trova più tra quelle visibili.
+  const visible = execSync('powershell -NoProfile -Command "@(Get-Process | Where-Object { $_.ProcessName -like \'python*\' '
+    + '-and $_.MainWindowTitle -like \'*QuickNotes\' }).Count"').toString().trim();
+  check(!exited && visible === '0', 'la X nasconde la finestra, l\'app resta attiva');
+  // Esci, come dal menu dell'area di notifica.
+  await invoke(page, 'quit').catch(() => {});
   for (let i = 0; i < 40 && !exited; i++) await new Promise((r) => setTimeout(r, 250));
-  check(exited, 'la X chiude l\'app senza bloccarla');
-  check(readFileSync(dailyPath, 'utf8').includes('ultima parola'), 'testo scritto subito prima della chiusura salvato');
+  check(exited, 'Esci chiude l\'app');
   await browser.close().catch(() => {});
 } catch (e) {
   failures.push(String(e));

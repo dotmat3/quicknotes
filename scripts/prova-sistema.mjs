@@ -1,6 +1,6 @@
 // Prova dal vivo con input di sistema veri (scripts/win.mjs): tasti globali, nota rapida che compare in primo
-// piano, Alt F4, area di notifica e il suo menu, barra del titolo con il mouse (doppio clic, spostamento,
-// bordo), trascinamento di una scheda con il mouse vero, uscita dal menu.
+// piano, Alt F4, area di notifica e il suo menu, barra del titolo di Windows con il mouse (doppio clic,
+// spostamento, bordo), trascinamento di una scheda con il mouse vero, uscita dal menu.
 // Muove davvero mouse e tastiera per una ventina di secondi: durante la prova il PC non va usato.
 // Va usata con le note di demo-note.mjs e con nessun'altra QuickNotes aperta.
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,9 @@ const assert = (cond, msg) => {
   console.log(`ok: ${msg}`);
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const WM_TRAY = 6002;
+// I clic sull'icona: il messaggio che NotifyIcon di WinForms riceve dalla shell, nella sua finestra nascosta.
+const WM_TRAY = 0x0800;
+const TRAY_TITLE = 'QuickNotes · area di notifica';
 const WM_LBUTTONUP = 0x0202;
 const WM_RBUTTONUP = 0x0205;
 
@@ -22,7 +24,7 @@ export default async function (page, { notes, pid }) {
   const p = (n) => String(n).padStart(2, '0');
   const daily = join(notes, String(now.getFullYear()), p(now.getMonth() + 1), `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-giornata.md`);
   const find = async (pred) => (await win.windows(pid)).find(pred);
-  const main = () => find((w) => w.title.includes('QuickNotes') && w.cls !== 'tray_icon_app');
+  const main = () => find((w) => w.title.endsWith('QuickNotes') && w.title !== TRAY_TITLE);
   const capture = () => find((w) => w.title === 'Nota rapida');
   const until = async (fn, ms = 3000) => {
     for (const end = Date.now() + ms; Date.now() < end; await sleep(80)) if (await fn()) return true;
@@ -55,7 +57,7 @@ export default async function (page, { notes, pid }) {
     await win.keys('alt+f4');
     assert(await until(async () => !(await main())?.visible), 'Alt F4 nasconde la finestra principale');
     assert(!!(await main()), 'senza chiudere l\'app');
-    const tray = await find((w) => w.cls === 'tray_icon_app');
+    const tray = await find((w) => w.title === TRAY_TITLE);
     assert(!!tray, 'l\'icona dell\'area di notifica esiste');
     await win.post(tray.hwnd, WM_TRAY, 0, WM_LBUTTONUP);
     assert(await until(async () => (await main())?.visible), 'il clic sinistro sull\'icona riapre la finestra');
@@ -91,18 +93,20 @@ export default async function (page, { notes, pid }) {
       const b = await page.locator(selector).first().boundingBox();
       return [m.ox + (b.x + b.width * dx) * dpr, m.oy + (b.y + b.height * dy) * dpr];
     };
-    const [tx, ty] = await at('.titlebar .title', 0.5, 0.5);
+    // La barra del titolo di Windows: tra il bordo superiore e l'inizio della pagina.
+    const caption = (w) => [w.x + w.w / 2, (w.y + w.oy) / 2];
+    const [tx, ty] = caption(m);
     await win.click(tx, ty, 2);
     assert(await until(async () => (await main()).zoomed), 'doppio clic sulla barra del titolo: ingrandita');
     await sleep(300);
     m = await main();
-    const [zx, zy] = await at('.titlebar .title', 0.5, 0.5);
+    const [zx, zy] = caption(m);
     await win.click(zx, zy, 2);
     assert(await until(async () => !(await main()).zoomed), 'secondo doppio clic: ripristinata');
     await sleep(300);
     m = await main();
     const before = m.x;
-    const [sx, sy] = await at('.titlebar .title', 0.5, 0.5);
+    const [sx, sy] = caption(m);
     await win.drag(sx + 60, sy, sx + 260, sy + 40);
     assert(await until(async () => Math.abs((await main()).x - before - 200) < 20), `trascinando la barra la finestra si sposta (${before} → ${(await main()).x})`);
     m = await main();

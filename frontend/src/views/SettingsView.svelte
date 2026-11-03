@@ -233,7 +233,7 @@
     <div class="box">
       <SettingRow label="Versione" desc=""><span class="mono value">{info.version}</span></SettingRow>
       {#if info.releases}
-        <SettingRow label="Versioni nuove" desc="Si scaricano a mano da GitHub. Sostituisci QuickNotes.exe con quello nuovo, ad app chiusa: le note restano dove sono.">
+        <SettingRow label="Versioni nuove" desc="Si scaricano a mano da GitHub. Esci da QuickNotes e sostituisci la sua cartella con quella nuova: le note restano dove sono.">
           <button class="btn" onclick={() => call('open_url', { url: info.releases })}>Apri le release</button>
         </SettingRow>
       {/if}
@@ -242,14 +242,13 @@
   <section>
     <h2>Avvio</h2>
     <div class="box">
-      <SettingRow label="Avvia con Windows" desc="L’app parte nascosta nell’area di notifica, con Ctrl Alt N e Ctrl Alt D già pronti. Se sposti QuickNotes.exe, riattivalo.">{@render toggle('Avvia con Windows', info.autostart, () => setAutostart(!info.autostart))}</SettingRow>
+      <SettingRow label="Avvia con Windows" desc="L’app parte nascosta nell’area di notifica, con Ctrl Alt N e Ctrl Alt D già pronti. Se sposti la cartella di QuickNotes, riattivalo.">{@render toggle('Avvia con Windows', info.autostart, () => setAutostart(!info.autostart))}</SettingRow>
     </div>
   </section>
 {:else if tab === 'claude' && claude}
   <section>
     <h2>Claude (MCP)</h2>
-    <p class="intro">Claude cerca e legge le note tramite il server <code>quicknotes-mcp</code>, che Claude stesso avvia quando serve. Copia una di queste configurazioni.</p>
-    {#if !claude.exists}<p class="warn">Il file quicknotes-mcp.exe non è accanto all'app. Scaricalo dalla stessa release di GitHub e mettilo nella cartella di QuickNotes.exe.</p>{/if}
+    <p class="intro">Claude cerca e legge le note tramite il server MCP di QuickNotes, che Claude stesso avvia quando serve con il Python di questa cartella. Copia una di queste configurazioni; se sposti la cartella di QuickNotes, aggiornala.</p>
     <div class="code-head"><span>Claude Desktop</span><button class="btn" onclick={() => copy('desktop', claude.desktop)}>{copied === 'desktop' ? 'Copiato' : 'Copia'}</button></div>
     <pre>{claude.desktop}</pre>
     <div class="code-head"><span>Claude Code</span><button class="btn" onclick={() => copy('code', claude.code)}>{copied === 'code' ? 'Copiato' : 'Copia'}</button></div>

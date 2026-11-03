@@ -173,7 +173,7 @@ function decorate(root, ctx) {
     a.classList.add('pv-link');
   }
 
-  // Immagini: solo quelle dentro la cartella delle note, servite da Rust. Indirizzi web e file mancanti
+  // Immagini: solo quelle dentro la cartella delle note, servite da Python. Indirizzi web e file mancanti
   // lasciano un segnaposto con il nome.
   for (const img of root.querySelectorAll('img')) {
     const src = img.dataset.src ?? '';

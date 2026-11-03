@@ -134,7 +134,8 @@ export class Win {
     this.ps.stderr.on('data', (d) => (this.err += d.toString()));
     const file = join(tmpdir(), 'qn-win.cs');
     writeFileSync(file, CS);
-    this.ready = this.run(`Add-Type -Path '${file}'`);
+    // In UTF-8, altrimenti i titoli con «—» e «·» arrivano storpiati.
+    this.ready = this.run(`[Console]::OutputEncoding = [Text.Encoding]::UTF8; Add-Type -Path '${file}'`);
   }
 
   run(cmd) {

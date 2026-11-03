@@ -35,7 +35,7 @@ export default async function (page, { notes }) {
   await page.keyboard.press('Control+End');
   await page.keyboard.type('scritto prima di chiudere');
   await page.evaluate(() => {
-    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event: 'flush', payload: null });
+    window.__qnEmit('flush', null);
   });
   await page.waitForTimeout(250);
   assert(readFileSync(daily, 'utf8').includes('scritto prima di chiudere'), 'l\'evento di chiusura salva subito, senza aspettare il ritardo');

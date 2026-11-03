@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { diff, dueLabel, isoToday, noteStats, withChecked } from './rules.js';
 
 describe('withChecked', () => {
-  it('spunta e riapre come il nucleo Rust', () => {
+  it('spunta e riapre come il nucleo Python', () => {
     expect(withChecked('  - [ ] A due:2026-01-01', '2026-11-03')).toBe('  - [x] A due:2026-01-01 done:2026-11-03');
     expect(withChecked('* [X] A done:2026-11-03', null)).toBe('* [ ] A');
     expect(withChecked('testo', null)).toBe('testo');

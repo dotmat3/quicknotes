@@ -130,5 +130,5 @@ export default async function (page, { notes }) {
   await page.keyboard.press('Alt+ArrowRight');
   await page.waitForTimeout(150);
   assert((await activeTab()) === 'Azioni', 'e Avanti torna ad Azioni');
-  assert(page.url().startsWith('http://tauri.localhost'), 'la pagina non ha lasciato l\'app');
+  assert(page.url().startsWith('http://127.0.0.1:'), 'la pagina non ha lasciato l\'app');
 }

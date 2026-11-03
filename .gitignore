@@ -3,9 +3,11 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.pytest_cache/
 build/
 dist/
+
+# Interfaccia compilata dentro il pacchetto (npm run build)
+quicknotes/webui/
 
 # Editor e sistema
 .vscode/
@@ -13,15 +15,16 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Rust e frontend
-target/
-crates/quicknotes-app/gen/schemas/
+# Frontend
 frontend/node_modules/
 frontend/dist/
 
-# Rilasci: eseguibili costruiti da scripts/rilascio.mjs
+# Rilasci: zip costruiti da scripts/rilascio.mjs
 rilasci/
 
-# Prova pywebview: interfaccia compilata e cartella portatile
-python/quicknotes_py/webui/
-python/dist/
+# Cartella della vecchia versione Rust, se è ancora sul disco
+target/
+python/
+
+# Rapporto di python -m quicknotes verifica
+verifica-quicknotes.txt

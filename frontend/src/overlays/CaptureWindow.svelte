@@ -68,7 +68,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="win">
-  <div class="head" data-tauri-drag-region>
+  <div class="head pywebview-drag-region">
     <span class="pen"><Icon name="pen" /></span>
     <span class="title">Nota rapida</span>
     <kbd>Ctrl Alt N</kbd>

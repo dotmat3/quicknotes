@@ -59,7 +59,7 @@ export default async function (page, { notes }) {
   await page.keyboard.press('Control+End');
   await page.keyboard.type('testo prima di uscire');
   await page.evaluate(() => {
-    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event: 'flush-and-close', payload: null }).catch(() => {});
+    window.__qnEmit('flush-and-close', null);
   });
   await new Promise((r) => setTimeout(r, 900));
   assert(readFileSync(daily, 'utf8').includes('testo prima di uscire'), 'all\'uscita il testo in sospeso è nel file');

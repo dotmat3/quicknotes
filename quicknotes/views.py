@@ -1,0 +1,358 @@
+"""Dati pronti per le viste dell'interfaccia."""
+
+from __future__ import annotations
+
+import re
+from datetime import date, timedelta
+
+from . import dates, parser
+from .index import Filter
+from .store import NoteStore
+
+# Le azioni fatte senza data di completamento possono diventare centinaia: se ne mostrano poche.
+UNDATED_DONE_LIMIT = 30
+
+
+def _clean_text(raw: str, tag: str | None) -> str:
+    display = parser.action_display_text(raw)
+    # L'etichetta è mostrata dalla pillola: nel testo resta solo se è dentro la frase.
+    if tag:
+        marker = f"#{tag}"
+        if display.lower().endswith(marker):
+            return display[:len(display) - len(marker)].rstrip()
+    return display
+
+
+def _children_of(rows: list[dict]) -> dict[tuple[str, int], list[dict]]:
+    children: dict[tuple[str, int], list[dict]] = {}
+    for row in rows:
+        if row["parent_line"] is not None:
+            children.setdefault((row["note_id"], row["parent_line"]), []).append(row)
+    return children
+
+
+def _label(due: str | None, today: date) -> tuple[str, str] | None:
+    d = dates.parse_day(due)
+    return dates.due_label(d, today) if d else None
+
+
+def _board_item(row: dict, children: dict, today: date) -> dict:
+    """Una scheda della bacheca: la stessa in bacheca, in elenco e nella pagina etichetta."""
+    label = _label(row["due"], today)
+    subs = sorted(({
+        "line": s["line"], "raw": s["text"], "text": parser.action_display_text(s["text"]), "done": s["done"],
+        "due_label": (_label(s["due"], today) or (None,))[0],
+    } for s in children.get((row["note_id"], row["line"]), [])), key=lambda s: s["line"])
+    tag = row["tags"][0] if row["tags"] else None
+    return {
+        "note_id": row["note_id"], "note_title": row["note_title"], "line": row["line"], "raw": row["text"],
+        "text": _clean_text(row["text"], tag), "done": row["done"], "done_on": row["done_on"], "due": row["due"],
+        "due_label": label[0] if label else None, "due_level": label[1] if label else None,
+        "group": dates.due_group(dates.parse_day(row["due"]), today), "people": row["people"],
+        "tag": tag or row["project"], "description": row["description"], "subs": subs,
+    }
+
+
+def action_board(store: NoteStore, today: date) -> dict:
+    """Tutte le azioni di primo livello con le loro figlie."""
+    rows = store.actions(status="all")
+    children = _children_of(rows)
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    open_, late, done_week, undated = 0, 0, 0, 0
+    items = []
+    for row in rows:
+        if row["parent_line"] is not None:
+            continue
+        done_on = dates.parse_day(row["done_on"])
+        if row["done"]:
+            if done_on and monday <= done_on <= sunday:
+                done_week += 1
+            if done_on is None:
+                undated += 1
+                if undated > UNDATED_DONE_LIMIT:
+                    continue
+        item = _board_item(row, children, today)
+        if not row["done"]:
+            open_ += 1
+            late += item["group"] == "late"
+        items.append(item)
+    column_due = {}
+    for g in ("soon", "week", "later"):
+        d = dates.first_day_in(g, today)
+        if d:
+            column_due[g] = dates.iso(d)
+    return {"items": items, "open": open_, "late": late, "done_this_week": done_week,
+            "week_number": today.isocalendar()[1], "column_due": column_due}
+
+
+def _note_ref(n: dict) -> dict:
+    return {"id": n["id"], "title": n["title"], "date": n["date"], "is_daily": n["type"] == "daily"}
+
+
+def _page_action(row: dict, today: date, parent: str | None) -> dict:
+    label = _label(row["due"], today)
+    return {"note_id": row["note_id"], "note_title": row["note_title"], "text": parser.action_display_text(row["text"]),
+            "due_label": label[0] if label else None, "due_level": label[1] if label else None, "parent": parent}
+
+
+def _decision_ref(d: dict) -> dict:
+    return {"text": d["text"], "note_id": d["note_id"], "date": d["date"]}
+
+
+def person_page(store: NoteStore, name: str, today: date) -> dict:
+    """Solo i nomi `@` grezzi: `@Giulia` e `@G.Ferri` restano due persone."""
+    lower = name.lower()
+    flt = Filter(person=name)
+    notes = [n for n in store.list_notes(flt, 500) if any(p.lower() == lower for p in n["people"])]
+    rows = store.actions()
+    titles = {(r["note_id"], r["line"]): parser.action_display_text(r["text"]) for r in rows}
+    actions = [_page_action(r, today, titles.get((r["note_id"], r["parent_line"])) if r["parent_line"] else None)
+               for r in rows if any(p.lower() == lower for p in r["people"])]
+    ids = {n["id"] for n in notes}
+    decisions = [_decision_ref(d) for d in store.decisions(flt, "", 200) if d["note_id"] in ids]
+    shown = next((p for n in notes for p in n["people"] if p.lower() == lower), name)
+    return {"name": shown, "notes_count": len(notes), "first_seen": notes[-1]["date"] if notes else None,
+            "actions": actions, "notes": [_note_ref(n) for n in notes[:30]], "decisions": decisions}
+
+
+def people_list(store: NoteStore, today: date) -> list[dict]:
+    today_iso = dates.iso(today)
+    rows = store.actions()
+    out = []
+    for p in store.people():
+        lower = p["name"].lower()
+        mine = [r for r in rows if any(x.lower() == lower for x in r["people"])]
+        out.append({"name": p["name"], "notes": p["notes"], "last_seen": p["last_seen"], "open": len(mine),
+                    "late": sum(1 for r in mine if r["due"] and r["due"] < today_iso)})
+    return out
+
+
+def tag_page(store: NoteStore, tag: str, today: date) -> dict:
+    flt = Filter(project=tag)
+    notes = store.list_notes(flt, 500)
+    lower = tag.lower()
+    rows = store.actions(status="all")
+    children = _children_of(rows)
+    actions = [_board_item(r, children, today) for r in rows
+               if not r["done"] and r["parent_line"] is None and (lower in r["tags"] or r["project"] == lower)]
+    people: list[str] = []
+    for p in (p for n in notes for p in n["people"]):
+        if not any(x.lower() == p.lower() for x in people):
+            people.append(p)
+    return {"tag": lower, "notes_count": len(notes), "actions": actions,
+            "notes": [_note_ref(n) for n in notes[:30]],
+            "decisions": [_decision_ref(d) for d in store.decisions(flt, "", 100)], "people": people}
+
+
+def _event(kind: str, text: str, note_id: str, line: int | None = None) -> dict:
+    out = {"kind": kind, "text": text, "note_id": note_id}
+    if line is not None:
+        out["line"] = line
+    return out
+
+
+def calendar_data(store: NoteStore, start: str, end: str, today: date) -> dict[str, dict]:
+    """Note, registrazioni, scadenze, completamenti e decisioni per giorno, da `start` a `end` inclusi.
+    Una registrazione cade nel giorno della nota che la contiene."""
+    days: dict[str, dict] = {}
+
+    def day(key: str) -> dict:
+        return days.setdefault(key, {"daily": None, "events": []})
+
+    flt = Filter(date_from=start, date_to=end)
+    notes = store.list_notes(flt, 5000)
+    day_of = {}
+    for n in notes:
+        if len(n["date"]) < 10:
+            continue
+        key = n["date"][:10]
+        day_of[n["path"]] = (key, n["id"])
+        if n["type"] == "daily":
+            day(key)["daily"] = n["id"]
+        else:
+            day(key)["events"].append(_event("note", n["title"], n["id"]))
+    for path, body in store.bodies([n["path"] for n in notes], ["[Registrazione ", "Trascrizione "]):
+        if path not in day_of:
+            continue
+        key, note_id = day_of[path]
+        for r in parser.recordings(body):
+            if r.file and r.duration:
+                text = f"Registrazione {r.time} ({r.duration})"
+            elif r.file:
+                text = f"Registrazione {r.time}"
+            else:
+                text = f"Trascrizione {r.time}"
+            day(key)["events"].append(_event("rec", text, note_id, r.line_no))
+    for d in store.decisions(flt, "", 5000):
+        if len(d["date"]) >= 10:
+            day(d["date"][:10])["events"].append(_event("dec", d["text"], d["note_id"]))
+    today_iso = dates.iso(today)
+    for a in store.actions(status="all"):
+        text = parser.action_display_text(a["text"])
+        if a["done_on"] and start <= a["done_on"] <= end:
+            day(a["done_on"])["events"].append(_event("done", text, a["note_id"]))
+        if not a["done"] and a["due"] and start <= a["due"] <= end:
+            day(a["due"])["events"].append(_event("late" if a["due"] < today_iso else "due", text, a["note_id"]))
+    return days
+
+
+def _node(node_id: str, label: str, kind: str, page: str) -> dict:
+    return {"id": node_id, "label": label, "kind": kind, "page": page}
+
+
+def full_graph(store: NoteStore) -> dict:
+    """Il grafo di tutte le note, come in Obsidian: note collegate con `[[link]]`, più persone ed etichette.
+    I link verso note che non esistono non diventano nodi."""
+    rows = store.graph_rows()
+    nodes: list[dict] = []
+    by_path: dict[str, int] = {}
+    by_key: dict[str, int] = {}
+    for i, (path, note_id, title, kind, when) in enumerate(rows["notes"]):
+        daily = kind == "daily" or note_id.endswith("-giornata")
+        d = dates.parse_day(when) if daily else None
+        label = dates.daily_title(d) if d else (title or note_id)
+        nodes.append(_node(note_id, label, "daily" if daily else "note", f"note:{note_id}"))
+        by_path[path] = i
+        by_key[note_id.lower()] = i
+        by_key.setdefault(title.lower(), i)
+    edges: set[tuple[int, int]] = set()
+
+    def link(a: int, b: int) -> None:
+        if a != b:
+            edges.add((min(a, b), max(a, b)))
+
+    for path, key in rows["links"]:
+        if path in by_path and key in by_key:
+            link(by_path[path], by_key[key])
+    extra: dict[str, int] = {}
+    for pairs, kind in ((rows["people"], "person"), (rows["tags"], "tag")):
+        for path, name in pairs:
+            if path not in by_path:
+                continue
+            lower = name.lower()
+            key = f"{kind}:{lower}"
+            if key not in extra:
+                node_id, label = (name, f"@{name}") if kind == "person" else (lower, f"#{lower}")
+                nodes.append(_node(node_id, label, kind, f"{kind}:{node_id}"))
+                extra[key] = len(nodes) - 1
+            link(by_path[path], extra[key])
+    return {"nodes": nodes, "edges": [list(e) for e in sorted(edges)]}
+
+
+# ------------------------------------------------------------------ Ctrl K
+
+
+def _hit(kind: str, label: str, hint: str, page: str, snippet: str | None = None, line: int | None = None,
+         level: str | None = None) -> dict:
+    out = {"kind": kind, "label": label, "hint": hint, "page": page, "snippet": snippet}
+    if line is not None:
+        out["line"] = line
+    if level is not None:
+        out["level"] = level
+    return out
+
+
+def _note_label(note_id: str, title: str, note_type: str, when: str) -> str:
+    """Il nome di una nota nei risultati: le note del giorno si chiamano con la data, come nelle schede."""
+    d = dates.parse_day(when) if note_type == "daily" or note_id.endswith("-giornata") else None
+    return dates.daily_title(d) if d else title
+
+
+def _terms(text: str) -> list[str]:
+    return [t.lower() for t in re.split(r"[^\w]+", text) if t]
+
+
+def excerpt(line: str, word: str, width: int) -> str:
+    """Un pezzo di riga attorno alla prima parola trovata, al massimo `width` caratteri, senza parole tagliate."""
+    if len(line) <= width:
+        return line
+    at = line.lower().find(word) if word else 0
+    at = max(at, 0)
+    start = min(max(at - width // 3, 0), len(line) - width)
+    end = start + width
+    if start > 0 and not line[start - 1].isspace():
+        space = next((i for i, c in enumerate(line[start:end]) if c.isspace()), 0)
+        start += space
+    if end < len(line) and not line[end].isspace():
+        space = next((i for i in range(end - 1, start - 1, -1) if line[i].isspace()), None)
+        end = space if space is not None else end
+    body = line[start:end].strip()
+    return ("…" if start > 0 else "") + body + ("…" if end < len(line) else "")
+
+
+def search_all(store: NoteStore, query: str, today: date) -> list[dict]:
+    """La ricerca di Ctrl K: note, azioni aperte, decisioni e righe delle trascrizioni.
+    `@nome`, `#etichetta` filtrano; `!parole` cerca solo tra le decisioni."""
+    flt = Filter()
+    words: list[str] = []
+    only_decisions = False
+    for w in query.split():
+        if w.startswith("@") and len(w) > 1:
+            flt.person = w[1:]
+        elif w.startswith("#") and len(w) > 1:
+            flt.project = w[1:]
+        elif w == "!" or w.lower() == "!decisione":
+            only_decisions = True
+        elif w.startswith("!"):
+            only_decisions = True
+            words.append(w[1:])
+        else:
+            words.append(w)
+    text = " ".join(words)
+
+    def day_hint(when: str) -> str:
+        d = dates.parse_day(when)
+        return dates.short_day(d) if d else ""
+
+    def decision_hit(d: dict) -> dict:
+        return _hit("decision", d["text"], day_hint(d["date"]), f"note:{d['note_id']}",
+                    snippet=_note_label(d["note_id"], d["note_title"], "", d["date"]), line=d["line"])
+
+    hits: list[dict] = []
+    if only_decisions:
+        return [decision_hit(d) for d in store.decisions(flt, text, 15)]
+    if not text:
+        if flt.person:
+            lower = flt.person.lower()
+            for f in [f for f in store.people() if lower in f["name"].lower()][:5]:
+                hits.append(_hit("person", f"@{f['name']}", f"{f['notes']} note", f"person:{f['name']}"))
+        if flt.project:
+            lower = flt.project.lower()
+            for f in [f for f in store.projects() if lower in f["name"]][:5]:
+                hits.append(_hit("tag", f"#{f['name']}", f"{f['notes']} note", f"tag:{f['name']}"))
+    notes = store.search(text, flt, 15)
+    for n in notes:
+        hits.append(_hit("note", _note_label(n["id"], n["title"], n["type"], n["date"]), day_hint(n["date"]),
+                         f"note:{n['id']}", snippet=n.get("snippet")))
+    # Azioni, decisioni e trascrizioni da tre lettere in su: con una o due troverebbero quasi tutto.
+    terms = _terms(text)
+    if not any(len(w) >= 3 for w in terms):
+        return hits
+
+    person = flt.person.lower() if flt.person else None
+    found = [a for a in store.actions(text=text, project=flt.project, limit=30)
+             if person is None or any(person in x.lower() for x in a["people"])]
+    for a in found[:5]:
+        label = _label(a["due"], today)
+        hits.append(_hit("action", parser.action_display_text(a["text"]), label[0] if label else "",
+                         f"note:{a['note_id']}", snippet=_note_label(a["note_id"], a["note_title"], "", a["note_date"]),
+                         line=a["line"], level=label[1] if label else None))
+    hits.extend(decision_hit(d) for d in store.decisions(flt, text, 5))
+
+    # Trascrizioni: le righe con il minutaggio, nelle note già trovate dalla ricerca a testo pieno.
+    count = 0
+    by_path = {n["path"]: n for n in notes}
+    for path, body in store.bodies(list(by_path)):
+        n = by_path[path]
+        for t in parser.transcript_lines(body):
+            lower = t.text.lower()
+            if not all(w in lower for w in terms):
+                continue
+            when = f" · Trascrizione {t.time}" if t.time else ""
+            hits.append(_hit("transcript", excerpt(t.text, terms[0], 110), t.stamp, f"note:{n['id']}",
+                             snippet=_note_label(n["id"], n["title"], n["type"], n["date"]) + when, line=t.line_no))
+            count += 1
+            if count == 5:
+                return hits
+    return hits

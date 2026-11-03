@@ -40,7 +40,7 @@ export function imagesIn(data, pasting) {
 }
 
 // Salva le immagini una dopo l'altra e restituisce i tag Markdown da inserire. Un'immagine grande chiede
-// conferma; una rifiutata da Rust viene segnalata con `onError` e saltata.
+// conferma; una rifiutata da Python viene segnalata con `onError` e saltata.
 export async function saveImages(noteId, files, onError) {
   const tags = [];
   for (const file of files) {

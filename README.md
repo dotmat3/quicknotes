@@ -1,52 +1,38 @@
 # QuickNotes
 
-Note rapide per meeting e giornate di lavoro, salvate come semplici file Markdown sul tuo
-computer e consultabili da Claude tramite MCP. Si installa con `pip`: l'interfaccia è già
-compilata nel pacchetto, Node non serve per usarla.
+Note rapide per meeting e giornate di lavoro, salvate come semplici file Markdown sul tuo computer e
+consultabili da Claude tramite MCP. Nessun dato esce dal computer.
 
-- **App desktop**: cattura rapida con tasti globali, nota del giorno, ricerca, azioni aperte.
-- **Registrazione**: un tasto avvia/ferma il microfono; alla fine l'audio viene trascritto
-  **in locale** (faster-whisper) e aggiunto alla nota. Nessun dato esce dal computer.
-- **Server MCP**: Claude cerca, legge, elenca azioni e decisioni, e può scrivere nelle note.
+- **App desktop** per Windows: nota del giorno, editor Markdown con anteprima viva, azioni con scadenze,
+  calendario, persone ed etichette, grafo dei collegamenti, ricerca Ctrl K, nota rapida con un tasto globale.
+- **Server MCP**: Claude cerca, legge, elenca azioni e decisioni, e può scrivere nelle note se glielo chiedi.
 
 ## Installazione
 
-Serve Python 3.10 o successivo. La finestra usa WebView2 (Edge), già presente su Windows 10 e 11.
-Dalla cartella del progetto:
+Scarica `QuickNotes.zip` dall'[ultima release](https://github.com/dotmat3/quicknotes/releases/latest).
+Dentro c'è tutto, Python compreso: non si installa nulla e non servono permessi di amministratore.
 
-```bash
-python -m venv .venv
-# Windows:            .venv\Scripts\activate
-# macOS / Linux:      source .venv/bin/activate
-pip install -e .
-```
+1. Prima di estrarlo: tasto destro sullo zip → Proprietà → spunta **Sblocca**.
+2. Estrai la cartella dove vuoi, per esempio in `Documenti`.
+3. Apri `QuickNotes.cmd`. L'app resta nell'area di notifica accanto all'orologio: chiudere la finestra la
+   nasconde, per uscire usa il menu dell'icona.
 
-Poi avvia l'app:
+Se non parte, `Verifica.cmd` controlla WebView2, .NET, cartelle e tasti globali e scrive cosa manca in
+`verifica-quicknotes.txt`. Serve Windows 10 o 11 a 64 bit con WebView2, già presente nelle versioni recenti.
 
-```bash
-python -m quicknotes          # oppure, su Windows senza finestra di console: pythonw -m quicknotes
-```
+Le note finiscono in `%USERPROFILE%\QuickNotes`, la configurazione in `%USERPROFILE%\.quicknotes\config.json`
+(per cambiare cartella: `"notes_dir"`). Avvio con Windows e tema si scelgono nelle Impostazioni (Ctrl+,).
 
-Le note finiscono in `~/QuickNotes` (cambiabile in `~/.quicknotes/config.json`).
-L'aspetto segue il tema chiaro/scuro del sistema; per forzarlo imposta `"theme": "light"` o `"dark"`
-nello stesso file (oppure con i pulsanti in fondo alla barra laterale). Con `"animations": false`
-l'interfaccia diventa istantanea, senza transizioni.
-`python -m quicknotes where` mostra i percorsi in uso.
+Per aggiornare: chiudi QuickNotes dal menu dell'icona, sostituisci la cartella con quella nuova e, se l'avevi
+attivato, riattiva l'avvio con Windows. Le note non si toccano.
 
 ## Collegarlo a Claude
 
-```bash
-python -m quicknotes claude-config
-```
+Impostazioni → **Claude** mostra la configurazione già pronta, con il percorso del Python della tua cartella.
 
-stampa il blocco JSON già pronto, con il percorso esatto del Python del tuo ambiente.
-
-**Claude Desktop**: menu Claude → Impostazioni → Sviluppatore → *Modifica configurazione*,
-incolla la voce `quicknotes` dentro `mcpServers`, salva e **chiudi del tutto** Claude Desktop
-prima di riaprirlo. Il server compare tra i connettori del menu "+" nella casella di testo.
-
-**Claude Code**: il comando stampato da `claude-config`, ad esempio
-`claude mcp add --transport stdio --scope user quicknotes -- "/percorso/.venv/bin/python" -m quicknotes mcp`.
+- **Claude Desktop**: menu Claude → Impostazioni → Sviluppatore → *Modifica configurazione*, incolla la voce
+  `quicknotes` dentro `mcpServers`, salva e **chiudi del tutto** Claude Desktop prima di riaprirlo.
+- **Claude Code**: il comando `claude mcp add …` mostrato nella stessa pagina.
 
 Esempi di domande:
 - "Cosa abbiamo deciso con il cliente X a ottobre?"
@@ -54,149 +40,96 @@ Esempi di domande:
 - "Preparami un briefing per il meeting di domani con Laura" (c'è anche il prompt `briefing_meeting`)
 - "Fammi il riepilogo della settimana e salvalo come nota" (prompt `riepilogo_settimanale`)
 
-### Tool esposti a Claude
-
-| Tool | Cosa fa |
+| Strumento | Cosa fa |
 |---|---|
 | `search_notes` | ricerca per parole (anche parziali) con filtri data, persona, progetto, tipo |
 | `list_notes` | elenco cronologico con gli stessi filtri |
-| `read_note`, `read_daily_note` | contenuto completo di una nota / del diario di un giorno, con link in uscita e in entrata |
+| `read_note`, `read_daily_note` | una nota o la nota di un giorno, con i collegamenti in uscita e in entrata |
 | `get_backlinks` | note che citano una nota con `[[link]]`, con la riga in cui lo fanno |
 | `list_action_items` | azioni aperte o fatte, per responsabile, progetto, scadenza |
 | `list_decisions` | decisioni registrate con `!decisione` |
 | `list_people_and_projects` | persone e progetti citati, con conteggi |
-| `create_note`, `append_to_note`, `append_to_daily_note` | scrittura (solo se glielo chiedi) |
+| `create_note`, `append_to_note`, `append_to_daily_note` | scrittura, solo se glielo chiedi |
 | `set_action_status` | spunta o riapre un'azione |
 
 ## Come si scrive
 
 | Scrivi | Significa |
 |---|---|
-| `@Marco` | persona citata |
-| `#clientex` | tag o progetto |
-| `- [ ] @Marco invia preventivo due:2026-10-31` | azione con responsabile e scadenza |
-| `- [x] ...` | azione fatta |
-| `... !decisione` | decisione presa |
-| `[[` | link a un'altra nota: scegli dall'elenco e diventa `[[id\|Titolo]]` |
+| `- [ ] @Marco invia preventivo due:2026-10-31` | azione con responsabile e scadenza (anche `entro:`, `scadenza:`) |
+| `    - [ ] testo` | sotto-attività, rientrata sotto un'azione |
+| `- [x] … done:2026-11-03` | azione fatta: la data la scrive la spunta |
+| `@Marco`, `#clientex` | persona, etichetta o progetto |
+| `… !decisione` | decisione presa (anche `!dec`) |
+| `[[Titolo]]`, `[[id\|Testo]]` | link a un'altra nota: dopo `[[` l'editor propone le note |
 
-Scorciatoie nell'editor: **Ctrl+T** trasforma la riga in azione (di nuovo: la spunta),
-**Ctrl+D** la marca come decisione, **Ctrl+Shift+H** inserisce l'ora, **Invio** continua
-l'elenco (Invio su una voce vuota lo chiude), **Ctrl+F** cerca, **Ctrl+O** apre una nota per
-titolo (anche `@persona` o `#progetto`), **Ctrl+N** nuovo meeting, **Ctrl+Shift+N** nuova nota.
-Scrivendo `@` o `#` l'editor propone persone e progetti già usati.
+Nell'editor: **Ctrl+T** trasforma la riga in azione (di nuovo: la spunta), **Ctrl+D** la segna come
+decisione, **Ctrl+Shift+H** inserisce l'ora, **Ctrl+V** o il trascinamento salvano un'immagine in `images/`
+accanto alla nota. Nella ricerca **Ctrl+K** si combinano filtri e parole: `@laura #clientex budget`,
+`!budget` cerca solo tra le decisioni. Tutte le scorciatoie sono nella Guida dell'app (**F1**).
 
-Nella ricerca puoi combinare filtri e parole: `@laura #clientex budget`.
-
-**Immagini**: incolla (Ctrl+V) uno screenshot o un'immagine copiata, oppure trascina un file nella nota.
-Viene salvata in `images/` accanto alla nota e inserita come `![](images/...)`, quindi si vede anche in
-Obsidian; fuori dalla riga del cursore resta solo l'immagine. Eliminando la nota, le sue immagini
-finiscono nel Cestino con lei.
-
-### Link tra note e schede
-
-- Un `[[link]]` mostra solo il titolo e si apre con un clic (Ctrl+clic mentre lo stai modificando).
-  L'id è il nome del file, quindi il link resta valido se cambi il titolo e funziona anche in
-  Obsidian; si può scrivere anche a mano `[[Titolo della nota]]`. Se la nota non esiste, il clic
-  prepara una bozza con quel titolo.
-- Sotto i campi di ogni nota, **Citata in** elenca le note che la richiamano (al passaggio del
-  mouse, la riga che la cita).
-- **Ctrl+clic** su `@persona` o `#progetto`, o un clic nella barra laterale, apre la **scheda**:
-  azioni aperte, decisioni, note, progetti o persone collegati, e un pulsante per un nuovo
-  meeting già compilato.
-
-## Tasti globali
-
-Funzionano anche con l'app nascosta nell'area di notifica:
-
-| Tasti | Azione |
-|---|---|
-| Ctrl+Alt+N | nuovo meeting |
-| Ctrl+Alt+D | nota del giorno |
-| Ctrl+Alt+R | avvia/ferma registrazione |
-
-Si cambiano in `~/.quicknotes/config.json` (formato pynput, es. `"<cmd>+<shift>+n"`).
-
-- **macOS**: alla prima esecuzione concedi a Terminale (o all'app da cui lanci Python)
-  i permessi *Accessibilità* e *Monitoraggio input*, e *Microfono* per registrare.
-- **Linux con Wayland**: i tasti globali di pynput non funzionano. Associa nelle
-  impostazioni di sistema una scorciatoia ai comandi `python -m quicknotes new`,
-  `... daily`, `... record`: se l'app è aperta ricevono il comando, altrimenti la avviano.
-  Lo stesso trucco funziona ovunque, ad esempio da un launcher.
-
-## Registrazione e trascrizione
-
-L'audio è salvato in WAV accanto alla nota (`AAAA/MM/audio/`) e collegato nel testo. Al
-termine parte la trascrizione in sottofondo, aggiunta sotto `### Trascrizione HH:MM` a
-paragrafi con il minutaggio `[mm:ss]`, così Claude può citarla.
-
-- Il modello Whisper viene **scaricato al primo uso** (`small` ≈ 500 MB) e poi resta in cache.
-- Su CPU `small` trascrive circa alla velocità del parlato; per più velocità usa `base`,
-  per più qualità `medium` o `large-v3` (meglio con GPU NVIDIA). Si imposta in
-  `whisper_model` nel file di configurazione; `"transcribe_after_recording": false` la disattiva.
-- Se la trascrizione fallisce l'audio resta comunque salvato.
-- Avvisa i partecipanti quando registri un meeting.
+Tasti globali, anche con l'app nascosta: **Ctrl+Alt+N** nota rapida, **Ctrl+Alt+D** nota del giorno. Si
+cambiano in `config.json`, sotto `"hotkeys"`.
 
 ## Struttura dei dati
 
 ```
-~/QuickNotes/
-  2026/10/
-    2026-10-27-giornata.md
-    2026-10-27-1000-kickoff-cliente-x.md
-    audio/2026-10-27-1000-kickoff-cliente-x-100215.wav
-  .quicknotes/index.db        indice di ricerca (ricostruibile)
+%USERPROFILE%\QuickNotes\
+  2026\11\
+    2026-11-03-giornata.md
+    2026-11-03-1000-kickoff-cliente-x.md
+    images\2026-11-03-101530.png
+  .quicknotes\index-v4.db        indice di ricerca, si ricostruisce dai file
 ```
 
-I file sono la fonte di verità: puoi modificarli con qualsiasi editor (anche Obsidian o
-VS Code), sincronizzarli con il cloud che preferisci o metterli sotto git. L'indice si
-riallinea da solo; `python -m quicknotes reindex` lo ricostruisce da zero. Se Claude scrive
-in una nota aperta nell'app, l'app la ricarica automaticamente.
+I file sono la fonte di verità: si possono modificare con qualsiasi editor (anche Obsidian o VS Code),
+sincronizzare o mettere sotto git. L'indice si riallinea da solo quando un file cambia;
+`python -m quicknotes reindex` lo ricostruisce da zero. Se Claude scrive in una nota aperta nell'app,
+l'app la ricarica.
 
 ## Sviluppo
 
+Serve Python 3.12 a 64 bit e Node 20 o successivo.
+
 ```bash
-pip install -e ".[dev]"
-pytest
+py -3.12 -m venv .venv
+.venv/Scripts/python -m pip install -e .
+cd frontend && npm install && npm run build && cd ..   # interfaccia in quicknotes/webui/
+.venv/Scripts/python -m quicknotes                      # --debug apre gli strumenti di sviluppo
 ```
+
+`npm run dev` apre l'interfaccia nel browser con dati di ripiego, senza Python, per lavorare sulla grafica.
+
+Prove:
+
+```bash
+.venv/Scripts/python -m unittest discover -s tests            # formato, archivio, viste, server MCP
+cd frontend && npx vitest run && cd ..                        # regole dell'editor
+node scripts/prova-python.mjs                                 # l'app vera, su note di prova
+node scripts/demo-note.mjs <cartella>                         # note di esempio per le prove sotto
+node scripts/cdp.mjs <cartella> foto.png scripts/prova-viste.mjs
+```
+
+Le prove `scripts/prova-*.mjs` guidano l'app vera tramite CDP. `prova-sistema.mjs` e l'ultimo passaggio
+di `prova-immagini.mjs` usano mouse, tastiera e appunti veri: durante quelle il PC non va usato.
+
+Rilascio: `node scripts/rilascio.mjs` costruisce `QuickNotes.zip` (con `scripts/costruisci.py`) e la
+descrizione della release in `rilasci/v<versione>/`. Vedi [docs/rilascio.md](docs/rilascio.md).
 
 ```
 quicknotes/
-  parser.py       formato note e convenzioni (@, #, azioni, decisioni)
-  store.py        archivio su file + indice SQLite FTS5
-  mcp_server.py   tool e prompt MCP
-  audio.py        microfono e trascrizione (faster-whisper)
-  recording.py    registrazione collegata a una nota e trascrizione in sottofondo
-  service.py      logica dell'interfaccia senza grafica: elenchi, salvataggio, conflitti, eliminazione
-  formatting.py   date, scadenze e anteprime leggibili
-  icons.py        icona dell'app (Pillow)
-  app.py          finestra pywebview, API per la pagina, area di notifica, tasti globali, istanza singola
-  webui/          frontend compilato (generato da frontend/, incluso nel pacchetto)
-frontend/         sorgenti dell'interfaccia: Svelte 5 + CodeMirror 6
-  src/state.svelte.js     stato dell'app, salvataggio automatico, eventi da Python
-  src/editor/             anteprima viva del Markdown e dei [[link]], comandi Ctrl+T/D/Shift+H, completamento
-  src/components/         barra laterale, elenchi, pagina della nota, scheda persona/progetto, apertura rapida, dialog
+  parser.py      formato delle note: frontmatter, @persone, #etichette, azioni, decisioni, link
+  edit.py        modifiche a una riga o a una sezione (spunta, scadenza, persona, etichetta, descrizione)
+  index.py       indice SQLite con ricerca a testo pieno (FTS5)
+  store.py       file e indice: lettura, scrittura atomica, allineamento, azioni, immagini
+  views.py       dati per le viste: bacheca, calendario, persone, etichette, grafo, Ctrl K
+  commands.py    i comandi chiamati dalla pagina
+  app.py         finestre pywebview, server locale, area di notifica, nota rapida, tasti globali
+  mcp.py         server MCP su stdio
+  check.py       python -m quicknotes verifica
+frontend/        interfaccia: Svelte 5 + CodeMirror 6, compilata in quicknotes/webui/
+scripts/         prove dal vivo, misure, costruzione e rilascio
+tests/           prove del nucleo e del server MCP
 ```
 
-La finestra è pywebview: su Windows usa WebView2, cioè Chromium, lo stesso motore di Obsidian.
-La pagina chiama i metodi di `Api` in `app.py` (`window.pywebview.api.<metodo>`), Python le manda
-eventi con `window.qnEvent(nome, dati)`.
-
-Node serve **solo per modificare l'interfaccia**: il risultato della compilazione finisce in
-`quicknotes/webui/`, che va ricompilato e incluso a ogni modifica di `frontend/`.
-
-```bash
-cd frontend
-npm install
-npm run build                     # compila in quicknotes/webui/
-npm run dev                       # server di sviluppo; poi, in un altro terminale:
-python -m quicknotes --dev        # finestra collegata al server di sviluppo (ricarica a caldo)
-# http://localhost:5173/?mock     anteprima nel browser con dati finti, senza Python
-```
-
-## Idee per i prossimi passi
-
-- Avvio automatico all'accesso al sistema
-- Integrazione calendario per precompilare titolo e partecipanti dei meeting
-- Ricerca semantica (embedding locali) accanto a quella testuale
-- Riconoscimento di chi parla nella trascrizione
-- Modelli di nota personalizzabili (es. 1:1, retro, colloquio)
+L'architettura è descritta in [docs/architettura.md](docs/architettura.md).

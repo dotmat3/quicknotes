@@ -1,7 +1,8 @@
-// Prova nell'app vera: note collegate dalla pillola, grafo completo e locale, barra del titolo.
+// Prova nell'app vera: note collegate dalla pillola, grafo completo e locale, titolo e finestra.
 // Va usata con le note di demo-note.mjs.
-import { execSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
+import { Win } from './win.mjs';
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error(`FALLITO: ${msg}`);
@@ -10,7 +11,7 @@ const assert = (cond, msg) => {
 
 const h1 = (page) => page.locator('h1').first().innerText();
 
-export default async function (page, { notes, work }) {
+export default async function (page, { notes, work, pid }) {
   await page.waitForSelector('.cm-content');
 
   // La pillola dei collegamenti apre le note collegate.
@@ -61,36 +62,32 @@ export default async function (page, { notes, work }) {
   await page.waitForFunction(() => document.querySelector('h1')?.innerText === 'Requisiti e architettura');
   assert(true, 'un clic su un nodo del grafo apre la nota');
 
-  // Barra del titolo.
-  assert((await page.locator('.titlebar .title').innerText()) === 'Requisiti e architettura — QuickNotes', 'la barra del titolo mostra la scheda attiva');
-  const width = () => page.evaluate(() => [window.outerWidth, screen.availWidth]);
-  const [w0] = await width();
-  await page.getByRole('button', { name: 'Ingrandisci' }).click();
-  await page.waitForTimeout(600);
-  const [w1, avail] = await width();
-  assert(w1 >= avail - 2 && (await page.getByRole('button', { name: 'Ripristina' }).count()) === 1, `Ingrandisci occupa lo schermo (${w0} → ${w1} di ${avail})`);
-  await page.getByRole('button', { name: 'Ripristina' }).click();
-  await page.waitForTimeout(600);
-  assert((await width())[0] === w0, 'Ripristina torna alla larghezza di prima');
+  // Titolo della finestra: segue la scheda attiva.
+  const win = new Win();
+  const main = async () => (await win.windows(pid)).find((w) => w.title.endsWith('QuickNotes') && !w.title.includes('area di notifica'));
+  const until = async (fn, ms = 4000) => {
+    for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 80))) if (await fn()) return true;
+    return false;
+  };
+  try {
+    assert(await until(async () => (await main())?.title === 'Requisiti e architettura — QuickNotes'), 'il titolo della finestra mostra la scheda attiva');
 
-  const env = { ...process.env, QUICKNOTES_DIR: notes, QUICKNOTES_CONFIG_DIR: process.env.QN_CFG ?? join(work, 'cfg') };
-  const reopen = () => new Promise((done) => spawn(resolve('target/release/quicknotes.exe'), [], { env, stdio: 'ignore' }).on('exit', done));
-  await page.getByRole('button', { name: 'Riduci a icona' }).click();
-  await page.waitForTimeout(600);
-  // Windows porta le finestre ridotte a icona fuori dallo schermo, verso -32000.
-  const minimized = () => page.evaluate(() => window.screenX < -10000);
-  assert(await minimized(), 'Riduci a icona riduce la finestra');
-  await reopen();
-  await page.waitForTimeout(600);
-  assert(!(await minimized()) && (await page.evaluate(() => document.visibilityState)) === 'visible', 'una seconda istanza la riporta in primo piano');
-  // Lo chiede a Windows: la pagina non si accorge di essere nascosta. Con la finestra nascosta, la finestra
-  // principale del processo diventa quella interna del plugin di istanza singola.
-  const shown = () => execSync('powershell -NoProfile -Command "(Get-Process quicknotes).MainWindowTitle"', { encoding: 'utf8' }).split(/\r?\n/).includes('QuickNotes');
-  assert(shown(), 'prima di chiudere la finestra è visibile');
-  await page.getByRole('button', { name: 'Chiudi', exact: true }).click();
-  await page.waitForTimeout(600);
-  assert(!shown(), 'Chiudi nasconde la finestra, come la X di sistema');
-  await reopen();
-  await page.waitForTimeout(600);
-  assert(shown() && (await h1(page)) === 'Requisiti e architettura', 'e riaprendola il lavoro è dove era');
+    const env = { ...process.env, QUICKNOTES_DIR: notes, QUICKNOTES_CONFIG_DIR: process.env.QN_CFG ?? join(work, 'cfg') };
+    const python = resolve(process.env.QN_PYTHON ?? '.venv/Scripts/python.exe');
+    const reopen = () => new Promise((done) => spawn(python, ['-m', 'quicknotes'], { env, stdio: 'ignore' }).on('exit', done));
+    const WM_SYSCOMMAND = 0x0112;
+    const SC_MINIMIZE = 0xf020;
+    const WM_CLOSE = 0x0010;
+    await win.post((await main()).hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+    assert(await until(async () => (await main())?.iconic), 'la finestra si riduce a icona');
+    await reopen();
+    assert(await until(async () => (await main())?.visible && !(await main()).iconic), 'una seconda istanza la riporta in primo piano');
+    await win.post((await main()).hwnd, WM_CLOSE, 0, 0);
+    assert(await until(async () => !(await main())?.visible), "la X nasconde la finestra nell'area di notifica");
+    await reopen();
+    assert(await until(async () => (await main())?.visible), 'riaprendo QuickNotes torna la finestra');
+    assert((await h1(page)) === 'Requisiti e architettura', 'e il lavoro è dove era');
+  } finally {
+    win.close();
+  }
 }

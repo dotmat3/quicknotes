@@ -1,4 +1,4 @@
-// Regole del testo, uguali a quelle del nucleo Rust (parser.rs ed edit.rs).
+// Regole del testo, uguali a quelle del nucleo Python (quicknotes/parser.py ed edit.py).
 const W = '\\p{L}\\p{N}_';
 export const MENTION = new RegExp(`(?<![${W}.@])@([${W}][${W}\\-.]*[${W}]|[${W}])`, 'gu');
 export const TAG = new RegExp(`(?<![${W}/#&])#([\\p{L}_][${W}\\-/]*)`, 'gu');

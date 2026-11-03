@@ -1,5 +1,7 @@
 # Piano incrementale
 
+> **Dalla 0.4.0 QuickNotes è in Python** (pywebview), con la stessa interfaccia: questo piano è il registro delle tappe fatte con la versione Rust e resta valido come elenco delle funzionalità. Comandi, prove e misure attuali sono in [architettura.md](architettura.md).
+
 Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è qualcosa che funziona e si può provare. Le regole di prodotto sono in [piano-implementazione-design.md](piano-implementazione-design.md), le scelte tecniche in [architettura.md](architettura.md).
 
 **Legenda:** ⬜ da fare · 🟡 in corso · ✅ fatta e verificata

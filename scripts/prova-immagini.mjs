@@ -1,14 +1,13 @@
 // Prova nell'app vera: immagini incollate e trascinate nella nota, salvate in images/ con il tag Markdown,
-// mostrate nell'anteprima viva e in Anteprima; il protocollo qnfile serve solo immagini della cartella delle note.
+// mostrate nell'anteprima viva e in Anteprima; il server locale serve solo immagini della cartella delle note.
 // L'ultimo passaggio usa gli appunti veri di Windows e un Ctrl V vero: sostituisce il contenuto degli appunti
 // e per qualche secondo il PC non va usato. Va usata con le note di demo-note.mjs.
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Win } from './win.mjs';
 
-// La prova chiede apposta tre file che il protocollo deve rifiutare (404) e prova a leggerne uno con fetch,
-// che la CSP blocca.
-export const expectedErrors = [/status of 404 \(Not Found\)/, /violates the following Content Security Policy directive: "connect-src/, /Fetch API cannot load http:\/\/qnfile\.localhost/];
+// La prova chiede apposta file che il server deve rifiutare (404) e incolla un falso PNG, che rifiuta (400).
+export const expectedErrors = [/status of 404 \(Not Found\)/, /status of 400 \(Bad Request\)/];
 
 const assert = (cond, msg) => {
   if (!cond) throw new Error(`FALLITO: ${msg}`);
@@ -70,13 +69,14 @@ export default async function (page, { notes, work }) {
   const first = images()[0];
   assert(images().length === 1 && readFileSync(join(month, 'images', first)).subarray(0, 4).toString('latin1') === '\x89PNG', `il file è un PNG vero in images/ accanto alla nota: ${first}`);
 
-  // Fuori dalla riga del cursore il tag diventa l'immagine, caricata dal protocollo qnfile.
+  // Fuori dalla riga del cursore il tag diventa l'immagine, caricata dal server locale.
   await page.keyboard.press('Enter');
   await page.keyboard.type('riga dopo');
   await page.waitForSelector('.cm-image img');
   assert(await until(() => page.locator('.cm-image img').first().evaluate((i) => i.complete && i.naturalWidth === 40)), 'l\'anteprima viva mostra l\'immagine, 40×30');
   const src = await page.locator('.cm-image img').first().getAttribute('src');
-  assert(src.startsWith('http://qnfile.localhost/') && src.endsWith(`/images/${first}`), `servita dalla cartella delle note: ${src}`);
+  const origin = await page.evaluate(() => window.__QN__.fileOrigin);
+  assert(src.startsWith(origin) && src.endsWith(`/images/${first}`), `servita dalla cartella delle note: ${src}`);
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press('End');
   await page.waitForTimeout(150);
@@ -100,21 +100,19 @@ export default async function (page, { notes, work }) {
   const side = await page.locator('.side, aside, nav').first().boundingBox();
   await send('drop', { at: { x: side.x + 20, y: side.y + 200 } });
   await page.waitForTimeout(400);
-  assert(page.url().startsWith('http://tauri.localhost') && images().length === 2, 'un\'immagine lasciata fuori dall\'editor non apre il file al posto dell\'app');
+  assert(page.url().startsWith('http://127.0.0.1:') && images().length === 2, 'un\'immagine lasciata fuori dall\'editor non apre il file al posto dell\'app');
 
-  // Il protocollo serve solo immagini vere dentro la cartella delle note.
+  // Il server serve solo immagini vere dentro la cartella delle note.
   writeFileSync(join(work, 'fuori.png'), readFileSync(join(month, 'images', first)));
   const rel = `${now.getFullYear()}/${p(now.getMonth() + 1)}`;
-  // La CSP ammette qnfile solo per le immagini: fetch non può leggerlo, quindi si prova come <img>.
-  const status = await page.evaluate(async (urls) => Promise.all(urls.map((u) => new Promise((r) => Object.assign(new Image(), { onload: () => r(200), onerror: () => r(404), src: u })))), [
-    `http://qnfile.localhost/${rel}/images/${first}`,
-    `http://qnfile.localhost/${rel}/${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-giornata.md`,
-    `http://qnfile.localhost/${rel}/images/%2E%2E/%2E%2E/%2E%2E/%2E%2E/fuori.png`,
-    `http://qnfile.localhost/C:/Windows/win.ini`,
+  const status = await page.evaluate(async (urls) => Promise.all(urls.map((u) => fetch(u).then((r) => r.status, () => 0))), [
+    `${origin}${rel}/images/${first}`,
+    `${origin}${rel}/${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-giornata.md`,
+    `${origin}${rel}/images/%2E%2E/%2E%2E/%2E%2E/%2E%2E/fuori.png`,
+    `${origin}C:/Windows/win.ini`,
+    origin.replace(/\/[^/]+\/qnfile\/$/, '/altro-prefisso/qnfile/') + `${rel}/images/${first}`,
   ]);
-  assert(status[0] === 200 && status.slice(1).every((s) => s === 404), `si carica l'immagine; non la nota, né un file fuori dalla cartella, né un file di sistema: ${status.join(', ')}`);
-  const blocked = await page.evaluate((u) => fetch(u).then(() => 'letto', () => 'bloccato'), `http://qnfile.localhost/${rel}/images/${first}`);
-  assert(blocked === 'bloccato', 'la pagina non può leggere i file con fetch: la CSP ammette qnfile solo per le immagini');
+  assert(status[0] === 200 && status.slice(1).every((s) => s === 404), `si legge l'immagine; non la nota, né un file fuori dalla cartella, né un file di sistema, né senza il prefisso segreto: ${status.join(', ')}`);
 
   // Anteprima: stessa immagine; un indirizzo web resta un segnaposto, senza connessioni.
   await page.keyboard.press('Control+End');

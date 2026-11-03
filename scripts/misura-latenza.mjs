@@ -1,4 +1,4 @@
-// Misure nell'app vera: tasto premuto fino alla pittura, cambio scheda, memoria del processo Rust.
+// Misure nell'app vera: tasto premuto fino alla pittura, cambio scheda, memoria del processo Python.
 // Uso: node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs
 import { execSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -58,7 +58,7 @@ async function tabSwitch(page) {
   console.log(`misura: cambio scheda fino all'editor dipinto: ${stats(times.slice(2))}`);
 }
 
-export default async function (page, { notes }) {
+export default async function (page, { notes, pid }) {
   const now = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const iso = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
@@ -98,6 +98,6 @@ export default async function (page, { notes }) {
   await tabSwitch(page);
 
   await page.waitForTimeout(3000);
-  const mb = (prop) => (Number(execSync(`powershell -NoProfile -Command "(Get-Process quicknotes).${prop}"`, { encoding: 'utf8' }).trim()) / 1048576).toFixed(1);
-  console.log(`misura: memoria di quicknotes.exe a riposo, escluso WebView2: privata ${mb('PrivateMemorySize64')} MB, insieme di lavoro ${mb('WorkingSet64')} MB`);
+  const mb = (prop) => (Number(execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).${prop}"`, { encoding: 'utf8' }).trim()) / 1048576).toFixed(1);
+  console.log(`misura: memoria del processo Python a riposo, escluso WebView2: privata ${mb('PrivateMemorySize64')} MB, insieme di lavoro ${mb('WorkingSet64')} MB`);
 }

@@ -1,5 +1,5 @@
 // Misura la ricerca Ctrl K nell'app vera, su circa 1000 note.
-// Uso: cargo run --release -p quicknotes-core --example genera_note -- <cartella vuota> 1000
+// Uso: .venv/Scripts/python scripts/genera_note.py <cartella vuota> 1000
 //      node scripts/cdp.mjs <cartella> "" scripts/misura-ricerca.mjs
 const stats = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -12,14 +12,14 @@ const QUERIES = ['p', 'pr', 'pre', 'prev', 'preventivo', 'preventivo c', 'preven
 export default async function (page) {
   await page.waitForSelector('.cm-content');
   // L'indice si allinea in sottofondo all'avvio: si aspetta che risponda.
-  await page.waitForFunction(() => window.__TAURI_INTERNALS__.invoke('search_all', { query: 'preventivo' }).then((r) => r.length > 0), null, { timeout: 30000, polling: 500 });
+  await page.waitForFunction(() => window.pywebview?.api?.invoke('search_all', { query: 'preventivo' }).then((r) => r.ok.length > 0), null, { timeout: 30000, polling: 500 });
 
   const direct = await page.evaluate(async (queries) => {
     const out = {};
     for (let round = 0; round < 5; round++) {
       for (const query of queries) {
         const t0 = performance.now();
-        await window.__TAURI_INTERNALS__.invoke('search_all', { query });
+        await window.pywebview.api.invoke('search_all', { query });
         (out[query] ??= []).push(performance.now() - t0);
       }
     }

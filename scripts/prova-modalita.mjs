@@ -97,7 +97,7 @@ export default async function (page, { notes }) {
     };
   });
   assert(unsafe.xss === undefined && unsafe.scripts === 0 && unsafe.handlers === 0 && unsafe.js === 0 && unsafe.fake === 0, `HTML della nota sanificato: ${JSON.stringify(unsafe)}`);
-  const refused = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('open_url', { url: 'file:///C:/Windows/notepad.exe' }).then(() => 'aperto', (e) => String(e)));
+  const refused = await page.evaluate(() => window.pywebview.api.invoke('open_url', { url: 'file:///C:/Windows/notepad.exe' }).then((r) => r.err ?? 'aperto'));
   assert(refused.includes('Si aprono solo'), `open_url rifiuta i file: ${refused}`);
 
   await pv.locator('.pv-wiki', { hasText: 'Riunione budget Q4' }).click();
