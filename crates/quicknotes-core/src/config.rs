@@ -2,8 +2,8 @@
 //!
 //! `QUICKNOTES_CONFIG_DIR` e `QUICKNOTES_DIR` spostano configurazione e note: li usano
 //! i test, le prove di sviluppo e il server MCP. Gli argomenti `--cartella-config=<dir>` e
-//! `--cartella-note=<dir>` fanno lo stesso e, a differenza delle variabili, restano anche quando un
-//! aggiornamento riavvia l'app. Le chiavi sconosciute si conservano.
+//! `--cartella-note=<dir>` fanno lo stesso e, a differenza delle variabili, restano anche quando la
+//! shell riapre l'app. Le chiavi sconosciute si conservano.
 
 use std::fs;
 use std::path::{Path, PathBuf};

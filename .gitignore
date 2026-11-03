@@ -19,6 +19,5 @@ crates/quicknotes-app/gen/schemas/
 frontend/node_modules/
 frontend/dist/
 
-# Rilasci: server MCP copiato per l'installer e pacchetti costruiti
-crates/quicknotes-app/binaries/
+# Rilasci: eseguibili costruiti da scripts/rilascio.mjs
 rilasci/

@@ -1,20 +1,20 @@
-# Installare QuickNotes
+# Usare QuickNotes
 
 QuickNotes è un'app per Windows per prendere note di riunione, tenere traccia di azioni e decisioni e ritrovare tutto con la ricerca. Le note sono file Markdown sul tuo computer: nessun account, nessun cloud.
 
 ## Cosa serve
 
 - Windows 10 o 11.
-- Non servono permessi di amministratore: QuickNotes si installa solo per il tuo utente.
+- Niente installazione e niente permessi di amministratore: è un solo file da avviare.
 
-## Installazione
+## Primo avvio
 
-1. Scarica l'ultima versione da **[link alla pagina delle release]**: il file si chiama `QuickNotes_<versione>_x64-setup.exe`.
-2. Aprilo. Windows potrebbe mostrare **"Windows ha protetto il PC"**, perché l'app non ha ancora un certificato di firma del codice: premi **"Ulteriori informazioni"**, poi **"Esegui comunque"**.
-   Se il PC aziendale blocca l'installazione e non compare "Esegui comunque", scrivi a chi ti ha mandato l'app: va chiesto all'IT.
-3. Segui l'installazione e, alla fine, lascia spuntato "Avvia QuickNotes".
+1. Scarica **`QuickNotes.exe`** dall'ultima release: **<https://github.com/dotmat3/quicknotes/releases/latest>**.
+2. Mettilo in una cartella che non svuoti, per esempio `Documenti\QuickNotes`, invece di lasciarlo in Download.
+3. Fai doppio clic. Windows potrebbe mostrare **"Windows ha protetto il PC"**, perché l'app non ha ancora un certificato di firma del codice: premi **"Ulteriori informazioni"**, poi **"Esegui comunque"**. Succede solo la prima volta.
+   Se il PC aziendale blocca l'avvio e non compare "Esegui comunque", scrivi a chi ti ha mandato l'app: va chiesto all'IT.
 
-QuickNotes si trova poi nel menu Start.
+Per ritrovarla facilmente: clic destro su `QuickNotes.exe` › Mostra altre opzioni › **Aggiungi a Start** (o **Aggiungi alla barra delle applicazioni**).
 
 ## Primi passi
 
@@ -22,21 +22,22 @@ QuickNotes si trova poi nel menu Start.
 - **Chiudere la finestra non chiude l'app:** QuickNotes resta nell'area di notifica, vicino all'orologio. Per uscire davvero: clic destro sull'icona › Esci.
 - **Tasti utili ovunque in Windows:** Ctrl Alt N per una nota rapida, Ctrl Alt D per la nota del giorno.
 - **Dentro l'app:** il pulsante **?** in basso a destra (o F1) apre la guida con tutti i comandi; Ctrl K cerca ovunque.
-- **Avvio con Windows:** in Impostazioni › Informazioni puoi farla partire con Windows, nascosta nell'area di notifica, così i tasti rapidi sono sempre pronti.
+- **Avvio con Windows:** in Impostazioni › Informazioni puoi farla partire con Windows, nascosta nell'area di notifica, così i tasti rapidi sono sempre pronti. Se poi sposti `QuickNotes.exe`, riattivalo.
 
-## Aggiornamenti
+## Versioni nuove
 
-Qualche secondo dopo l'avvio QuickNotes controlla se c'è una versione nuova. Se c'è, nella barra in alto compare **"Aggiornamento x.y.z"**:
+QuickNotes non si aggiorna da sola. In Impostazioni › Informazioni vedi la tua versione, e **"Apri le release"** porta alla pagina con le versioni pubblicate. Per passare a una nuova:
 
-1. Premilo: si apre Impostazioni › Informazioni con le novità.
-2. Premi **"Aggiorna e riavvia"**. QuickNotes salva le note, si aggiorna e si riapre da sola in pochi secondi.
+1. Chiudi QuickNotes: clic destro sull'icona vicino all'orologio › Esci.
+2. Scarica il nuovo `QuickNotes.exe` e mettilo al posto del vecchio, nella stessa cartella.
+3. Riaprilo.
 
-Niente si aggiorna senza il tuo clic, e le note non vengono mai toccate. Se la rete aziendale non lascia controllare gli aggiornamenti, l'app funziona lo stesso: basta scaricare e lanciare il nuovo installer, che aggiorna senza perdere nulla.
+Le note non vengono mai toccate.
 
 ## Con Claude (facoltativo)
 
-QuickNotes può far leggere e cercare le tue note a Claude Desktop o Claude Code. In Impostazioni › Claude trovi il blocco di configurazione già pronto da copiare.
+QuickNotes può far leggere e cercare le tue note a Claude Desktop o Claude Code. Scarica anche **`quicknotes-mcp.exe`** dalla stessa release e mettilo nella cartella di `QuickNotes.exe`. In Impostazioni › Claude trovi il blocco di configurazione già pronto da copiare.
 
-## Disinstallare
+## Togliere QuickNotes
 
-Impostazioni di Windows › App › App installate › QuickNotes › Disinstalla. Le note in `C:\Users\<tu>\QuickNotes` restano dove sono: per eliminarle va cancellata a mano quella cartella.
+Esci dall'app, disattiva prima "Avvia con Windows" se l'avevi acceso, e cancella `QuickNotes.exe`. Le note in `C:\Users\<tu>\QuickNotes` restano dove sono: per eliminarle va cancellata a mano quella cartella, e la configurazione è in `C:\Users\<tu>\.quicknotes`.

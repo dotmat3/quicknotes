@@ -31,7 +31,6 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
 | `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs`, `prova-ricerca.mjs` | Con `demo-note.mjs` | |
-| `prova-aggiornamento.mjs` | Due installer di prova da `rilascio.mjs` | Installa per l'utente in una cartella temporanea, aggiorna da un server locale e disinstalla. Comandi nell'intestazione dello script |
 | `prova-immagini.mjs` | Con `demo-note.mjs` | L'ultimo passaggio mette un'immagine negli appunti di Windows e preme Ctrl V davvero: sostituisce gli appunti, e per qualche secondo il PC non va usato |
 | `prova-sistema.mjs` | Con `demo-note.mjs` | Tasti e mouse veri per circa 20 secondi: il PC non va usato. Nessun'altra QuickNotes aperta. Alla fine esce dall'app dal menu |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
@@ -50,7 +49,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Prima versione da distribuire (tappa 15, avviata):** creare il repository GitHub pubblico per le release, mettere al sicuro la chiave di firma e pubblicare la 0.3.0 con `scripts/rilascio.mjs`. Passi in [rilascio.md](rilascio.md).
+1. **Prima versione da distribuire (tappa 15, avviata):** creare il repository GitHub pubblico per le release e pubblicare `QuickNotes.exe` e `quicknotes-mcp.exe` costruiti con `scripts/rilascio.mjs`. Passi in [rilascio.md](rilascio.md).
 2. **Tappa 12, audio, video e spazio su disco**, compresa la finestra di registrazione spostata qui dalla tappa 11. Prima delle righe di codice servono le risposte su video e soglie (vedi "Da decidere") e la scelta di come compilare `whisper-rs`, che richiede CMake e libclang (non installati).
 3. **Da provare a mano, l'unica cosa che le prove non raggiungono:** il clic fisico sull'icona dell'area di notifica (la prova manda all'icona lo stesso messaggio di Esplora risorse) e i tasti laterali di un mouse vero.
 4. **Tappe 13-15:** file ed esportazione (le immagini incollate ci sono già), schizzi, rilascio.
@@ -74,9 +73,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 - **Pagina Persona:** le azioni si possono solo leggere, senza spunta né pillole. Il piano del design prevede le pillole solo in bacheca, elenco e pagina etichetta.
 - **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 funzionano in WebView2: la pagina li riceve prima del browser.
 - **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
-- **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
+- **`quicknotes-mcp.exe`** è un file a parte nella release; le Impostazioni avvisano se manca accanto all'app.
 - **README** descrive ancora la versione Python. Contiene modifiche locali dell'utente non salvate in Git: va aggiornato insieme a lui.
-- **Installer senza firma del codice:** al primo avvio Windows mostra SmartScreen ("Esegui comunque"); alcune politiche aziendali bloccano i programmi non firmati. Serve un certificato, dell'azienda o un servizio come Azure Trusted Signing. La firma degli aggiornamenti invece c'è.
+- **Eseguibile senza firma del codice:** al primo avvio Windows mostra SmartScreen ("Esegui comunque"); alcune politiche aziendali bloccano i programmi non firmati. Serve un certificato, dell'azienda o un servizio come Azure Trusted Signing.
 - **Barra del titolo:** passando sul pulsante Ingrandisci non compare il menu dei layout a scatto di Windows 11, che richiede la cornice di sistema.
 - **File trascinati da Esplora risorse:** con il gestore di Tauri disattivato, la pagina riceve i file senza percorso. Le immagini si leggono già come contenuto e si salvano in `images/`; gli altri allegati, alla tappa 13, si leggeranno allo stesso modo oppure si aggiungeranno dal menu `⋯`. Un file lasciato fuori dall'editor si ignora.
 - **Grafo:** le note del giorno vuote sono nascoste con "Note isolate" spento, che è il valore iniziale. I link verso note inesistenti non diventano nodi.
@@ -246,15 +245,16 @@ Prima una prova isolata, offline, di Excalidraw in Svelte. Poi editor, anteprima
 
 ### 🟡 15. Rilascio
 
-Installer, README, avvio automatico facoltativo, passaggio dalla versione Python, prova finale su una copia delle note reali.
-**Fatto il 3 novembre, anticipato su richiesta dell'utente per distribuire una prima versione ai colleghi** (guida per chi rilascia in [rilascio.md](rilascio.md), per chi installa in [installazione.md](installazione.md)):
-- installer NSIS per utente, senza amministratore, in italiano, con il server MCP accanto all'app;
-- aggiornamenti firmati da GitHub Releases (`tauri-plugin-updater`): controllo qualche secondo dopo l'avvio, pulsante nella barra del titolo, Impostazioni › Informazioni con versione, novità e "Aggiorna e riavvia", che salva tutto prima di installare;
+Eseguibile da distribuire, README, avvio automatico facoltativo, passaggio dalla versione Python, prova finale su una copia delle note reali.
+**Fatto il 3 novembre, anticipato su richiesta dell'utente per distribuire una prima versione ai colleghi** (guida per chi rilascia in [rilascio.md](rilascio.md), per chi la usa in [installazione.md](installazione.md)):
+- un eseguibile da scaricare da GitHub Releases e avviare, senza installer né amministratore, con il server MCP come secondo file;
+- nessun aggiornamento automatico: Impostazioni › Informazioni mostra la versione e apre la pagina delle release;
 - "Avvia con Windows", con l'app nascosta nell'area di notifica (`--nascosta`);
-- `scripts/rilascio.mjs` costruisce, firma e prepara `latest.json`; versione 0.3.0.
+- `scripts/rilascio.mjs` costruisce i due eseguibili e la descrizione della release; versione 0.3.0.
 
-**Provato** (`prova-aggiornamento.mjs`, installer veri): installazione silenziosa per l'utente con app, server MCP e collegamento nel menu Start; avvio sulle note di prova; il controllo automatico trova la versione nuova; "Avvia con Windows" scrive e toglie la voce di avvio; un installer con la firma sbagliata viene rifiutato e l'app resta aperta; quello giusto chiude l'app, la aggiorna e la riapre con gli stessi argomenti; il testo scritto un attimo prima è salvato; disinstallazione pulita; note vere mai toccate.
-**Non provato:** il download vero da GitHub (la prova usa un server locale con lo stesso formato), un PC aziendale con le sue politiche, l'installazione da parte di un collega.
+Il primo giro aveva installer NSIS e aggiornamenti firmati (`tauri-plugin-updater`), provati con installer veri. Tolti lo stesso giorno su richiesta dell'utente: vedi le decisioni.
+**Provato:** l'eseguibile di `rilascio.mjs` si avvia sulle note di prova, la scheda Informazioni ha il link alle release, il server MCP accanto all'app è riconosciuto.
+**Non provato:** il download vero da GitHub, un PC aziendale con le sue politiche, il primo avvio da parte di un collega.
 **Resta da fare:** README, passaggio dalla versione Python (la configurazione e le note sono già compatibili), prova finale su una copia delle note reali, firma del codice.
 
 ## Misure raccolte
@@ -334,8 +334,8 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | Immagini incollate in `images/` accanto alla nota, con il tag Markdown standard (tappa 13); in Impostazioni gli elenchi delle note e dei file non collegati, da ispezionare ed eliminare nel Cestino (tappa 12, passo 7) | Richiesta dell'utente. `images/` è la cartella della versione precedente; il tag standard tiene le note leggibili fuori dall'app |
 | 2026-11-03 | Immagini servite da un protocollo dell'app (`qnfile`), non con l'asset protocol di Tauri | Il protocollo controlla in Rust che il file sia un'immagine vera dentro la cartella delle note; l'asset protocol servirebbe qualsiasi file del suo ambito |
 | 2026-11-03 | Le immagini incollate si chiamano con data e ora e non si comprimono | Il nome non dipende dal titolo, che può cambiare. Il file resta quello copiato |
-| 2026-11-03 | Aggiornamenti da GitHub Releases, firmati con una chiave tenuta in `%USERPROFILE%\.tauri`; release in un repository pubblico, anche separato dal codice | Scelta dell'utente. GitHub non scarica le release dei repository privati senza account |
-| 2026-11-03 | Installer NSIS per utente, senza MSI | Scelta dell'utente: ognuno installa da solo, senza amministratore |
-| 2026-11-03 | `--cartella-note=` e `--cartella-config=` come le variabili d'ambiente | Dopo un aggiornamento l'installer riapre l'app tramite la shell, che non passa le variabili ma passa gli argomenti. Senza, la prova di aggiornamento avrebbe riaperto l'app sulle note vere |
+| 2026-11-03 | Release in un repository GitHub pubblico, anche separato dal codice | Scelta dell'utente. GitHub non scarica le release dei repository privati senza account |
+| 2026-11-03 | `--cartella-note=` e `--cartella-config=` come le variabili d'ambiente | Restano anche quando l'app viene riaperta dalla shell, che non passa le variabili. Nati per l'installer, servono anche per tenere note e configurazione in un'altra cartella |
+| 2026-11-03 | Niente installer né aggiornamenti automatici: `QuickNotes.exe` e `quicknotes-mcp.exe` da scaricare dalle release, con nomi fissi | Scelta dell'utente, dopo il primo giro con installer NSIS e `tauri-plugin-updater`. Il link `releases/latest/download/QuickNotes.exe` porta sempre all'ultima versione; la chiave di firma degli aggiornamenti non serve più |
 | 2026-11-03 | Versione 0.3.0 per la prima distribuzione | Mancano ancora audio, file e schizzi: non è una 1.0 |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

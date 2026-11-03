@@ -10,7 +10,6 @@
   import TitleBar from './shell/TitleBar.svelte';
   import Icon from './shell/Icon.svelte';
   import { VIEWS } from './shell/nav.js';
-  import { checkLater } from './state/updates.svelte.js';
 
   let Palette = $state(null);
 
@@ -20,7 +19,6 @@
 
   onMount(() => {
     refreshCounts();
-    checkLater();
     const offs = [
       listen('index-updated', refreshCounts),
       listen('note-changed', onExternalChange),

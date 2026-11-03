@@ -18,7 +18,6 @@ export const app = $state({
   actView: ui.actView ?? 'bacheca',
   actGroup: ui.actGroup ?? 'scadenza',
   boardDone: ui.boardDone !== false,
-  autoUpdate: ui.autoUpdate !== false,
   counts: { todayDone: 0, todayTotal: 0, open: 0, late: 0, people: 0 },
   palette: false,
   paletteQuery: '',
@@ -64,8 +63,8 @@ export function savePrefs(more) {
   Object.assign(extra, more);
   clearTimeout(timer);
   timer = setTimeout(() => {
-    const { themeId: theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, autoUpdate, titles } = app;
-    call('save_ui', { ui: $state.snapshot({ ...ui, theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, autoUpdate, titles, ...extra }) });
+    const { themeId: theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, titles } = app;
+    call('save_ui', { ui: $state.snapshot({ ...ui, theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, titles, ...extra }) });
   }, 400);
 }
 

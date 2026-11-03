@@ -4,8 +4,7 @@
   import { onMount } from 'svelte';
   import { call, inTauri } from '../api.js';
   import { app } from '../state/app.svelte.js';
-  import { focused, openPage } from '../state/layout.svelte.js';
-  import { updates } from '../state/updates.svelte.js';
+  import { focused } from '../state/layout.svelte.js';
   import { pageTitle } from './nav.js';
 
   let win = null;
@@ -30,9 +29,6 @@
 
 <header class="titlebar" data-tauri-drag-region>
   <span class="title" data-tauri-drag-region>{title}</span>
-  {#if updates.available}
-    <button class="update" title="Apri Impostazioni › Informazioni" onclick={() => { app.settingsTab = 'info'; openPage('settings', 'Impostazioni'); }}>Aggiornamento {updates.available.version}</button>
-  {/if}
   <div class="controls">
     <button aria-label="Riduci a icona" title="Riduci a icona" onclick={() => win?.minimize()}>
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10" /></svg>
@@ -53,7 +49,6 @@
 <style>
   .titlebar { flex: none; position: relative; display: flex; align-items: center; justify-content: center; height: 32px; user-select: none; }
   .title { max-width: calc(100% - 300px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--subtle); }
-  .update { position: absolute; top: 5px; right: 150px; height: 22px; padding: 0 10px; border: 0; border-radius: 11px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; }
   .controls { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
   .controls button { width: 46px; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; }
   .controls button:hover { background: var(--hover); color: var(--text); }

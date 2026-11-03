@@ -77,8 +77,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(desktop::on_shortcut).build())
         // Solo per `open_url`: la pagina non ha permessi sul plugin.
         .plugin(tauri_plugin_opener::init())
-        // Aggiornamenti e avvio con Windows si usano solo dai comandi dell'app, come l'opener.
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // L'avvio con Windows si usa solo dai comandi dell'app, come l'opener.
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![AUTOSTART_ARG])))
         .invoke_handler(tauri::generate_handler![
             app_ready,
@@ -119,8 +118,6 @@ fn main() {
             commands::save_image,
             commands::app_info,
             commands::set_autostart,
-            commands::check_update,
-            commands::install_update,
         ])
         // Le immagini delle note: `http://qnfile.localhost/<percorso nella cartella delle note>`. Si servono
         // solo file immagine dentro la cartella delle note; la lettura avviene fuori dal thread della finestra.
