@@ -40,7 +40,7 @@
 </div>
 
 <style>
-  .split { flex: 1; min-width: 0; height: calc(100% - 16px); margin: 8px 8px 8px 0; display: flex; }
+  .split { flex: 1; min-width: 0; height: calc(100% - 8px); margin: 0 8px 8px 0; display: flex; }
   .split.col { flex-direction: column; }
   .split.resizing { user-select: none; cursor: col-resize; }
   .split.col.resizing { cursor: row-resize; }

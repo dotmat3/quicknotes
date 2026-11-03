@@ -134,6 +134,13 @@ pub fn hide_capture(app: AppHandle) {
     }
 }
 
+/// Il pulsante Chiudi della barra del titolo: come la X di sistema, salva e nasconde nell'area di notifica.
+#[tauri::command]
+pub fn hide_main(window: tauri::WebviewWindow) -> CmdResult<()> {
+    let _ = window.emit("flush", ());
+    window.hide().map_err(err)
+}
+
 #[tauri::command]
 pub fn quit(app: tauri::AppHandle) {
     app.exit(0);
@@ -153,6 +160,8 @@ pub struct NotePayload {
     actions_done: usize,
     actions_total: usize,
     links_in: Vec<quicknotes_core::index::Backlink>,
+    /// Note citate con `[[link]]` che esistono davvero.
+    links_out: Vec<quicknotes_core::index::OutLink>,
 }
 
 #[tauri::command(async)]
@@ -186,6 +195,12 @@ pub fn read_note(state: State<'_, AppState>, id: String) -> CmdResult<NotePayloa
         actions_done: top.iter().filter(|a| a.done).count(),
         actions_total: top.len(),
         links_in: store.backlinks(&note.id).map_err(err)?,
+        links_out: store
+            .outgoing_links(&note.id)
+            .map_err(err)?
+            .into_iter()
+            .filter(|l| l.note_id.as_ref().is_some_and(|nid| *nid != note.id))
+            .collect(),
         id: note.id,
         body: note.body,
     })
@@ -267,8 +282,8 @@ pub fn calendar_data(state: State<'_, AppState>, from: String, to: String) -> Cm
 }
 
 #[tauri::command(async)]
-pub fn graph_data(state: State<'_, AppState>, id: String) -> CmdResult<views::Graph> {
-    views::graph_data(&state.store, &id).map_err(err)
+pub fn full_graph(state: State<'_, AppState>) -> CmdResult<views::Graph> {
+    views::full_graph(&state.store).map_err(err)
 }
 
 #[tauri::command(async)]

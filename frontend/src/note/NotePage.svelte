@@ -12,6 +12,7 @@
   const viewKey = $derived(`${groupId}:${page}`);
   let host = $state();
   let error = $state('');
+  let linksOpen = $state(false);
   let editorReady = $state(false);
   let view = null;
   let editorMod = null;
@@ -87,6 +88,7 @@
     try {
       const d = await loadDoc(id);
       app.titles[page] = d.note.tab_title;
+      app.lastNote = id;
       (app.paths ??= {})[page] = d.note.path;
       await mountEditor();
     } catch (e) {
@@ -103,6 +105,21 @@
     }
     save(id);
   });
+
+  // Note collegate: chi cita questa nota e chi è citato da lei, una volta sola per nota.
+  const linked = $derived.by(() => {
+    const seen = new Set();
+    const pick = (list, map) => list.map(map).filter((l) => !seen.has(l.id) && seen.add(l.id));
+    const into = pick(note?.links_in ?? [], (l) => ({ id: l.note_id, title: l.note_title, hint: l.text?.trim(), date: l.date?.slice(0, 10) }));
+    seen.clear();
+    const out = pick(note?.links_out ?? [], (l) => ({ id: l.note_id, title: l.note_title, hint: '', date: '' }));
+    return { into, out, total: new Set([...into, ...out].map((l) => l.id)).size };
+  });
+
+  function openLinked(l) {
+    linksOpen = false;
+    openPage(`note:${l.id}`, l.title);
+  }
 
   async function goDay(delta) {
     const n = await call('daily_note', { date: note.date.slice(0, 10), delta });
@@ -129,10 +146,32 @@
   <h1 class:big={note.is_daily}>{note.title}</h1>
   <div class="pills">
     {#if !note.is_daily}<span class="pill static">{note.date_label}</span>{/if}
-    {#if note.links_in.length}<button class="pill">{note.links_in.length} {note.links_in.length === 1 ? 'collegamento' : 'collegamenti'}</button>{/if}
+    {#if linked.total}
+      <span class="links">
+        <button class="pill" aria-haspopup="dialog" aria-expanded={linksOpen} onclick={() => (linksOpen = !linksOpen)}>{linked.total} {linked.total === 1 ? 'collegamento' : 'collegamenti'}</button>
+        {#if linksOpen}
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <div class="links-pop" role="dialog" aria-label="Note collegate" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (linksOpen = false)}>
+            {#each [['Citata in', linked.into], ['Collega a', linked.out]] as [head, list] (head)}
+              {#if list.length}
+                <div class="lp-head">{head}</div>
+                {#each list as l, i (l.id)}
+                  <button class="lp-row" onclick={() => openLinked(l)} {@attach (el) => { if (head === 'Citata in' ? i === 0 : i === 0 && !linked.into.length) el.focus(); }}>
+                    <span class="lp-title">{l.title}</span>
+                    {#if l.date}<span class="lp-date mono">{l.date}</span>{/if}
+                    {#if l.hint}<span class="lp-hint">{l.hint}</span>{/if}
+                  </button>
+                {/each}
+              {/if}
+            {/each}
+          </div>
+        {/if}
+      </span>
+    {/if}
     {#if stats.total}<span class="pill static">{stats.done} di {stats.total} azioni</span>{/if}
     {#each people as p (p.toLowerCase())}<button class="pill person" onclick={() => openPage(`person:${p}`)}>@{p}</button>{/each}
   </div>
+  {#if linksOpen}<button class="backdrop" aria-label="Chiudi le note collegate" tabindex="-1" onclick={() => (linksOpen = false)}></button>{/if}
   <div class="body" class:split={mode === 'split'}>
     <div class="host" class:gone={mode === 'preview'} bind:this={host}>
       {#if !editorReady}<div class="plain">{doc.text}</div>{/if}
@@ -162,6 +201,14 @@
   .person { color: var(--person); }
   .plain { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text2); }
   .err { margin: 12px 0; color: var(--late); }
+  .links { position: relative; }
+  .links-pop { position: absolute; top: 32px; left: 0; z-index: 41; width: 340px; max-height: 360px; overflow-y: auto; padding: 6px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5); }
+  .lp-head { padding: 6px 10px 4px; font-size: 11.5px; color: var(--subtle); }
+  .lp-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left; }
+  .lp-row:hover, .lp-row:focus-visible { background: var(--border2); outline: none; }
+  .lp-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lp-date { font-size: 11px; color: var(--subtle); }
+  .lp-hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .body.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
   .body.split .side { padding-left: 32px; border-left: 1px solid var(--border2); }
   .gone { display: none; }

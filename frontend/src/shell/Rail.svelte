@@ -54,7 +54,10 @@
             { label: 'Completate', hint: '', go: actionsFilter('completate') },
           ],
           persone: [...people.map((p) => ({ label: `@${p.name}`, hint: `${p.notes} note`, go: () => openPage(`person:${p.name}`) })), { label: 'Tutte le persone', hint: String(app.counts.people), go: () => openPage('view:people') }],
-          grafo: [{ label: 'Attorno alla nota aperta', hint: '', go: () => openPage('view:graph') }],
+          grafo: [
+            { label: 'Tutte le note', hint: '', go: () => { app.graphLocal = false; openPage('view:graph'); } },
+            { label: 'Attorno alla nota aperta', hint: '', go: () => { app.graphLocal = true; openPage('view:graph'); } },
+          ],
         }[k],
       })),
     { key: 'registra', label: 'Registra', icon: 'mic', kbd: 'Ctrl Alt R', go: rec, bottom: true, late: true, spacer: true, fly: [{ label: 'Avvia la registrazione', hint: '', go: rec }] },
@@ -128,7 +131,7 @@
 </nav>
 
 <style>
-  nav { flex: 0 0 56px; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; }
+  nav { flex: 0 0 56px; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 2px 0 10px; }
   .logo { flex: none; width: 30px; height: 30px; margin-bottom: 6px; padding: 0; border: 0; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 13px; }
   .wrap { position: relative; flex: none; }
   .btn { position: relative; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--subtle); }

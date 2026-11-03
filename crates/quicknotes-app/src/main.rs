@@ -6,6 +6,7 @@ mod desktop;
 mod trace;
 mod watcher;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -19,10 +20,14 @@ pub struct AppState {
     pub config: Mutex<Config>,
 }
 
+/// La finestra principale è già comparsa almeno una volta.
+static SHOWN: AtomicBool = AtomicBool::new(false);
+
 /// La pagina è disegnata: si può mostrare la finestra. La nota rapida resta nascosta finché non serve.
 #[tauri::command]
 fn app_ready(window: tauri::WebviewWindow) {
     if window.label() == "main" {
+        SHOWN.store(true, Ordering::Relaxed);
         trace::mark("prima pittura");
         let _ = window.show();
         let _ = window.set_focus();
@@ -66,6 +71,7 @@ fn main() {
             app_ready,
             commands::save_ui,
             commands::open_url,
+            commands::hide_main,
             commands::sidebar,
             commands::recent_notes,
             commands::top_people,
@@ -90,7 +96,7 @@ fn main() {
             commands::people_list,
             commands::tag_page,
             commands::calendar_data,
-            commands::graph_data,
+            commands::full_graph,
             commands::search_all,
             commands::new_note,
             commands::claude_config,
@@ -114,16 +120,24 @@ fn main() {
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(640.0, 420.0)
                 .visible(false)
+                // Barra del titolo disegnata dalla pagina, come in VS Code.
+                .decorations(false)
+                // Il gestore di Tauri intercetta ogni trascinamento su Windows: senza questa riga il
+                // trascinamento HTML5 delle schede non arriva mai alla pagina.
+                .disable_drag_drop_handler()
                 .background_color(tauri::window::Color(0x17, 0x18, 0x1B, 0xFF))
                 .initialization_script(init.clone())
                 .build()?;
             trace::mark("finestra creata");
 
-            // Se la pagina non risponde, la finestra deve comparire comunque.
+            // Se la pagina non risponde, la finestra deve comparire comunque. Se invece è già comparsa,
+            // non va rimostrata: l'utente potrebbe averla appena chiusa.
             let fallback = window.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_secs(3));
-                let _ = fallback.show();
+                if !SHOWN.swap(true, Ordering::Relaxed) {
+                    let _ = fallback.show();
+                }
             });
 
             desktop::setup_tray(app.handle())?;

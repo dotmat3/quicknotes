@@ -6,7 +6,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura delle tappe 6, 7 e 8.
+Stato al 3 novembre 2026, dopo la chiusura delle tappe 5, 6, 7 e 8, con barra del titolo, grafo completo e note collegate.
 
 **Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
@@ -30,7 +30,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs` | Con `demo-note.mjs` | |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
@@ -39,14 +39,16 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 **Strumenti già installati su questo PC:** Rust 1.99 con Rustup, Visual Studio Build Tools 2022, Node 23. Non ci sono CMake né libclang, che serviranno a `whisper-rs` alla tappa 12.
 
+**Prima delle prove:** se `quicknotes.exe` è già aperto (per esempio dall'utente, sulle note vere), va chiuso. Con l'istanza singola una prova finirebbe nella sua finestra, e la build non può sostituire l'eseguibile.
+
 **Dati reali:** `~/QuickNotes` e `~/.quicknotes` contengono le note vere dell'utente e finora non sono stati toccati. Ogni prova deve usare `QUICKNOTES_DIR` e `QUICKNOTES_CONFIG_DIR`, come fanno gli script. Avviare `target/release/quicknotes.exe` a mano, senza queste variabili, lavora sulle note vere e crea la nota del giorno.
 
 **Limiti dell'ambiente:** in Git Bash i comandi molto lunghi con heredoc possono fallire con `unexpected EOF`; meglio scrivere i file con lo strumento apposito. `ln -s` copia le cartelle invece di collegarle.
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario e scelta della nota nel Grafo (9), pannello di anteprima e trascrizioni nella ricerca (10), il confronto a schermo dei temi mai guardati (5).
-2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, chiusura con la X, finestra nota rapida che compare davvero.
+1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario (9), pannello di anteprima e trascrizioni nella ricerca (10).
+2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, finestra nota rapida che compare davvero. Con la nuova barra del titolo anche: trascinamento delle schede con il mouse vero, spostamento della finestra dalla barra, doppio clic per ingrandire, ridimensionamento dai bordi.
 3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
 4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
 
@@ -65,7 +67,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 - **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
 - **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
 - **README** descrive ancora la versione Python: si aggiorna alla tappa 15.
-- **Grafo:** mostra solo i collegamenti attorno alla nota di oggi, con una disposizione a cerchio semplice.
+- **Barra del titolo:** passando sul pulsante Ingrandisci non compare il menu dei layout a scatto di Windows 11, che richiede la cornice di sistema.
+- **File trascinati da Esplora risorse:** con il gestore di Tauri disattivato, la pagina riceve i file senza percorso. Alla tappa 13 gli allegati per trascinamento andranno letti come contenuto, oppure aggiunti dal menu `⋯`.
+- **Grafo:** le note del giorno vuote sono nascoste con "Note isolate" spento, che è il valore iniziale. I link verso note inesistenti non diventano nodi.
 - **Anteprima e tabelle:** immagini e file collegati mostrano solo il nome, finché la tappa 13 non porta l'apertura sicura dei file. I link a file non si aprono.
 - **Menu `⋯`:** contiene solo le modalità. Esporta, Allega un file e Inserisci uno schizzo arrivano con le tappe 13 e 14.
 - **Dipendenze di sviluppo:** `npm audit` segnala avvisi su `vitest` e sul plugin Svelte di Vite. Non finiscono nel pacchetto dell'app.
@@ -105,11 +109,12 @@ Viene prima dell'interfaccia perché è utile da subito con le note reali e mett
 Finestra nascosta fino alla prima pittura, tema senza lampi, dati iniettati all'avvio, istanza singola, tracciamento dei tempi, CSP.
 **Fatta quando:** l'app si apre con una pagina vuota a tema giusto; misurato l'avvio a freddo. Questa misura decide se la strada Tauri regge gli obiettivi: se è lontana, ci si ferma a rivederla prima di costruirci sopra.
 
-### 🟡 5. Temi e barra laterale
+### ✅ 5. Temi e barra laterale
 
 Token, 6 temi, Personalizzato, Automatico, font inclusi. Barra aperta come in Home, striscia compressa con pannelli rapidi e preferiti. Una sola scheda, nota di oggi in sola lettura. Dati finti per lavorare nel browser.
 **Fatta quando:** il confronto a schermo con la tavola Home è fedele in tutti i temi.
-**Resta da fare:** confronto a schermo fatto solo con Carta e Grafite, senza misure di fedeltà. Mancano le varianti Mezzanotte, Salvia, Lavanda, Nebbia e il Personalizzato, scritti ma mai guardati.
+**Verificata dall'utente** il 3 novembre 2026: tutti i temi vanno bene.
+**Aggiunta su richiesta:** barra del titolo disegnata dalla pagina, come in VS Code, con titolo della scheda attiva e pulsanti Riduci, Ingrandisci/Ripristina e Chiudi (che nasconde nell'area di notifica). La finestra non ha più la cornice di sistema.
 
 ### ✅ 6. Editor
 
@@ -122,6 +127,7 @@ CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modi
 
 Più schede, fino a 4 gruppi, divisione, trascinamento, riapertura, stessa nota in due gruppi sincronizzata, annulla e cursore conservati.
 **Fatta quando:** i comportamenti della tavola Home funzionano tutti con note vere.
+**Correzione del 3 novembre:** nell'app vera il trascinamento delle schede non partiva, perché su Windows il gestore di trascinamento di Tauri intercetta tutto. Ora è disattivato (`disable_drag_drop_handler`). Le prove non se ne accorgevano: Playwright simula il trascinamento senza passare dal sistema.
 **Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio (`prova-schede.mjs`, `prova-riavvio.mjs`, `prova-editor.mjs`). Divisore e doppio clic, ingrandimento, menu contestuale delle schede, chiusura di un gruppo, Ctrl 1…6 e Ctrl W (`prova-gruppi.mjs`).
 
 ### ✅ 8. Azioni
@@ -134,7 +140,10 @@ Bacheca ed elenco, raggruppamento, pillole con popover, sotto-attività, campo n
 ### 🟡 9. Altre viste
 
 Calendario, Persone, Persona, Etichetta con colore, Grafo, Impostazioni.
-**Fatte e provate a livello base.** **Resta da fare:** registrazioni nel Calendario, scelta della nota nel Grafo, scheda "Note e registrazione" nelle Impostazioni.
+**Fatte e provate a livello base.**
+**Grafo, rifatto su richiesta:** tutte le note come in Obsidian, con persone ed etichette. Disposizione a forze (`d3-force`) su canvas, zoom con la rotella, spostamento della vista e dei nodi, passaggio del mouse che evidenzia i vicini, clic che apre la nota, persona o etichetta. Filtri per persone, etichette, note del giorno e note isolate; campo "Evidenzia"; modalità "Locale" con profondità 1-3 attorno all'ultima nota aperta. Provato con `prova-collegamenti.mjs` e guardato con 1000 note.
+**Note collegate:** la pillola "N collegamenti" apre un riquadro con le note che citano questa e quelle citate; un clic apre la nota. Si aggiorna quando cambiano i `[[link]]`.
+**Resta da fare:** registrazioni nel Calendario, scheda "Note e registrazione" nelle Impostazioni.
 
 ### 🟡 10. Ricerca Ctrl K
 
@@ -218,4 +227,8 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | Il "+" di una colonna scrive la scadenza del primo giorno di quella colonna (Oggi e domani: oggi; Questa settimana: dopodomani; Più avanti: il lunedì dopo). Raggruppando per progetto scrive l'etichetta. Se il testo ha già una scadenza o un'etichetta, vale quella | La tavola mostra il "+" senza dire cosa fa. Il giorno si cambia poi con la pillola |
 | 2026-11-03 | "In ritardo" non ha il "+" ma "Sposta a domani", in bacheca e in elenco. Sposta solo le azioni di primo livello, senza conferma, e un avviso dice quante | Aggiungere un'azione già in ritardo non ha senso. Le figlie hanno scadenze proprie. Con la nota aperta, la modifica arriva all'editor e si annulla da lì |
 | 2026-11-03 | La pagina etichetta riceve le stesse schede della bacheca (`BoardItem`) e si ricarica con la bacheca | Un solo modo di mostrare e modificare un'azione |
+| 2026-11-03 | Barra del titolo della pagina, finestra senza cornice di sistema. "Chiudi" chiama `hide_main`, che salva e nasconde come la X di sistema | Richiesta dell'utente. Il `close()` di Tauri dalla pagina non arrivava al gestore che nasconde la finestra |
+| 2026-11-03 | La finestra di riserva, mostrata dopo 3 secondi se la pagina non risponde, non compare se la pagina l'ha già mostrata | Prima poteva rimostrare una finestra appena chiusa |
+| 2026-11-03 | Grafo completo con `d3-force` su canvas, letto dall'indice in una sola interrogazione (`full_graph`) | Richiesta dell'utente: come Obsidian. Il canvas regge migliaia di nodi; un elenco nascosto di pulsanti lo rende usabile da tastiera |
+| 2026-11-03 | "Note isolate" parte spento | L'app crea una nota del giorno vuota a ogni avvio: accese, riempirebbero il grafo di punti |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

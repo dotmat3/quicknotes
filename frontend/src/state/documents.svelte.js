@@ -52,7 +52,11 @@ export async function save(id) {
   try {
     const res = await call('save_note', { id, base: d.base, body: text });
     if (res.status === 'conflict') await resolveConflict(id, text, res.disk);
-    else d.base = text;
+    else {
+      // Se cambiano i [[link]], cambiano anche le note collegate mostrate nell'intestazione.
+      if (wikiLinks(text) !== wikiLinks(d.base)) d.note = await call('read_note', { id });
+      d.base = text;
+    }
   } catch (e) {
     d.dirty = true;
     showToast(`Salvataggio non riuscito: ${e}`);
@@ -71,6 +75,8 @@ async function resolveConflict(id, mine, disk) {
   applyToViews(id, disk);
   showToast(`La nota è cambiata fuori dall'app. Il tuo testo è in «${copy.title}».`);
 }
+
+const wikiLinks = (text) => (text.match(/\[\[[^\]\n]+\]\]/g) ?? []).join('\n');
 
 export async function saveAll() {
   await Promise.all(Object.keys(docs).map(save));

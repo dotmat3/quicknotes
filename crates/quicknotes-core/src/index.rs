@@ -492,6 +492,38 @@ pub fn outgoing_links(db: &Connection, rel: &str) -> Result<Vec<OutLink>> {
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
+/// Tutto quello che serve al grafo completo, letto in una volta dall'indice.
+#[derive(Debug, Default)]
+pub struct GraphRows {
+    /// path, id, titolo, tipo, data
+    pub notes: Vec<(String, String, String, String, String)>,
+    /// path della nota che contiene il link, chiave del link in minuscolo
+    pub links: Vec<(String, String)>,
+    /// path, persona
+    pub people: Vec<(String, String)>,
+    /// path, etichetta
+    pub tags: Vec<(String, String)>,
+}
+
+pub fn graph_rows(db: &Connection) -> Result<GraphRows> {
+    let text = |r: &Row, i: usize| r.get::<_, Option<String>>(i).map(Option::unwrap_or_default);
+    let pairs = |sql: &str| -> Result<Vec<(String, String)>> {
+        let mut stmt = db.prepare_cached(sql)?;
+        let rows = stmt.query_map([], |r| Ok((text(r, 0)?, text(r, 1)?)))?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    };
+    let mut stmt = db.prepare_cached("SELECT path, id, title, type, date FROM notes")?;
+    let notes = stmt
+        .query_map([], |r| Ok((text(r, 0)?, text(r, 1)?, text(r, 2)?, text(r, 3)?, text(r, 4)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(GraphRows {
+        notes,
+        links: pairs("SELECT DISTINCT path, key FROM links")?,
+        people: pairs("SELECT DISTINCT path, person FROM note_people")?,
+        tags: pairs("SELECT DISTINCT path, tag FROM note_tags")?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

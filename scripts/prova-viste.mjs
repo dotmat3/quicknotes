@@ -63,7 +63,7 @@ export default async function (page) {
   await page.getByRole('button', { name: 'Grafo', exact: false }).first().click();
   await page.waitForSelector('.canvas');
   await page.waitForTimeout(250);
-  assert((await page.locator('.node').count()) > 3, 'il grafo mostra i collegamenti della nota di oggi');
+  assert((await page.locator('.sr button').count()) > 3, 'il grafo mostra note, persone ed etichette');
   await shot('grafo');
 
   await page.keyboard.press('Control+,');

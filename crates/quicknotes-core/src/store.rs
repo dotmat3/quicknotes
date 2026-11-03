@@ -676,6 +676,10 @@ impl NoteStore {
         let note = self.read(id)?;
         index::outgoing_links(&lock(&self.reader), &self.rel(&note.path)?)
     }
+
+    pub fn graph_rows(&self) -> Result<index::GraphRows> {
+        index::graph_rows(&lock(&self.reader))
+    }
 }
 
 fn check_line(note: &Note, line_no: usize, expected: Option<&str>) -> Result<()> {

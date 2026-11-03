@@ -81,7 +81,7 @@
 </aside>
 
 <style>
-  aside { flex: 0 0 240px; display: flex; flex-direction: column; min-height: 0; padding: 12px 10px 10px; font-size: 13.5px; }
+  aside { flex: 0 0 240px; display: flex; flex-direction: column; min-height: 0; padding: 2px 10px 10px; font-size: 13.5px; }
   .head { display: flex; align-items: center; gap: 8px; padding: 0 2px 12px 6px; }
   .logo { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 13px; }
   .name { flex: 1; font-weight: 600; }

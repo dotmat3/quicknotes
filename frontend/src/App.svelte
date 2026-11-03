@@ -7,6 +7,7 @@
   import Sidebar from './shell/Sidebar.svelte';
   import Rail from './shell/Rail.svelte';
   import Workspace from './shell/Workspace.svelte';
+  import TitleBar from './shell/TitleBar.svelte';
   import Icon from './shell/Icon.svelte';
   import { VIEWS } from './shell/nav.js';
 
@@ -81,6 +82,8 @@
 
 <svelte:window onkeydown={onKey} />
 
+<div class="app">
+<TitleBar />
 <div class="root">
   {#if app.side === 'open'}
     <Sidebar {toggleSide} />
@@ -98,8 +101,10 @@
     </div>
   {/if}
 </div>
+</div>
 
 <style>
-  .root { height: 100%; display: flex; align-items: stretch; }
+  .app { height: 100%; display: flex; flex-direction: column; }
+  .root { flex: 1; min-height: 0; display: flex; align-items: stretch; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 10px 10px 14px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); font-size: 13px; }
 </style>

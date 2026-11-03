@@ -391,6 +391,52 @@ pub fn graph_data(store: &NoteStore, id: &str) -> Result<Graph> {
     Ok(Graph { nodes, edges })
 }
 
+/// Il grafo di tutte le note, come in Obsidian: note collegate tra loro con `[[link]]`, più persone ed
+/// etichette citate. I link verso note che non esistono non diventano nodi.
+pub fn full_graph(store: &NoteStore) -> Result<Graph> {
+    let rows = store.graph_rows()?;
+    let mut nodes = Vec::with_capacity(rows.notes.len());
+    let mut by_path: HashMap<&str, usize> = HashMap::new();
+    let mut by_key: HashMap<String, usize> = HashMap::new();
+    for (i, (path, id, title, kind, date)) in rows.notes.iter().enumerate() {
+        let daily = kind == "daily" || id.ends_with("-giornata");
+        let label = match daily.then(|| dates::parse_day(date)).flatten() {
+            Some(d) => dates::daily_title(d),
+            None if title.is_empty() => id.clone(),
+            None => title.clone(),
+        };
+        nodes.push(GraphNode { id: id.clone(), label, kind: if daily { "daily" } else { "note" }, page: format!("note:{id}") });
+        by_path.insert(path, i);
+        by_key.insert(id.to_lowercase(), i);
+        by_key.entry(title.to_lowercase()).or_insert(i);
+    }
+    let mut edges = std::collections::BTreeSet::new();
+    let mut link = |a: usize, b: usize| {
+        if a != b {
+            edges.insert((a.min(b), a.max(b)));
+        }
+    };
+    for (path, key) in &rows.links {
+        if let (Some(&a), Some(&b)) = (by_path.get(path.as_str()), by_key.get(key)) {
+            link(a, b);
+        }
+    }
+    let mut extra: HashMap<String, usize> = HashMap::new();
+    for (list, kind) in [(&rows.people, "person"), (&rows.tags, "tag")] {
+        for (path, name) in list {
+            let Some(&a) = by_path.get(path.as_str()) else { continue };
+            let lower = name.to_lowercase();
+            let b = *extra.entry(format!("{kind}:{lower}")).or_insert_with(|| {
+                let (id, label) = if kind == "person" { (name.clone(), format!("@{name}")) } else { (lower.clone(), format!("#{lower}")) };
+                nodes.push(GraphNode { page: format!("{kind}:{id}"), id, label, kind });
+                nodes.len() - 1
+            });
+            link(a, b);
+        }
+    }
+    Ok(Graph { nodes, edges: edges.into_iter().collect() })
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchHit {
     pub kind: &'static str,
@@ -518,6 +564,22 @@ mod tests {
         let list = people_list(&store, day("2026-11-03")).unwrap();
         let giulia = list.iter().find(|r| r.name == "Giulia").unwrap();
         assert_eq!((giulia.notes, giulia.open, giulia.late), (2, 1, 1));
+    }
+
+    #[test]
+    fn grafo_completo() {
+        let (_d, store) = demo();
+        let g = full_graph(&store).unwrap();
+        let find = |page: &str| g.nodes.iter().position(|n| n.page == page).unwrap_or_else(|| panic!("manca {page}"));
+        let daily = find("note:2026-11-02-giornata");
+        let meeting = find("note:riunione");
+        assert_eq!(g.nodes[daily].kind, "daily");
+        assert_eq!(g.nodes[daily].label, "Lunedì 2 novembre");
+        let has = |a: usize, b: usize| g.edges.contains(&(a.min(b), a.max(b)));
+        assert!(has(daily, meeting), "il [[link]] collega le due note");
+        assert!(has(daily, find("person:Marco")) && has(meeting, find("person:Giulia")));
+        assert!(has(meeting, find("tag:casa")) && has(daily, find("tag:casa")), "la stessa etichetta è un solo nodo");
+        assert_eq!(g.nodes.iter().filter(|n| n.kind == "person").count(), 2, "@Giulia una sola volta: {:?}", g.nodes);
     }
 
     #[test]

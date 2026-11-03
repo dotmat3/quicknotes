@@ -79,6 +79,7 @@ docs/
 | Trascrizione locale | `whisper-rs` (whisper.cpp) | Dietro una feature: richiede CMake e libclang per compilare |
 | Editor | CodeMirror 6, con `@codemirror/search` per Ctrl F | |
 | Apertura dei link web | `tauri-plugin-opener`, usato solo da Rust | |
+| Grafo | `d3-force`, disegnato su canvas | Nel blocco della vista Grafo |
 | Markdown nell'Anteprima e nell'esportazione | `marked` e `DOMPurify` | |
 
 ## Compatibilità con i dati esistenti
@@ -157,7 +158,7 @@ Regole per la fluidità:
 Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il loro contenuto non è affidabile. Valgono le regole già scritte nel piano del design, in forma più forte con Tauri:
 
 - **CSP rigida:** nessuno script esterno, nessuna connessione di rete. Font inclusi nel pacchetto. Sono ammessi solo gli stili in linea, necessari a Svelte e CodeMirror.
-- **Permessi Tauri minimi**, finestra per finestra.
+- **Permessi Tauri minimi**, finestra per finestra. La barra del titolo ha una capability a parte (`titlebar.json`), solo per la finestra principale.
 - **HTML generato sempre sanificato** con DOMPurify (`note/preview.js`), senza stili, classi e id presi dalla nota. I link esterni passano da `open_url`, solo `http` e `https`. Gli `on…` scritti in una nota fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML: WebView2 la produce con qualsiasi modo di analizzarlo, e il gestore non viene mai eseguito.
 - **`open_file`** rifiuta eseguibili e percorsi che escono dalla cartella delle note, e chiede conferma per i file esterni. Non ancora realizzato: arriva con la tappa 13.
 - **Percorsi:** la pagina indica le note per id. Rust risolve il percorso e controlla che resti nella cartella delle note.

@@ -23,6 +23,9 @@ export const app = $state({
   toast: '',
   titles: ui.titles ?? {},
   today: boot.today,
+  // Ultima nota aperta e modalità del grafo: il grafo locale parte da quella nota.
+  lastNote: null,
+  graphLocal: false,
 });
 
 export const theme = {
