@@ -305,6 +305,8 @@ pub struct ActionQuery {
     pub due_before: Option<String>,
     pub date_from: Option<String>,
     pub date_to: Option<String>,
+    /// Parole che il testo dell'azione deve contenere tutte.
+    pub text: Option<String>,
     pub limit: usize,
 }
 
@@ -353,6 +355,10 @@ pub fn actions(db: &Connection, q: &ActionQuery) -> Result<Vec<ActionRow>> {
         parts.push("a.due IS NOT NULL AND a.due <= ?".into());
         args.push(day(d).into());
     }
+    for term in q.text.as_deref().unwrap_or_default().split(|c: char| !(c.is_alphanumeric() || c == '_')).filter(|t| !t.is_empty()) {
+        parts.push("lower(a.text) LIKE ?".into());
+        args.push(format!("%{}%", term.to_lowercase()).into());
+    }
     args.push((q.limit as i64).into());
     let sql = format!(
         "SELECT a.*, n.id, n.title, n.date, n.project FROM actions a JOIN notes n ON n.path = a.path {} \
@@ -385,6 +391,7 @@ pub fn actions(db: &Connection, q: &ActionQuery) -> Result<Vec<ActionRow>> {
 #[derive(Debug, Clone, Serialize)]
 pub struct DecisionRow {
     pub text: String,
+    pub line: i64,
     pub note_id: String,
     pub note_title: String,
     pub date: String,
@@ -410,6 +417,7 @@ pub fn decisions(db: &Connection, f: &Filter, query: &str, limit: usize) -> Resu
         let project: String = r.get("project")?;
         Ok(DecisionRow {
             text: r.get("text")?,
+            line: r.get("line_no")?,
             note_id: r.get("id")?,
             note_title: r.get("title")?,
             date: r.get("date")?,

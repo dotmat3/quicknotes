@@ -1,24 +1,38 @@
 <script>
   import { call } from '../api.js';
-  import { app, savePrefs, setTheme, tagColor, theme } from '../state/app.svelte.js';
+  import { app, savePrefs, setTheme, showToast, tagColor, theme } from '../state/app.svelte.js';
   import { applyLayout, layout, openPage } from '../state/layout.svelte.js';
   import { TAG_PALETTE, THEMES, applyTheme, resolveTheme, tagColorId } from '../theme/themes.js';
   import { VIEWS } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
   import SettingRow from './SettingRow.svelte';
 
-  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Etichette'], ['claude', 'Claude']];
+  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Etichette'], ['note', 'Note e registrazione'], ['claude', 'Claude']];
   const tab = $derived(app.settingsTab ?? 'aspetto');
 
   let tags = $state([]);
   let claude = $state(null);
+  let notes = $state(null);
   let dragKey = $state(null);
   let copied = $state('');
 
   $effect(() => {
     if (tab === 'etichette') call('all_tags', {}, []).then((t) => (tags = t));
     if (tab === 'claude' && !claude) call('claude_config').then((c) => (claude = c));
+    if (tab === 'note' && !notes) call('notes_settings').then((n) => (notes = n));
   });
+
+  // Le scelte della registrazione vanno in config.json con le chiavi della versione precedente.
+  async function setNotes(field, key, value) {
+    const before = notes[field];
+    notes[field] = value;
+    try {
+      await call('set_notes_setting', { key, value });
+    } catch (e) {
+      notes[field] = before;
+      showToast(String(e));
+    }
+  }
 
   const W3 = [['leggibile', 'Leggibile'], ['ampia', 'Ampia'], ['intera', 'Intera']];
 
@@ -184,6 +198,24 @@
       {/each}
     </div>
   </section>
+{:else if tab === 'note' && notes}
+  <section>
+    <h2>Nota del giorno</h2>
+    <div class="box">
+      <SettingRow label="Cartella delle note" desc={notes.notesDir}><button class="btn" onclick={() => call('open_notes_folder')}>Apri la cartella</button></SettingRow>
+      <SettingRow label="Note del giorno" desc="Una per giorno, creata quando serve."><span class="mono value">AAAA/MM/AAAA-MM-GG-giornata.md</span></SettingRow>
+      <SettingRow label="Sezioni" desc="Nota rapida e nuove azioni scrivono nella loro sezione, creata solo quando serve."><span class="value">Priorità · Note · Trascrizioni</span></SettingRow>
+    </div>
+  </section>
+  <section>
+    <h2>Registrazione <span class="note">La registrazione arriva con la prossima tappa: queste scelte sono già salvate</span></h2>
+    <div class="box">
+      <SettingRow label="Modello di trascrizione" desc="Più grande è il modello, più è preciso e lento.">{@render seg('Modello di trascrizione', [['base', 'base'], ['small', 'small'], ['medium', 'medium']], notes.whisperModel, (v) => setNotes('whisperModel', 'whisper_model', v))}</SettingRow>
+      <SettingRow label="Lingua" desc="">{@render seg('Lingua', [['it', 'Italiano'], ['en', 'Inglese'], ['auto', 'Automatica']], notes.language, (v) => setNotes('language', 'language', v))}</SettingRow>
+      <SettingRow label="Conserva il file audio" desc="Il WAV resta accanto alla nota. Se la trascrizione non riesce resta comunque.">{@render toggle('Conserva il file audio', notes.keepAudio, () => setNotes('keepAudio', 'keep_audio', !notes.keepAudio))}</SettingRow>
+      <SettingRow label="Minutaggio cliccabile" desc="Ogni paragrafo trascritto comincia con [mm:ss], che fa ripartire l’audio da lì.">{@render toggle('Minutaggio cliccabile', notes.timestamps, () => setNotes('timestamps', 'transcript_timestamps', !notes.timestamps))}</SettingRow>
+    </div>
+  </section>
 {:else if tab === 'claude' && claude}
   <section>
     <h2>Claude (MCP)</h2>
@@ -230,6 +262,7 @@
   .tname small { display: block; font-size: 12px; color: var(--subtle); }
   .custom { margin-top: 12px; }
   .hex { font-size: 12px; color: var(--muted); }
+  .value { font-size: 13px; color: var(--muted); }
   input[type='color'] { width: 26px; height: 24px; padding: 0; border: 0; background: transparent; cursor: pointer; }
   .vrow { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px 0 12px; font-size: 13.5px; cursor: grab; }
   .vrow.fixed { color: var(--subtle); cursor: default; padding-right: 12px; }

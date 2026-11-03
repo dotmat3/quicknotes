@@ -13,12 +13,12 @@ export default async function (page) {
   await page.waitForSelector('.cm-content');
 
   await page.keyboard.press('Control+k');
-  await page.waitForSelector('.dialog input');
+  await page.waitForSelector('.dialog .field input');
   assert((await page.locator('.dialog .row').count()) > 3, 'Ctrl K senza testo mostra note recenti e viste');
   await page.keyboard.type('preventiv');
   await page.waitForTimeout(150);
   assert((await page.locator('.dialog .row').allInnerTexts()).some((t) => t.includes('preventivo')), 'la ricerca trova il testo nelle note');
-  await page.locator('.dialog input').fill('budget #lavoro-q4');
+  await page.locator('.dialog .field input').fill('budget #lavoro-q4');
   await page.waitForTimeout(150);
   assert((await page.locator('.dialog .row').first().innerText()).includes('Riunione budget Q4'), 'parole e filtri insieme');
   await shot('ricerca');
@@ -28,7 +28,7 @@ export default async function (page) {
   assert((await page.locator('.cm-content').innerText()).includes('Decisioni'), 'la nota si apre nell\'editor');
 
   await page.keyboard.press('Control+k');
-  await page.locator('.dialog input').fill('@gi');
+  await page.locator('.dialog .field input').fill('@gi');
   await page.waitForTimeout(150);
   await page.locator('.dialog .row', { hasText: '@Giulia' }).first().click();
   await page.waitForSelector('.stats');
@@ -36,7 +36,7 @@ export default async function (page) {
   await shot('persona');
 
   await page.keyboard.press('Control+k');
-  await page.locator('.dialog input').fill('#lavoro');
+  await page.locator('.dialog .field input').fill('#lavoro');
   await page.waitForTimeout(150);
   await page.locator('.dialog .row', { hasText: '#lavoro-q4' }).first().click();
   await page.waitForSelector('button:has-text("Colore")');

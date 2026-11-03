@@ -83,6 +83,15 @@
     lastMode = m;
   });
 
+  // Aperta da Ctrl K o dal Calendario su una riga precisa: la mostra il gruppo attivo.
+  $effect(() => {
+    const r = app.reveal;
+    if (!editorReady || r?.page !== page || focused().id !== groupId) return;
+    app.reveal = null;
+    editorMod.revealLine(view, r.line);
+    if (mode !== 'preview') view.focus();
+  });
+
   let destroyed = false;
   onMount(async () => {
     try {
@@ -99,6 +108,7 @@
   onDestroy(() => {
     destroyed = true;
     if (view) {
+      editorMod.unflash(view);
       savedStates.set(viewKey, view.state);
       views.delete(viewKey);
       view.destroy();

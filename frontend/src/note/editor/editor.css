@@ -127,3 +127,10 @@
 /* Suggerimenti: un formato sbagliato si vede subito. */
 .cm-tooltip-autocomplete .cm-opt-invalid { color: var(--late) !important; }
 .cm-tooltip-autocomplete .cm-opt-invalid .cm-completionDetail { color: var(--late); }
+
+/* La riga cercata, appena aperta. */
+.cm-line.cm-flash { animation: qn-flash 1.6s ease-out forwards; }
+@keyframes qn-flash {
+  0%, 45% { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  100% { background: transparent; }
+}

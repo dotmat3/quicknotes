@@ -101,7 +101,7 @@ export default async function (page) {
   await page.waitForSelector('.stats');
   await page.getByRole('button', { name: 'Altre opzioni' }).click();
   await page.getByRole('menuitem', { name: /^Cerca @/ }).click();
-  await page.waitForSelector('.dialog input');
-  assert((await page.locator('.dialog input').inputValue()).startsWith('@'), 'nella pagina persona il menu cerca la persona nelle note');
+  await page.waitForSelector('.dialog .field input');
+  assert((await page.locator('.dialog .field input').inputValue()).startsWith('@'), 'nella pagina persona il menu cerca la persona nelle note');
   await page.keyboard.press('Escape');
 }

@@ -680,6 +680,18 @@ impl NoteStore {
     pub fn graph_rows(&self) -> Result<index::GraphRows> {
         index::graph_rows(&lock(&self.reader))
     }
+
+    /// Il testo delle note con questi percorsi relativi, letto dai file: per poche note costa meno che
+    /// cercarle nell'indice a testo pieno, che sul percorso non ha un indice. Con `containing` restano solo
+    /// i testi che contengono almeno una di quelle parole. I file spariti nel frattempo si saltano.
+    pub fn bodies(&self, paths: &[String], containing: &[&str]) -> Result<Vec<(String, String)>> {
+        Ok(paths
+            .iter()
+            .filter_map(|p| fs::read_to_string(self.root.join(p)).ok().map(|t| (p.clone(), t)))
+            .filter(|(_, t)| containing.is_empty() || containing.iter().any(|w| t.contains(w)))
+            .map(|(p, t)| (p, parser::split_frontmatter(&t).1.to_string()))
+            .collect())
+    }
 }
 
 fn check_line(note: &Note, line_no: usize, expected: Option<&str>) -> Result<()> {

@@ -95,7 +95,7 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono già note e configurazione reali. La
 | Meeting e note | `AAAA/MM/AAAA-MM-GG-HHMM-titolo.md` |
 | Sintassi | `@persona`, `#tag`, `- [ ]`, `due:` (anche `entro:` e `scadenza:`), `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`. Si aggiungono `done:` e `![[….excalidraw]]` |
 | Audio | `AAAA/MM/audio/<id>-HHMMSS.wav` e righe `🎙️ [Registrazione HH:MM (durata)](file)` |
-| Trascrizioni | `### Trascrizione HH:MM`, con paragrafi `[mm:ss]` |
+| Trascrizioni | `### Trascrizione HH:MM`, con paragrafi `[mm:ss]`. `parser::recordings` e `parser::transcript_lines` le leggono per Calendario e Ctrl K; una registrazione cade nel giorno della nota che la contiene, perché il nome del WAV non ha la data |
 | Immagini | `images/` accanto alla nota, con `![](images/…)` |
 | Indice | **Nuovo file** `<note>/.quicknotes/index-v3.db`. Il vecchio `index.db` non viene toccato, così la vecchia versione continua a funzionare |
 
@@ -109,12 +109,14 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono già note e configurazione reali. La
 
 | Modulo | Compito |
 |---|---|
-| `parser` | Frontmatter, persone, etichette, azioni con madre e descrizione, decisioni, link, sezioni. Funzioni pure |
+| `parser` | Frontmatter, persone, etichette, azioni con madre e descrizione, decisioni, link, sezioni, registrazioni e righe delle trascrizioni. Funzioni pure |
 | `edit` | Modifiche su una riga o su un corpo: `with_done`, `with_due`, `with_person`, `with_tag`, `with_description`, `add_to_section`. Funzioni pure |
 | `store` | Lettura e scrittura atomica dei file, una sola fonte di verità |
 | `index` | Schema SQLite, indicizzazione incrementale, interrogazioni |
 | `dates` | Titolo del giorno, etichette e gruppi delle scadenze |
 | `views` | Dati pronti per le viste: `sidebar`, `action_board`, `calendar_data`, `person_page`, `tag_page`, `graph_data`, `search_all` |
+
+**Ctrl K (`search_all`):** note dalla ricerca a testo pieno (15), poi, se una parola ha almeno tre lettere, azioni aperte e decisioni che contengono tutte le parole (5 ciascuna) e le righe `[mm:ss]` delle trascrizioni nelle note già trovate (5). Ogni risultato porta la riga della nota, che si apre mostrandola. I testi per le trascrizioni si leggono dai file: per 15 note costa meno che cercarli nell'indice a testo pieno, dove il percorso non ha un indice.
 | `config` | Lettura e scrittura della configurazione |
 
 Il riconoscimento di `@` e `#` è scritto a mano e non usa espressioni regolari: quelle originali usano asserzioni all'indietro, che la libreria `regex` di Rust non supporta. Così è anche più veloce. I test ne fissano il comportamento.
@@ -170,6 +172,8 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 L'app registra i tempi delle fasi di avvio in un file se è impostata `QUICKNOTES_TRACE=<file>`: `main`, `dati pronti`, `finestra creata`, `indice allineato`, `prima pittura`. `node scripts/misura-avvio.mjs <cartella>` ripete l'avvio e dà le mediane. `cargo run --release -p quicknotes-core --example genera_note -- <cartella vuota> 1000` genera le note e misura indice e ricerca.
 
 I risultati vanno annotati in [piano-incrementale.md](piano-incrementale.md) a ogni tappa che può peggiorarli.
+
+**Prova con input di sistema veri:** `scripts/prova-sistema.mjs` usa `scripts/win.mjs`, che tiene aperto un PowerShell con poche funzioni Win32: elenca le finestre del processo, preme tasti e muove il mouse come una persona, manda all'icona dell'area di notifica lo stesso messaggio che le manda Esplora risorse quando la si clicca, e legge le voci del menu aperto per cliccarle. Così prova tasti globali, primo piano, Alt F4, menu, barra del titolo, bordi e trascinamento delle schede. Mentre gira il PC non va usato, e non deve esserci un'altra QuickNotes aperta, che prenderebbe i tasti globali.
 
 ## Come si sviluppa
 

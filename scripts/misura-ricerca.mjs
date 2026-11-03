@@ -29,21 +29,25 @@ export default async function (page) {
   const med = (xs) => [...xs].sort((a, b) => a - b)[xs.length >> 1].toFixed(1);
   console.log(`  per ricerca: ${Object.entries(direct).map(([q, xs]) => `"${q}" ${med(xs)}`).join(' · ')}`);
 
-  // Dal tasto all'ultimo aggiornamento della pagina prima del tasto successivo. Ogni tasto chiude la finestra
-  // del precedente; si contano solo i caratteri che hanno cambiato qualcosa a schermo.
+  // Dal tasto all'ultimo aggiornamento dei risultati prima del tasto successivo, e a parte l'ultimo del
+  // riquadro di anteprima, che arriva dopo. Ogni tasto chiude la finestra del precedente; si contano solo i
+  // caratteri che hanno cambiato qualcosa a schermo.
   await page.evaluate(() => {
     window.__ks = [];
     document.addEventListener('keydown', (e) => {
-      window.__ks.push({ t0: e.timeStamp, last: null, char: !!document.querySelector('.dialog') && e.key.length === 1 });
+      window.__ks.push({ t0: e.timeStamp, last: null, pane: null, char: !!document.querySelector('.dialog') && e.key.length === 1 });
     }, true);
-    new MutationObserver(() => {
+    const inside = (records, sel) => records.some((r) => (r.target.nodeType === 1 ? r.target : r.target.parentElement)?.closest(sel));
+    new MutationObserver((records) => {
       const k = window.__ks.at(-1);
-      if (k) k.last = performance.now();
+      if (!k) return;
+      if (inside(records, '.dialog .list')) k.last = performance.now();
+      if (inside(records, '.dialog .pane')) k.pane = performance.now();
     }).observe(document.body, { subtree: true, childList: true, characterData: true });
   });
   for (const text of ['preventivo cucina', 'riunione budget', 'trascrizione modello']) {
     await page.keyboard.press('Control+k');
-    await page.waitForSelector('.dialog input');
+    await page.waitForSelector('.dialog .field input');
     for (const ch of text) {
       await page.keyboard.type(ch);
       await page.waitForTimeout(250);
@@ -51,6 +55,7 @@ export default async function (page) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
   }
-  const typed = (await page.evaluate(() => window.__ks)).filter((k) => k.char && k.last).map((k) => k.last - k.t0);
-  console.log(`misura: Ctrl K, dal tasto ai risultati aggiornati a schermo: ${stats(typed)}`);
+  const ks = (await page.evaluate(() => window.__ks)).filter((k) => k.char);
+  console.log(`misura: Ctrl K, dal tasto ai risultati aggiornati a schermo: ${stats(ks.filter((k) => k.last).map((k) => k.last - k.t0))}`);
+  console.log(`misura: Ctrl K, dal tasto all'anteprima aggiornata: ${stats(ks.filter((k) => k.pane).map((k) => k.pane - k.t0))}`);
 }

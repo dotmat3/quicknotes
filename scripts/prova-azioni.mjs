@@ -114,7 +114,7 @@ export default async function (page, { notes }) {
 
   // Pagina etichetta: spunta e pillole come in bacheca.
   await page.keyboard.press('Control+k');
-  await page.locator('.dialog input').fill('#casa');
+  await page.locator('.dialog .field input').fill('#casa');
   await page.waitForTimeout(200);
   await page.locator('.dialog .row', { hasText: '#casa' }).first().click();
   await page.waitForSelector('button:has-text("Colore")');

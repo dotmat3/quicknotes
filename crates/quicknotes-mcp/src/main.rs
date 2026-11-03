@@ -219,6 +219,7 @@ fn call_tool(store: &NoteStore, name: &str, args: &Value) -> Result<Value, Strin
                 due_before: opt_str(args, "due_before"),
                 date_from: opt_str(args, "date_from"),
                 date_to: opt_str(args, "date_to"),
+                text: None,
                 limit: 200,
             };
             v(serde_json::to_value(store.actions(&q).map_err(e)?))

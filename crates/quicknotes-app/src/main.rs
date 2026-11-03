@@ -100,6 +100,9 @@ fn main() {
             commands::search_all,
             commands::new_note,
             commands::claude_config,
+            commands::notes_settings,
+            commands::set_notes_setting,
+            commands::open_notes_folder,
         ])
         .on_window_event(|window, event| {
             // Chiudere non termina l'app: la finestra si nasconde e riaprirla è immediato.

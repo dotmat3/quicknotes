@@ -307,6 +307,13 @@ pub struct CalendarEvent {
     pub kind: &'static str,
     pub text: String,
     pub note_id: Option<String>,
+    /// La riga da mostrare aprendo la nota, per le registrazioni.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
+}
+
+fn event(kind: &'static str, text: String, note_id: &str) -> CalendarEvent {
+    CalendarEvent { kind, text, note_id: Some(note_id.to_string()), line: None }
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -315,33 +322,49 @@ pub struct CalendarDay {
     pub events: Vec<CalendarEvent>,
 }
 
-/// Note, scadenze, completamenti e decisioni per giorno, da `from` a `to` inclusi.
+/// Note, registrazioni, scadenze, completamenti e decisioni per giorno, da `from` a `to` inclusi.
+/// Una registrazione cade nel giorno della nota che la contiene.
 pub fn calendar_data(store: &NoteStore, from: &str, to: &str, today: NaiveDate) -> Result<HashMap<String, CalendarDay>> {
     let mut days: HashMap<String, CalendarDay> = HashMap::new();
     let filter = Filter { date_from: Some(from.to_string()), date_to: Some(to.to_string()), ..Default::default() };
-    for n in store.list_notes(&filter, 5000)? {
+    let notes = store.list_notes(&filter, 5000)?;
+    let mut day_of: HashMap<&str, (&str, &str)> = HashMap::new();
+    for n in &notes {
         let Some(day) = n.date.get(..10) else { continue };
+        day_of.insert(&n.path, (day, &n.id));
         let entry = days.entry(day.to_string()).or_default();
         if n.note_type == "daily" {
-            entry.daily = Some(n.id);
+            entry.daily = Some(n.id.clone());
         } else {
-            entry.events.push(CalendarEvent { kind: "note", text: n.title, note_id: Some(n.id) });
+            entry.events.push(event("note", n.title.clone(), &n.id));
+        }
+    }
+    let paths: Vec<String> = notes.iter().map(|n| n.path.clone()).collect();
+    for (path, body) in store.bodies(&paths, &["[Registrazione ", "Trascrizione "])? {
+        let Some(&(day, id)) = day_of.get(path.as_str()) else { continue };
+        for r in parser::recordings(&body) {
+            let text = match (&r.file, &r.duration) {
+                (Some(_), Some(d)) => format!("Registrazione {} ({d})", r.time),
+                (Some(_), None) => format!("Registrazione {}", r.time),
+                (None, _) => format!("Trascrizione {}", r.time),
+            };
+            days.entry(day.to_string()).or_default().events.push(CalendarEvent { line: Some(r.line_no), ..event("rec", text, id) });
         }
     }
     for d in store.decisions(&filter, "", 5000)? {
         let Some(day) = d.date.get(..10) else { continue };
-        days.entry(day.to_string()).or_default().events.push(CalendarEvent { kind: "dec", text: d.text, note_id: Some(d.note_id) });
+        days.entry(day.to_string()).or_default().events.push(event("dec", d.text, &d.note_id));
     }
     let today_iso = today.format("%Y-%m-%d").to_string();
     for a in store.actions(&ActionQuery { status: Status::All, limit: 100_000, ..Default::default() })? {
         let text = parser::action_display_text(&a.text);
         if let Some(day) = a.done_on.as_deref().filter(|d| *d >= from && *d <= to) {
-            days.entry(day.to_string()).or_default().events.push(CalendarEvent { kind: "done", text: text.clone(), note_id: Some(a.note_id.clone()) });
+            days.entry(day.to_string()).or_default().events.push(event("done", text.clone(), &a.note_id));
         }
         if !a.done {
             if let Some(day) = a.due.as_deref().filter(|d| *d >= from && *d <= to) {
                 let kind = if day < today_iso.as_str() { "late" } else { "due" };
-                days.entry(day.to_string()).or_default().events.push(CalendarEvent { kind, text, note_id: Some(a.note_id.clone()) });
+                days.entry(day.to_string()).or_default().events.push(event(kind, text, &a.note_id));
             }
         }
     }
@@ -439,15 +462,64 @@ pub fn full_graph(store: &NoteStore) -> Result<Graph> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchHit {
+    /// note, action, decision, transcript, person, tag
     pub kind: &'static str,
     pub label: String,
     pub hint: String,
     pub page: String,
     pub snippet: Option<String>,
+    /// La riga della nota da mostrare aprendola.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
+    /// Per le azioni: `late`, `soon` o `normal`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<DueLevel>,
 }
 
-/// La ricerca di Ctrl K. `@nome`, `#etichetta` filtrano; `!parole` cerca tra le decisioni.
-pub fn search_all(store: &NoteStore, query: &str) -> Result<Vec<SearchHit>> {
+impl SearchHit {
+    fn new(kind: &'static str, label: String, hint: String, page: String) -> Self {
+        Self { kind, label, hint, page, snippet: None, line: None, level: None }
+    }
+}
+
+/// Il nome di una nota nei risultati: le note del giorno si chiamano con la data, come nelle schede.
+fn note_label(id: &str, title: &str, note_type: &str, date: &str) -> String {
+    match (note_type == "daily" || id.ends_with("-giornata")).then(|| dates::parse_day(date)).flatten() {
+        Some(d) => dates::daily_title(d),
+        None => title.to_string(),
+    }
+}
+
+/// Parole da cercare dentro un testo, in minuscolo: le stesse che usa la ricerca delle decisioni.
+fn terms(text: &str) -> Vec<String> {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_')).filter(|t| !t.is_empty()).map(str::to_lowercase).collect()
+}
+
+/// Un pezzo di riga attorno alla prima parola trovata, al massimo `width` caratteri, senza parole tagliate.
+fn excerpt(line: &str, word: &str, width: usize) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    if chars.len() <= width {
+        return line.to_string();
+    }
+    let low: Vec<char> = chars.iter().map(|c| c.to_lowercase().next().unwrap_or(*c)).collect();
+    let word: Vec<char> = word.chars().collect();
+    let at = low.windows(word.len().max(1)).position(|w| w == word.as_slice()).unwrap_or(0);
+    let mut start = at.saturating_sub(width / 3).min(chars.len() - width);
+    let mut end = start + width;
+    if start > 0 && !chars[start - 1].is_whitespace() {
+        start += chars[start..end].iter().position(|c| c.is_whitespace()).unwrap_or(0);
+    }
+    if end < chars.len() && !chars[end].is_whitespace() {
+        end = start + chars[start..end].iter().rposition(|c| c.is_whitespace()).unwrap_or(end - start);
+    }
+    let body: String = chars[start..end].iter().collect();
+    let body = body.trim();
+    format!("{}{body}{}", if start > 0 { "…" } else { "" }, if end < chars.len() { "…" } else { "" })
+}
+
+/// La ricerca di Ctrl K: note, azioni aperte, decisioni e righe delle trascrizioni.
+/// `@nome`, `#etichetta` filtrano; `!parole` cerca solo tra le decisioni.
+pub fn search_all(store: &NoteStore, query: &str, today: NaiveDate) -> Result<Vec<SearchHit>> {
     let mut filter = Filter::default();
     let mut words = Vec::new();
     let mut decisions = false;
@@ -466,35 +538,76 @@ pub fn search_all(store: &NoteStore, query: &str) -> Result<Vec<SearchHit>> {
         }
     }
     let text = words.join(" ");
+    let day_hint = |date: &str| dates::parse_day(date).map(dates::short_day).unwrap_or_default();
+    let decision_hit = |d: crate::index::DecisionRow| SearchHit {
+        line: Some(d.line as usize),
+        snippet: Some(note_label(&d.note_id, &d.note_title, "", &d.date)),
+        ..SearchHit::new("decision", d.text, day_hint(&d.date), format!("note:{}", d.note_id))
+    };
     let mut hits = Vec::new();
     if decisions {
-        for d in store.decisions(&filter, &text, 15)? {
-            hits.push(SearchHit { kind: "decision", label: d.text, hint: d.date.chars().take(10).collect(), page: format!("note:{}", d.note_id), snippet: None });
-        }
+        hits.extend(store.decisions(&filter, &text, 15)?.into_iter().map(decision_hit));
         return Ok(hits);
     }
     if text.is_empty() {
         if let Some(p) = &filter.person {
             let lower = p.to_lowercase();
             for f in store.people()?.into_iter().filter(|f| f.name.to_lowercase().contains(&lower)).take(5) {
-                hits.push(SearchHit { kind: "person", label: format!("@{}", f.name), hint: format!("{} note", f.notes), page: format!("person:{}", f.name), snippet: None });
+                hits.push(SearchHit::new("person", format!("@{}", f.name), format!("{} note", f.notes), format!("person:{}", f.name)));
             }
         }
         if let Some(t) = &filter.project {
             let lower = t.to_lowercase();
             for f in store.projects()?.into_iter().filter(|f| f.name.contains(&lower)).take(5) {
-                hits.push(SearchHit { kind: "tag", label: format!("#{}", f.name), hint: format!("{} note", f.notes), page: format!("tag:{}", f.name), snippet: None });
+                hits.push(SearchHit::new("tag", format!("#{}", f.name), format!("{} note", f.notes), format!("tag:{}", f.name)));
             }
         }
     }
-    for n in store.search(&SearchQuery { text, filter, limit: 15 })? {
+    let notes = store.search(&SearchQuery { text: text.clone(), filter: filter.clone(), limit: 15 })?;
+    for n in &notes {
+        let label = note_label(&n.id, &n.title, &n.note_type, &n.date);
+        hits.push(SearchHit { snippet: n.snippet.clone(), ..SearchHit::new("note", label, day_hint(&n.date), format!("note:{}", n.id)) });
+    }
+    // Azioni, decisioni e trascrizioni da tre lettere in su: con una o due troverebbero quasi tutto.
+    let words = terms(&text);
+    if !words.iter().any(|w| w.chars().count() >= 3) {
+        return Ok(hits);
+    }
+
+    let person = filter.person.as_deref().map(str::to_lowercase);
+    let actions = store.actions(&ActionQuery { text: Some(text.clone()), project: filter.project.clone(), limit: 30, ..Default::default() })?;
+    for a in actions.into_iter().filter(|a| person.as_ref().is_none_or(|p| a.people.iter().any(|x| x.to_lowercase().contains(p)))).take(5) {
+        let due = a.due.as_deref().and_then(dates::parse_day).map(|d| dates::due_label(d, today));
         hits.push(SearchHit {
-            kind: "note",
-            hint: n.date.chars().take(10).collect(),
-            page: format!("note:{}", n.id),
-            label: n.title,
-            snippet: n.snippet,
+            line: Some(a.line as usize),
+            snippet: Some(note_label(&a.note_id, &a.note_title, "", &a.note_date)),
+            level: due.as_ref().map(|d| d.1),
+            ..SearchHit::new("action", parser::action_display_text(&a.text), due.map(|d| d.0).unwrap_or_default(), format!("note:{}", a.note_id))
         });
+    }
+    hits.extend(store.decisions(&filter, &text, 5)?.into_iter().map(decision_hit));
+
+    // Trascrizioni: le righe con il minutaggio, nelle note già trovate dalla ricerca a testo pieno.
+    let paths: Vec<String> = notes.iter().map(|n| n.path.clone()).collect();
+    let mut found = 0;
+    'notes: for (path, body) in store.bodies(&paths, &[])? {
+        let Some(n) = notes.iter().find(|n| n.path == path) else { continue };
+        for t in parser::transcript_lines(&body) {
+            let lower = t.text.to_lowercase();
+            if !words.iter().all(|w| lower.contains(w.as_str())) {
+                continue;
+            }
+            let when = t.time.as_deref().map(|h| format!(" · Trascrizione {h}")).unwrap_or_default();
+            hits.push(SearchHit {
+                line: Some(t.line_no),
+                snippet: Some(format!("{}{when}", note_label(&n.id, &n.title, &n.note_type, &n.date))),
+                ..SearchHit::new("transcript", excerpt(&t.text, &words[0], 110), t.stamp, format!("note:{}", n.id))
+            });
+            found += 1;
+            if found == 5 {
+                break 'notes;
+            }
+        }
     }
     Ok(hits)
 }
@@ -617,11 +730,54 @@ mod tests {
     #[test]
     fn ricerca_con_filtri() {
         let (_d, store) = demo();
-        let labels = |q: &str| search_all(&store, q).unwrap().into_iter().map(|h| h.label).collect::<Vec<_>>();
+        let labels = |q: &str| search_all(&store, q, day("2026-11-03")).unwrap().into_iter().map(|h| h.label).collect::<Vec<_>>();
         assert_eq!(labels("riunion")[0], "Riunione budget", "prima il titolo, poi chi la cita");
+        assert_eq!(labels("riunion")[1], "Lunedì 2 novembre", "la nota del giorno si chiama con la data");
         assert_eq!(labels("!quarzo"), ["Top in quarzo  con @Marco"]);
         assert!(labels("@gi").contains(&"@Giulia".to_string()));
         assert!(labels("#ca").contains(&"#casa".to_string()));
         assert_eq!(labels("riunione @Giulia #casa")[0], "Riunione budget");
+    }
+
+    fn with_recording() -> (tempfile::TempDir, NoteStore) {
+        let (dir, store) = demo();
+        fs::write(
+            dir.path().join("budget.md"),
+            "---\ntype: meeting\ntitle: Budget Q4\ndate: 2026-10-28T15:00\n---\n🎙️ [Registrazione 15:02 (18:40)](audio/budget-150200.wav)\n\n\
+             ### Trascrizione 15:02\n[00:00] Punto della situazione sul budget.\n[12:40] Il budget per il quarto trimestre va diviso in tre tranche.\n\n\
+             - [ ] Dividere il budget per mese @Giulia due:2026-11-02\n",
+        )
+        .unwrap();
+        store.refresh().unwrap();
+        (dir, store)
+    }
+
+    #[test]
+    fn registrazioni_nel_calendario() {
+        let (_d, store) = with_recording();
+        let c = calendar_data(&store, "2026-10-26", "2026-11-08", day("2026-11-03")).unwrap();
+        let rec: Vec<_> = c["2026-10-28"].events.iter().filter(|e| e.kind == "rec").collect();
+        assert_eq!(rec.len(), 1, "registrazione e titolo della trascrizione sono una sola voce");
+        assert_eq!(rec[0].text, "Registrazione 15:02 (18:40)");
+        assert_eq!((rec[0].note_id.as_deref(), rec[0].line), (Some("budget"), Some(1)));
+    }
+
+    #[test]
+    fn ricerca_in_azioni_decisioni_e_trascrizioni() {
+        let (_d, store) = with_recording();
+        let hits = search_all(&store, "budget trimestre", day("2026-11-03")).unwrap();
+        let t = hits.iter().find(|h| h.kind == "transcript").expect("la riga della trascrizione");
+        assert_eq!((t.hint.as_str(), t.line, t.page.as_str()), ("12:40", Some(5), "note:budget"), "righe del testo senza frontmatter, come per le azioni");
+        assert_eq!(t.snippet.as_deref(), Some("Budget Q4 · Trascrizione 15:02"));
+        assert!(t.label.contains("quarto trimestre"));
+        let hits = search_all(&store, "budget mese", day("2026-11-03")).unwrap();
+        let a = hits.iter().find(|h| h.kind == "action").expect("l'azione aperta");
+        assert_eq!((a.label.as_str(), a.hint.as_str(), a.level), ("Dividere il budget per mese @Giulia", "2 nov", Some(DueLevel::Late)));
+        assert_eq!(a.line, Some(7));
+        assert!(search_all(&store, "budget @Marco", day("2026-11-03")).unwrap().iter().all(|h| h.kind != "action"), "il filtro @ vale anche per le azioni");
+        let hits = search_all(&store, "quarzo", day("2026-11-03")).unwrap();
+        assert!(hits.iter().any(|h| h.kind == "decision" && h.line == Some(3)));
+        assert_eq!(excerpt("uno due tre quattro cinque sei sette otto nove dieci", "otto", 20), "…sette otto nove…");
+        assert_eq!(excerpt("abcdefghij klmnopqrst uvwxyz", "uvw", 12), "…uvwxyz", "parole intere, con quella cercata");
     }
 }

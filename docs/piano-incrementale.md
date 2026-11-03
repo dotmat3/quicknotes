@@ -6,7 +6,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura delle tappe 5, 6, 7 e 8, con barra del titolo, grafo completo e note collegate.
+Stato al 3 novembre 2026, dopo la chiusura delle tappe dalla 5 alla 11. Resta l'audio (12), poi file, schizzi e rilascio.
 
 **Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
@@ -30,7 +30,8 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs`, `prova-ricerca.mjs` | Con `demo-note.mjs` | |
+| `prova-sistema.mjs` | Con `demo-note.mjs` | Tasti e mouse veri per circa 20 secondi: il PC non va usato. Nessun'altra QuickNotes aperta. Alla fine esce dall'app dal menu |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
@@ -47,10 +48,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario (9), pannello di anteprima e trascrizioni nella ricerca (10).
-2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, finestra nota rapida che compare davvero. Con la nuova barra del titolo anche: trascinamento delle schede con il mouse vero, spostamento della finestra dalla barra, doppio clic per ingrandire, ridimensionamento dai bordi.
-3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
-4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
+1. **Tappa 12, audio**, compresa la finestra di registrazione spostata qui dalla tappa 11. Prima va scelto come compilare `whisper-rs`, che richiede CMake e libclang (non installati).
+2. **Da provare a mano, l'unica cosa che le prove non raggiungono:** il clic fisico sull'icona dell'area di notifica (la prova manda all'icona lo stesso messaggio di Esplora risorse) e i tasti laterali di un mouse vero.
+3. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
 
 ### Da decidere con l'utente
 
@@ -61,7 +61,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 ### Difetti e limiti noti
 
 - **Nota rapida subito dopo l'avvio:** la finestra si prepara dopo circa 1,5 secondi. Prima di allora Ctrl Alt N apre la finestra principale.
-- **Calendario:** le registrazioni non compaiono ancora. "Ieri" e "domani" non sono nel pannello rapido di Oggi, a differenza della tavola Home.
+- **Calendario:** "Ieri" e "domani" non sono nel pannello rapido di Oggi, a differenza della tavola Home. Una registrazione aggiunta giorni dopo a una nota compare nel giorno della nota, non in quello della registrazione: il nome del WAV non ha la data.
+- **Ctrl K:** ci sono i tipi Note, Azioni, Decisioni e Trascrizioni; mancano il filtro "Ultimi 90 giorni" e l'ordinamento della tavola Ricerca. Le trascrizioni si cercano solo nelle 15 note trovate dalla ricerca a testo pieno.
+- **Impostazioni › Note e registrazione:** modello, lingua, file audio e minutaggio si salvano in `config.json` ma servono solo dalla tappa 12. La cartella delle note si apre ma non si cambia dall'app.
 - **Pagina Persona:** le azioni si possono solo leggere, senza spunta né pillole. Il piano del design prevede le pillole solo in bacheca, elenco e pagina etichetta.
 - **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 funzionano in WebView2: la pagina li riceve prima del browser.
 - **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
@@ -143,29 +145,33 @@ Bacheca ed elenco, raggruppamento, pillole con popover, sotto-attività, campo n
 **Provati** (`prova-azioni.mjs`): oltre a pillole e sotto-attività, il "+" delle colonne per scadenza e per progetto, "Sposta a domani" su più note, spunta e pillole nella pagina etichetta.
 **Da rivedere con l'utente:** i pulsanti `+` nascosti lasciano a volte una riga vuota nelle schede (vedi "Da decidere").
 
-### 🟡 9. Altre viste
+### ✅ 9. Altre viste
 
 Calendario, Persone, Persona, Etichetta con colore, Grafo, Impostazioni.
 **Fatte e provate a livello base.**
+**Registrazioni nel Calendario** (`prova-ricerca.mjs`): le righe `🎙️ [Registrazione HH:MM (durata)](file)` e i titoli `Trascrizione HH:MM` diventano voci con il microfono, nel giorno della nota; un clic apre la nota sulla riga, che si accende per un attimo. Legenda "Nota o registrazione" come nella tavola Home.
+**Impostazioni › Note e registrazione** (`prova-ricerca.mjs`): cartella delle note con "Apri la cartella", schema delle note del giorno, sezioni; modello di trascrizione, lingua, "Conserva il file audio" e "Minutaggio cliccabile", salvati in `config.json` con le chiavi della versione precedente. "File e schizzi" della tavola arriva con le tappe 13 e 14.
 **Grafo, rifatto su richiesta:** tutte le note come in Obsidian, con persone ed etichette. Disposizione a forze (`d3-force`) su canvas, zoom con la rotella, spostamento della vista e dei nodi, passaggio del mouse che evidenzia i vicini, clic che apre la nota, persona o etichetta. Filtri per persone, etichette, note del giorno e note isolate; campo "Evidenzia"; modalità "Locale" con profondità 1-3 attorno all'ultima nota aperta. Provato con `prova-collegamenti.mjs` e guardato con 1000 note.
 **Note collegate:** la pillola "N collegamenti" apre un riquadro con le note che citano questa e quelle citate; un clic apre la nota. Si aggiorna quando cambiano i `[[link]]`.
-**Resta da fare:** registrazioni nel Calendario, scheda "Note e registrazione" nelle Impostazioni.
 
-### 🟡 10. Ricerca Ctrl K
+### ✅ 10. Ricerca Ctrl K
 
 Note, viste, comandi, filtri `@`, `#`, `!`.
 **Fatta quando:** i risultati arrivano entro l'obiettivo a ogni tasto.
-**Misurato** (`misura-ricerca.mjs`): entro l'obiettivo, vedi le misure. **Resta da fare:** il pannello di anteprima e i risultati nelle trascrizioni.
+**Misurato** (`misura-ricerca.mjs`): entro l'obiettivo anche dopo le aggiunte, vedi le misure.
+**Come nella tavola Ricerca** (`prova-ricerca.mjs`): risultati divisi in Note, Azioni, Decisioni e Trascrizioni, con i tipi e i conteggi in alto (Tab li scorre); anteprima a destra con percorso, titolo, data, persone e le parole evidenziate; Apri, Apri a lato (anche Alt Invio) e Copia [[link]]; `>` per i soli comandi; riga dei tasti in basso. Le azioni hanno la scadenza colorata, le trascrizioni nota, ora e minutaggio. Ogni risultato apre la nota sulla sua riga. Le note del giorno si chiamano con la data, come nelle schede.
+**Corretti durante la prova:** Esc non chiudeva Ctrl K se il fuoco era su un pulsante dell'anteprima. Le righe che scorrevano sotto un puntatore fermo cambiavano la scelta, e Alt Invio poteva aprire il risultato sbagliato: ora la scelta segue il mouse solo quando si muove, come in VS Code.
 
-### 🟡 11. Area di notifica, tasti globali, finestre secondarie
+### ✅ 11. Area di notifica, tasti globali, finestre secondarie
 
 Nota rapida e finestra di registrazione precaricate e nascoste. Chiudere la finestra la nasconde. Migrazione dei tasti.
 **Provati via CDP:** nota rapida (scrittura, riconoscimento, salvataggio), salvataggio all'evento di chiusura e all'uscita, riapertura con una seconda istanza.
-**Scritti ma mai provati dal vivo:** tasti globali, menu dell'area di notifica, X della finestra, comparsa e messa a fuoco della nota rapida. **Manca:** la finestra di registrazione, con la tappa 12.
+**Provati dal vivo** (`prova-sistema.mjs`, con tasti e mouse veri): Ctrl Alt N mostra la nota rapida in primo piano con il fuoco nel campo, Esc la nasconde e il testo resta, Ctrl Invio salva e passa alla finestra principale; Ctrl Alt D apre la nota del giorno; Ctrl Alt R per ora avvisa; Alt F4 nasconde senza chiudere; il clic sull'icona dell'area di notifica riapre; il menu ha le quattro voci, "Nota rapida" funziona ed "Esci" chiude il processo. Con il mouse: doppio clic sulla barra del titolo (ingrandisci e ripristina), spostamento della finestra dalla barra, ridimensionamento dal bordo destro, trascinamento di una scheda davanti alla prima.
+**Spostato alla tappa 12:** la finestra di registrazione, che senza audio non avrebbe niente da fare.
 
 ### ⬜ 12. Audio
 
-Registrazione con pausa e annullamento, riproduzione dal minutaggio (`[mm:ss]` come pulsante nell'editor, vedi il piano del design), trascrizione con `whisper-rs`. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale.
+Finestra di registrazione precaricata e nascosta (tavola Registrazione), registrazione con pausa e annullamento, riproduzione dal minutaggio (`[mm:ss]` come pulsante nell'editor, vedi il piano del design), trascrizione con `whisper-rs`. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale.
 
 ### ⬜ 13. File ed esportazione
 
@@ -203,6 +209,10 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 6 | Blocco iniziale della pagina (`App`), dopo l'aggiunta del menu `⋯` | 39 kB, 14,5 kB compressi | |
 | 10 | `search_all` chiamato dalla pagina, IPC compreso, 1000 note | mediana 8,8 ms, 95° percentile 21 ms; la più lenta è `@gi` (21 ms) | |
 | 10 | Ctrl K, dal tasto ai risultati aggiornati a schermo, 1000 note | mediana 11 ms, 95° percentile 15 ms | < 30 ms ✅ |
+| 10 | `search_all` con azioni, decisioni e trascrizioni, IPC compreso, 1000 note | mediana 13,8 ms, 95° percentile 22 ms (prima delle correzioni: 16,8 e 21,8) | |
+| 10 | Ctrl K con tipi e gruppi, dal tasto ai risultati a schermo, 1000 note | mediana 17,8 ms, 95° percentile 24,4 ms (prima delle correzioni: 23 e 31,5) | < 30 ms ✅ |
+| 10 | Ctrl K, dal tasto all'anteprima aggiornata | mediana 20 ms; 95° percentile 98 ms, perché la prima volta che si sceglie una nota il riquadro aspetta 60 ms che la scelta si fermi | |
+| 6 | Scrittura e cambio scheda, ripresi dopo le tappe 9-11 | scrittura 3,9 / 5,1 / 5,8 ms di mediana; cambio scheda 25,9 ms; memoria 11,2 MB privati | invariati ✅ |
 
 **L'avvio a freddo supera l'obiettivo.** La creazione di WebView2 è fuori dal controllo di Rust. Idea da provare: mostrare subito la finestra con lo sfondo del tema, così la risposta si percepisce prima, controllando che non compaia un lampo.
 
@@ -241,4 +251,10 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | Il menu `⋯` compare solo dove ha voci: nota (modalità, "Copia il link alla nota"), persona ed etichetta ("Cerca … nelle note"). Nelle viste e nelle Impostazioni non c'è | Richiesta dell'utente: prima nelle viste era un pulsante disattivato |
 | 2026-11-03 | Alt ← e Alt → navigano tra le pagine anche dentro l'editor | Come in VS Code su Windows. CodeMirror li userebbe per spostare il cursore di una parola sintattica |
 | 2026-11-03 | La Guida è una scheda come le altre, non un riquadro sopra la pagina | Si può tenere aperta accanto alla nota, in un altro gruppo |
+| 2026-11-03 | Ctrl K cerca azioni, decisioni e trascrizioni solo da tre lettere in su; i testi delle 15 note trovate si leggono dai file | Con una o due lettere troverebbero quasi tutto. Le due scelte hanno riportato Ctrl K sotto i 30 ms al 95° percentile |
+| 2026-11-03 | Una registrazione cade nel giorno della nota che la contiene | Il nome del WAV ha solo l'ora. Una registrazione aggiunta giorni dopo a una vecchia nota finisce nel giorno della nota |
+| 2026-11-03 | Le scelte della registrazione si salvano già, con le chiavi della versione precedente (`whisper_model`, `language`, `keep_audio`, `transcript_timestamps`); la cartella delle note non si cambia dall'app | La scheda era prevista alla tappa 9. Cambiare cartella richiede di rifare l'indice e di riaprire tutto: resta in `config.json` |
+| 2026-11-03 | La finestra di registrazione passa alla tappa 12 | Senza audio sarebbe una finestra finta |
+| 2026-11-03 | Aprendo una nota da Ctrl K o dal Calendario, la riga trovata si accende e sfuma con un'animazione CSS | Una decorazione spenta solo da un timer poteva restare accesa in una scheda nascosta nel frattempo |
+| 2026-11-03 | `prova-sistema.mjs` usa tasti e mouse veri, attraverso PowerShell e Win32 | Playwright simula gli eventi dentro la pagina e non raggiunge tasti globali, area di notifica, primo piano e bordi della finestra. Il trascinamento delle schede rotto alla tappa 7 non l'aveva visto |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

@@ -27,6 +27,8 @@ export const app = $state({
   // Ultima nota aperta e modalità del grafo: il grafo locale parte da quella nota.
   lastNote: null,
   graphLocal: false,
+  // Riga da mostrare quando si apre una nota: { page, line }, presa dalla nota appena pronta.
+  reveal: null,
 });
 
 export const theme = {
@@ -72,4 +74,19 @@ export async function refreshCounts() {
 
 export function showToast(text) {
   app.toast = text;
+}
+
+// Il link [[id|Titolo]] da incollare in un'altra nota. Se gli appunti non rispondono si passa da una casella nascosta.
+export async function copyNoteLink(id, title) {
+  const text = `[[${id}|${title ?? id}]]`;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = Object.assign(document.createElement('textarea'), { value: text });
+    document.body.append(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  showToast(`Copiato: ${text}`);
 }

@@ -1,5 +1,5 @@
 <script>
-  import { app, showToast } from '../state/app.svelte.js';
+  import { app, copyNoteLink } from '../state/app.svelte.js';
   import { MODES, docs, modes, setMode } from '../state/documents.svelte.js';
   import { pageKind, pageArg, pageTitle } from './nav.js';
   import NotePage from '../note/NotePage.svelte';
@@ -59,22 +59,7 @@
     app.palette = true;
   }
 
-  // Il link [[id|Titolo]] da incollare in un'altra nota.
-  async function copyLink() {
-    const id = pageArg(page);
-    const title = docs[id]?.note?.title ?? id;
-    const text = `[[${id}|${title}]]`;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const area = Object.assign(document.createElement('textarea'), { value: text });
-      document.body.append(area);
-      area.select();
-      document.execCommand('copy');
-      area.remove();
-    }
-    showToast(`Copiato: ${text}`);
-  }
+  const copyLink = () => copyNoteLink(pageArg(page), docs[pageArg(page)]?.note?.title);
 
   function pick(it) {
     menu = false;

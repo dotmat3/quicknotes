@@ -78,6 +78,31 @@ impl Config {
         self.str_or("language", "it")
     }
 
+    /// Il file WAV resta accanto alla nota dopo la trascrizione.
+    pub fn keep_audio(&self) -> bool {
+        self.data.get("keep_audio").and_then(Value::as_bool).unwrap_or(true)
+    }
+
+    /// La trascrizione scrive `[mm:ss]` a inizio paragrafo.
+    pub fn transcript_timestamps(&self) -> bool {
+        self.data.get("transcript_timestamps").and_then(Value::as_bool).unwrap_or(true)
+    }
+
+    /// Le scelte della scheda Note e registrazione. Le altre chiavi non si cambiano da qui.
+    pub fn set_recording(&mut self, key: &str, value: Value) -> Result<(), String> {
+        let ok = match key {
+            "whisper_model" => value.as_str().is_some_and(|v| ["base", "small", "medium"].contains(&v)),
+            "language" => value.as_str().is_some_and(|v| ["it", "en", "auto"].contains(&v)),
+            "keep_audio" | "transcript_timestamps" => value.is_boolean(),
+            _ => false,
+        };
+        if !ok {
+            return Err(format!("Impostazione non valida: {key} = {value}"));
+        }
+        self.data.insert(key.to_string(), value);
+        Ok(())
+    }
+
     pub fn theme(&self) -> String {
         self.str_or("theme", "auto")
     }
@@ -164,6 +189,22 @@ mod tests {
         let again: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(again["altro"], 1);
         assert_eq!(again["ui"]["side"], "open");
+    }
+
+    #[test]
+    fn impostazioni_della_registrazione() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let mut cfg = Config::load_from(&path);
+        assert!(cfg.keep_audio() && cfg.transcript_timestamps());
+        cfg.set_recording("keep_audio", json!(false)).unwrap();
+        cfg.set_recording("whisper_model", json!("medium")).unwrap();
+        assert!(cfg.set_recording("whisper_model", json!("enorme")).is_err());
+        assert!(cfg.set_recording("notes_dir", json!("C:\\")).is_err(), "la cartella delle note non si cambia da qui");
+        cfg.save().unwrap();
+        let again = Config::load_from(&path);
+        assert!(!again.keep_audio());
+        assert_eq!(again.whisper_model(), "medium");
     }
 
     #[test]

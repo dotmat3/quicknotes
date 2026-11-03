@@ -19,6 +19,9 @@ const child = spawn(resolve('target/release/quicknotes.exe'), [], {
   },
   stdio: 'ignore',
 });
+// Alcune prove chiudono l'app (Esci, riavvio): dopo non si può più fotografare.
+let exited = false;
+child.on('exit', () => (exited = true));
 
 let code = 0;
 try {
@@ -44,9 +47,9 @@ try {
     const mod = await import(pathToFileURL(resolve(scriptPath)).href);
     // Una prova può dichiarare gli errori che provoca di proposito.
     expected = mod.expectedErrors ?? [];
-    await mod.default(page, { notes: resolve(notes), work });
+    await mod.default(page, { notes: resolve(notes), work, cfg: process.env.QN_CFG ?? join(work, 'cfg'), pid: child.pid });
   }
-  if (shot) await page.screenshot({ path: shot });
+  if (shot && !exited) await page.screenshot({ path: shot });
   const unexpected = errors.filter((e) => !expected.some((re) => re.test(e)));
   if (unexpected.length < errors.length) console.log(`errori attesi dalla prova: ${errors.length - unexpected.length}`);
   errors.splice(0, errors.length, ...unexpected);

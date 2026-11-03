@@ -89,13 +89,16 @@
     },
     {
       title: 'Ricerca Ctrl K',
-      intro: 'Senza testo mostra le note recenti e le viste; scrivendo cerca nel testo di tutte le note.',
+      intro: 'Senza testo mostra le note recenti e le viste; scrivendo cerca in note, azioni, decisioni e trascrizioni, con l’anteprima a destra.',
       rows: [
         ['parole', 'Cerca nel testo delle note'],
         ['@nome', 'Solo le note con quella persona'],
         ['#etichetta', 'Solo le note con quell’etichetta'],
         ['!parole', 'Cerca tra le decisioni'],
-        ['↑ ↓ · Invio', 'Scegli e apri'],
+        ['↑ ↓ · Invio', 'Scegli e apri, sulla riga trovata'],
+        ['Alt Invio', 'Apri a lato, in un altro gruppo'],
+        ['Tab · Shift Tab', 'Solo note, azioni, decisioni o trascrizioni'],
+        ['> comando', 'Solo i comandi'],
         ['Ctrl Invio', 'Crea una nota con il testo scritto come titolo'],
         ['Esc', 'Chiudi'],
       ],

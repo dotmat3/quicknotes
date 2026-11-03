@@ -5,7 +5,7 @@ import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-mar
 import { HighlightStyle, indentUnit, syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
-import { Annotation, Compartment, EditorSelection, EditorState, Facet, Prec, Transaction } from '@codemirror/state';
+import { Annotation, Compartment, EditorSelection, EditorState, Facet, Prec, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, drawSelection, dropCursor, EditorView, keymap, lineNumbers, placeholder, ViewPlugin } from '@codemirror/view';
 import { classHighlighter, tags as t } from '@lezer/highlight';
 import { livePreview, toggleTaskAt } from './livePreview.js';
@@ -226,6 +226,29 @@ function insertTime(view) {
 // Le modifiche inoltrate tra le viste della stessa nota portano questa annotazione, per evitare rimbalzi.
 const synced = Annotation.define();
 
+// La riga mostrata aprendo una nota da Ctrl K o dal Calendario resta evidenziata per un attimo: il colore
+// sfuma con un'animazione CSS, e la decorazione sparisce alla prima modifica o al primo clic.
+const flash = StateEffect.define();
+const flashField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) if (e.is(flash)) return e.value === null ? Decoration.none : Decoration.set([Decoration.line({ class: 'cm-flash' }).range(e.value)]);
+    return tr.docChanged || tr.isUserEvent('select') ? Decoration.none : deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+export function revealLine(view, line) {
+  const l = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
+  view.dispatch({ selection: { anchor: l.from }, effects: [EditorView.scrollIntoView(l.from, { y: 'center' }), flash.of(l.from)] });
+  setTimeout(() => unflash(view), 1600);
+}
+
+// Va spenta anche prima di conservare lo stato di una scheda nascosta, o resterebbe accesa al ritorno.
+export function unflash(view) {
+  if (view.state.field(flashField, false)?.size) view.dispatch({ effects: flash.of(null) });
+}
+
 export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
   return EditorState.create({
     doc,
@@ -251,6 +274,7 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
         optionClass: (c) => (c.type === 'invalid' ? 'cm-opt-invalid' : ''),
       }),
       placeholder('Inizia a scrivere…'),
+      flashField,
       Prec.high(
         keymap.of([
           { key: 'Mod-t', run: toggleAction, preventDefault: true },

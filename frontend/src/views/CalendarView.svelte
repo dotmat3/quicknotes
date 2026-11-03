@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { call, listen } from '../api.js';
   import { app } from '../state/app.svelte.js';
-  import { openPage } from '../state/layout.svelte.js';
+  import { openAt, openPage } from '../state/layout.svelte.js';
   import { isoToday } from '../note/editor/rules.js';
   import Icon from '../shell/Icon.svelte';
 
@@ -15,7 +15,10 @@
     late: ['In ritardo', 'var(--late)', 'color-mix(in srgb, var(--late) 14%, transparent)'],
     done: ['Fatta', 'var(--faint)', 'transparent'],
     dec: ['Decisione', 'var(--dec)', 'color-mix(in srgb, var(--dec) 13%, transparent)'],
+    rec: ['Registrazione', 'var(--muted)', 'color-mix(in srgb, var(--muted) 12%, transparent)'],
   };
+  // Nella legenda note e registrazioni hanno lo stesso colore, come nella tavola Home.
+  const LEGEND = [['due', 'Scadenza'], ['late', 'In ritardo'], ['dec', 'Decisione'], ['note', 'Nota o registrazione'], ['done', 'Fatta']];
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   const today = isoToday();
@@ -76,7 +79,7 @@
     openPage(`note:${n.id}`, n.title);
   }
 
-  const openEvent = (e) => e.note_id && openPage(`note:${e.note_id}`);
+  const openEvent = (e) => e.note_id && openAt(`note:${e.note_id}`, e.line);
   const prevName = $derived(mode === 'settimana' ? 'Settimana prima' : cap(MONTHS[(month + 11) % 12]));
   const nextName = $derived(mode === 'settimana' ? 'Settimana dopo' : cap(MONTHS[(month + 1) % 12]));
   const title = $derived.by(() => {
@@ -113,7 +116,7 @@
           <button class="wday" aria-label="{DOWS[d.getDay()]} {d.getDate()} {MONTHS[d.getMonth()]}" onclick={() => (sel = key)}><span class="dow">{DOWS3[d.getDay()]}</span><span class="num" class:dim={!ev.length && !days[key]?.daily}>{d.getDate()}</span></button>
           <div class="witems">
             {#each ev as e, i (i)}
-              <button class="witem" onclick={() => openEvent(e)}><span class="sw" style="background:{KINDS[e.kind][1]}"></span><span class="wt" class:strike={e.kind === 'done'} style="color:{e.kind === 'late' ? 'var(--late)' : e.kind === 'done' ? 'var(--faint)' : 'var(--text)'}">{e.text}</span><span class="wk">{KINDS[e.kind][0]}</span></button>
+              <button class="witem" onclick={() => openEvent(e)}><span class="sw" style="background:{KINDS[e.kind][1]}"></span>{#if e.kind === 'rec'}<Icon name="mic" size={14} style="color:var(--muted)" />{/if}<span class="wt" class:strike={e.kind === 'done'} style="color:{e.kind === 'late' ? 'var(--late)' : e.kind === 'done' ? 'var(--faint)' : 'var(--text)'}">{e.text}</span><span class="wk">{KINDS[e.kind][0]}</span></button>
             {:else}
               <span class="nothing">Niente in programma</span>
             {/each}
@@ -132,15 +135,15 @@
           <button class="cell" class:off={d.getMonth() !== month} class:sel={key === sel} class:top-line={i >= 7} class:left-line={i % 7} aria-pressed={key === sel} aria-label="{d.getDate()} {MONTHS[d.getMonth()]}{ev.length ? `, ${ev.length} elementi` : ''}{days[key]?.daily ? ', nota del giorno' : ''}" onclick={() => (sel = key)}>
             <span class="cell-head"><span class="cnum mono" class:today={key === today}>{d.getDate()}</span>{#if days[key]?.daily}<span class="ddot" title="Nota del giorno"></span>{/if}</span>
             {#each ev.slice(0, 3) as e, j (j)}
-              <span class="chip" class:strike={e.kind === 'done'} style="color:{KINDS[e.kind][1]};background:{KINDS[e.kind][2]}">{e.text}</span>
+              <span class="chip" class:strike={e.kind === 'done'} style="color:{KINDS[e.kind][1]};background:{KINDS[e.kind][2]}">{#if e.kind === 'rec'}<Icon name="mic" size={11} style="vertical-align:-1px;margin-right:3px" />{/if}{e.text}</span>
             {/each}
             {#if ev.length > 3}<span class="more">+{ev.length - 3} altri</span>{/if}
           </button>
         {/each}
       </div>
       <div class="legend">
-        {#each ['due', 'late', 'dec', 'note', 'done'] as k (k)}
-          <span class="leg"><span class="lsw" style="background:{KINDS[k][2]};border:1px solid {KINDS[k][1]}"></span>{KINDS[k][0]}</span>
+        {#each LEGEND as [k, label] (k)}
+          <span class="leg"><span class="lsw" style="background:{KINDS[k][2]};border:1px solid {KINDS[k][1]}"></span>{label}</span>
         {/each}
       </div>
     </div>
@@ -154,7 +157,7 @@
       {/if}
       <div class="side-list">
         {#each selEvents as e, i (i)}
-          <button class="side-item" onclick={() => openEvent(e)}><span class="sw top" style="background:{KINDS[e.kind][1]}"></span><span class="grow"><span class="sl">{e.text}</span><span class="sk">{KINDS[e.kind][0]}</span></span></button>
+          <button class="side-item" onclick={() => openEvent(e)}>{#if e.kind === 'rec'}<Icon name="mic" size={14} style="flex:none;margin-top:3px;color:var(--muted)" />{:else}<span class="sw top" style="background:{KINDS[e.kind][1]}"></span>{/if}<span class="grow"><span class="sl">{e.text}</span><span class="sk">{KINDS[e.kind][0]}</span></span></button>
         {:else}
           <p class="nothing">Niente in questo giorno.</p>
         {/each}

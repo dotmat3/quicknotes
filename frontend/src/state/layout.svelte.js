@@ -70,6 +70,25 @@ export function openPage(id, title) {
   remember();
 }
 
+// Apre una nota mostrando una riga: la nota la porta al centro appena l'editor è pronto.
+export function openAt(id, line, title) {
+  if (line) app.reveal = { page: id, line };
+  openPage(id, title);
+}
+
+// "Apri a lato": nel gruppo accanto a quello attivo, o in un gruppo nuovo a destra.
+export function openBeside(id, title, line) {
+  const g = focused();
+  if (layout.groups.length > 1) {
+    const i = layout.groups.indexOf(g);
+    layout.focus = (layout.groups[i + 1] ?? layout.groups[i - 1]).id;
+    return openAt(id, line, title);
+  }
+  if (title) app.titles[id] = title;
+  if (line) app.reveal = { page: id, line };
+  splitTo(g.id, id, g.id, canSide('right') ? 'right' : 'bottom', true);
+}
+
 export function activate(groupId, id) {
   const g = group(groupId);
   g.active = id;

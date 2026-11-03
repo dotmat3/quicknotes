@@ -440,6 +440,111 @@ pub fn action_display_text(text: &str) -> String {
     t.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// `🎙️ [Registrazione 15:02 (12:30)](audio/nota-150200.wav)`, la riga scritta alla fine di una registrazione.
+static RECORDING_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\[Registrazione (\d{1,2}:\d{2})(?: \((\d{1,2}(?::\d{2}){1,2})\))?\]\(([^)]*)\)").expect("regex valida")
+});
+/// `### Trascrizione 15:02`, il titolo sopra il testo trascritto.
+static TRANSCRIPT_HEADING_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^#{1,6}\s+Trascrizione\s+(\d{1,2}:\d{2})\s*$").expect("regex valida"));
+/// `[mm:ss]` o `[h:mm:ss]` a inizio riga: il minutaggio di un paragrafo trascritto.
+static TIMESTAMP_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*(?:[-*+]\s+)?\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)$").expect("regex valida"));
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Recording {
+    pub line_no: usize,
+    /// Ora d'inizio, `HH:MM`.
+    pub time: String,
+    pub duration: Option<String>,
+    /// Il file audio, se la riga c'è; manca quando resta solo il titolo della trascrizione.
+    pub file: Option<String>,
+    pub transcribed: bool,
+}
+
+/// Registrazioni di una nota: le righe `🎙️ [Registrazione …](…)` e i titoli `Trascrizione HH:MM`, uniti per ora.
+pub fn recordings(body: &str) -> Vec<Recording> {
+    let mut out: Vec<Recording> = Vec::new();
+    let mut in_fence = false;
+    for (idx, line) in body.lines().enumerate() {
+        if is_fence(line) {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        if let Some(c) = RECORDING_RE.captures(line) {
+            let time = pad_time(&c[1]);
+            match out.iter_mut().find(|r| r.time == time && r.file.is_none()) {
+                Some(r) => {
+                    r.file = Some(c[3].to_string());
+                    r.duration = c.get(2).map(|m| m.as_str().to_string());
+                }
+                None => out.push(Recording {
+                    line_no: idx + 1,
+                    time,
+                    duration: c.get(2).map(|m| m.as_str().to_string()),
+                    file: Some(c[3].to_string()),
+                    transcribed: false,
+                }),
+            }
+        } else if let Some(c) = TRANSCRIPT_HEADING_RE.captures(line) {
+            let time = pad_time(&c[1]);
+            match out.iter_mut().find(|r| r.time == time && !r.transcribed) {
+                Some(r) => r.transcribed = true,
+                None => out.push(Recording { line_no: idx + 1, time, duration: None, file: None, transcribed: true }),
+            }
+        }
+    }
+    out
+}
+
+fn pad_time(t: &str) -> String {
+    if t.len() == 4 {
+        format!("0{t}")
+    } else {
+        t.to_string()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TranscriptLine {
+    pub line_no: usize,
+    /// L'ora della trascrizione (`Trascrizione HH:MM` sopra la riga), se c'è.
+    pub time: Option<String>,
+    /// Il minutaggio della riga, `mm:ss`.
+    pub stamp: String,
+    pub text: String,
+}
+
+/// Le righe con il minutaggio a inizio riga, con l'ora della trascrizione a cui appartengono.
+pub fn transcript_lines(body: &str) -> Vec<TranscriptLine> {
+    let mut out = Vec::new();
+    let mut time = None;
+    let mut in_fence = false;
+    for (idx, line) in body.lines().enumerate() {
+        if is_fence(line) {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        if let Some(c) = TRANSCRIPT_HEADING_RE.captures(line) {
+            time = Some(pad_time(&c[1]));
+        } else if HEADING_RE.is_match(line) {
+            time = None;
+        } else if let Some(c) = TIMESTAMP_RE.captures(line) {
+            let text = c[2].trim();
+            if !text.is_empty() {
+                out.push(TranscriptLine { line_no: idx + 1, time: time.clone(), stamp: c[1].to_string(), text: text.to_string() });
+            }
+        }
+    }
+    out
+}
+
 pub fn slugify(text: &str) -> String {
     let ascii: String = text.nfkd().filter(char::is_ascii).collect();
     let mut out = String::new();
@@ -470,6 +575,21 @@ pub fn slugify(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registrazioni_e_trascrizioni() {
+        let body = "Intro\n🎙️ [Registrazione 9:42 (12:30)](audio/n-094200.wav)\n\n### Trascrizione 09:42\n[00:00] Allora, il budget.\n[01:12] Tre tranche mensili.\n\n## Note\n[02:00] Fuori dalla trascrizione\n\
+                    ```\n[Registrazione 10:00](x.wav)\n```\n### Trascrizione 16:05\n[1:02:03] Lunga\n";
+        let r = recordings(body);
+        assert_eq!(r.len(), 2, "{r:?}");
+        assert_eq!((r[0].time.as_str(), r[0].duration.as_deref(), r[0].file.as_deref(), r[0].transcribed), ("09:42", Some("12:30"), Some("audio/n-094200.wav"), true));
+        assert_eq!((r[1].time.as_str(), r[1].file.as_deref(), r[1].transcribed), ("16:05", None, true), "resta solo il titolo");
+        let t = transcript_lines(body);
+        assert_eq!(t.len(), 4);
+        assert_eq!((t[0].time.as_deref(), t[0].stamp.as_str(), t[0].text.as_str()), (Some("09:42"), "00:00", "Allora, il budget."));
+        assert_eq!(t[2].time, None, "un altro titolo chiude la trascrizione");
+        assert_eq!((t[3].time.as_deref(), t[3].stamp.as_str()), (Some("16:05"), "1:02:03"));
+    }
 
     #[test]
     fn frontmatter_conservato_e_separato() {

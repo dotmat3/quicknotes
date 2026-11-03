@@ -45,6 +45,14 @@ write('riunione-budget-q4', `type: meeting\ntitle: Riunione budget Q4\ndate: ${p
 ## Note
 
 Giulia propone di chiudere la bozza entro lunedì. Marco chiede margine per la formazione.
+
+## Trascrizioni
+
+🎙️ [Registrazione 15:02 (18:40)](audio/riunione-budget-q4-150200.wav)
+
+### Trascrizione 15:02
+[00:00] Punto della situazione: la bozza è quasi pronta, mancano le voci di ottobre.
+[12:40] Per il quarto trimestre servono tre tranche mensili, quindi il foglio costi va diviso per mese.
 `);
 write('requisiti-e-architettura', `type: note\ntitle: Requisiti e architettura\ndate: ${plus(-12)}\ntags: [quicknotes]`, `Uso personale, solo desktop. Le note sono file Markdown.
 

@@ -288,7 +288,7 @@ pub fn full_graph(state: State<'_, AppState>) -> CmdResult<views::Graph> {
 
 #[tauri::command(async)]
 pub fn search_all(state: State<'_, AppState>, query: String) -> CmdResult<Vec<views::SearchHit>> {
-    views::search_all(&state.store, &query).map_err(err)
+    views::search_all(&state.store, &query, Local::now().date_naive()).map_err(err)
 }
 
 #[tauri::command(async)]
@@ -306,6 +306,33 @@ pub fn open_url(app: AppHandle, url: String) -> CmdResult<()> {
         return Err(format!("Si aprono solo i link http e https: {url}"));
     }
     app.opener().open_url(parsed.as_str(), None::<&str>).map_err(err)
+}
+
+/// La scheda Note e registrazione delle Impostazioni.
+#[tauri::command(async)]
+pub fn notes_settings(state: State<'_, AppState>) -> CmdResult<Value> {
+    let config = state.config.lock().map_err(err)?;
+    Ok(json!({
+        "notesDir": state.store.root().to_string_lossy(),
+        "whisperModel": config.whisper_model(),
+        "language": config.language(),
+        "keepAudio": config.keep_audio(),
+        "timestamps": config.transcript_timestamps(),
+    }))
+}
+
+#[tauri::command(async)]
+pub fn set_notes_setting(state: State<'_, AppState>, key: String, value: Value) -> CmdResult<()> {
+    let mut config = state.config.lock().map_err(err)?;
+    config.set_recording(&key, value)?;
+    config.save().map_err(err)
+}
+
+/// Apre la cartella delle note in Esplora risorse. Solo quella: nessun percorso arriva dalla pagina.
+#[tauri::command]
+pub fn open_notes_folder(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_path(state.store.root().to_string_lossy(), None::<&str>).map_err(err)
 }
 
 /// Il blocco da copiare in Claude: percorso reale del server MCP accanto all'app.
