@@ -74,7 +74,7 @@ export default async function (page) {
   assert(bg === 'rgb(23, 24, 27)', 'il tema Grafite si applica subito');
   await shot('impostazioni-grafite');
   for (const t of ['Navigazione', 'Azioni', 'Etichette', 'Claude']) {
-    await page.getByRole('tablist', { name: 'Categorie' }).getByRole('tab', { name: t }).click();
+    await page.getByRole('tablist', { name: 'Categorie' }).getByRole('tab', { name: t, exact: true }).click();
     await page.waitForTimeout(120);
   }
   assert((await page.locator('pre').count()) === 2, 'la scheda Claude mostra la configurazione da copiare');

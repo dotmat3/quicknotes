@@ -1,7 +1,9 @@
 //! Configurazione: `~/.quicknotes/config.json`, lo stesso file della versione precedente.
 //!
 //! `QUICKNOTES_CONFIG_DIR` e `QUICKNOTES_DIR` spostano configurazione e note: li usano
-//! i test, le prove di sviluppo e il server MCP. Le chiavi sconosciute si conservano.
+//! i test, le prove di sviluppo e il server MCP. Gli argomenti `--cartella-config=<dir>` e
+//! `--cartella-note=<dir>` fanno lo stesso e, a differenza delle variabili, restano anche quando un
+//! aggiornamento riavvia l'app. Le chiavi sconosciute si conservano.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,8 +17,20 @@ fn home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
+/// Il valore di `--nome=valore` tra gli argomenti dati a `args`.
+fn arg_value(args: impl IntoIterator<Item = std::ffi::OsString>, name: &str) -> Option<PathBuf> {
+    args.into_iter().find_map(|a| a.to_str()?.strip_prefix(name)?.strip_prefix('=').filter(|v| !v.is_empty()).map(PathBuf::from))
+}
+
+fn arg(name: &str) -> Option<PathBuf> {
+    arg_value(std::env::args_os().skip(1), name)
+}
+
 pub fn config_dir() -> PathBuf {
-    std::env::var_os("QUICKNOTES_CONFIG_DIR").map(PathBuf::from).unwrap_or_else(|| home().join(".quicknotes"))
+    std::env::var_os("QUICKNOTES_CONFIG_DIR")
+        .map(PathBuf::from)
+        .or_else(|| arg("--cartella-config"))
+        .unwrap_or_else(|| home().join(".quicknotes"))
 }
 
 #[derive(Debug, Clone)]
@@ -55,8 +69,8 @@ impl Config {
     }
 
     pub fn notes_path(&self) -> PathBuf {
-        if let Some(dir) = std::env::var_os("QUICKNOTES_DIR") {
-            return PathBuf::from(dir);
+        if let Some(dir) = std::env::var_os("QUICKNOTES_DIR").map(PathBuf::from).or_else(|| arg("--cartella-note")) {
+            return dir;
         }
         match self.data.get("notes_dir").and_then(Value::as_str) {
             Some(d) if !d.trim().is_empty() => {
@@ -167,6 +181,14 @@ pub fn convert_hotkey(combo: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cartelle_dagli_argomenti() {
+        let args = ["--nascosta", "--cartella-note=C:/Prova note", "--cartella-config="].map(std::ffi::OsString::from);
+        assert_eq!(arg_value(args.clone(), "--cartella-note"), Some(PathBuf::from("C:/Prova note")));
+        assert_eq!(arg_value(args.clone(), "--cartella-config"), None, "un valore vuoto non vale");
+        assert_eq!(arg_value(args, "--cartella"), None, "serve il nome intero");
+    }
 
     #[test]
     fn conversione_dei_tasti() {

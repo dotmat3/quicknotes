@@ -23,10 +23,20 @@ pub struct AppState {
 /// La finestra principale è già comparsa almeno una volta.
 static SHOWN: AtomicBool = AtomicBool::new(false);
 
+/// Avviata con Windows: l'app resta nell'area di notifica, con i tasti globali pronti, finché non serve.
+fn started_hidden() -> bool {
+    std::env::args().any(|a| a == AUTOSTART_ARG)
+}
+
+const AUTOSTART_ARG: &str = "--nascosta";
+
 /// La pagina è disegnata: si può mostrare la finestra. La nota rapida resta nascosta finché non serve.
 #[tauri::command]
 fn app_ready(window: tauri::WebviewWindow) {
-    if window.label() == "main" {
+    if window.label() == "main" && started_hidden() {
+        SHOWN.store(true, Ordering::Relaxed);
+        trace::mark("prima pittura");
+    } else if window.label() == "main" {
         SHOWN.store(true, Ordering::Relaxed);
         trace::mark("prima pittura");
         let _ = window.show();
@@ -67,6 +77,9 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(desktop::on_shortcut).build())
         // Solo per `open_url`: la pagina non ha permessi sul plugin.
         .plugin(tauri_plugin_opener::init())
+        // Aggiornamenti e avvio con Windows si usano solo dai comandi dell'app, come l'opener.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![AUTOSTART_ARG])))
         .invoke_handler(tauri::generate_handler![
             app_ready,
             commands::save_ui,
@@ -104,6 +117,10 @@ fn main() {
             commands::set_notes_setting,
             commands::open_notes_folder,
             commands::save_image,
+            commands::app_info,
+            commands::set_autostart,
+            commands::check_update,
+            commands::install_update,
         ])
         // Le immagini delle note: `http://qnfile.localhost/<percorso nella cartella delle note>`. Si servono
         // solo file immagine dentro la cartella delle note; la lettura avviene fuori dal thread della finestra.
@@ -154,6 +171,9 @@ fn main() {
             // Se la pagina non risponde, la finestra deve comparire comunque. Se invece è già comparsa,
             // non va rimostrata: l'utente potrebbe averla appena chiusa.
             let fallback = window.clone();
+            if started_hidden() {
+                SHOWN.store(true, Ordering::Relaxed);
+            }
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_secs(3));
                 if !SHOWN.swap(true, Ordering::Relaxed) {

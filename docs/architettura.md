@@ -186,4 +186,6 @@ I risultati vanno annotati in [piano-incrementale.md](piano-incrementale.md) a o
 | `node scripts/demo-note.mjs <cartella>` | Note di prova simili a quelle del design |
 | `node scripts/cdp.mjs <cartella> <foto.png> [script.mjs]` | Avvia l'app in cartelle di prova, la guida via CDP, fotografa e segnala gli errori della pagina. `scripts/prova-*.mjs` sono le prove da usare come `script.mjs` |
 
-La compilazione richiede Rust e gli MSVC Build Tools.
+| `node scripts/rilascio.mjs --repo <utente/repository> --note "…"` | Installer firmato e `latest.json` in `rilasci/v<versione>/`, da pubblicare su GitHub. Vedi [rilascio.md](rilascio.md) |
+
+La compilazione richiede Rust e gli MSVC Build Tools. Il rilascio richiede anche la chiave di firma in `%USERPROFILE%\.tauri\quicknotes.key`.

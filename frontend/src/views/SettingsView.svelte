@@ -6,8 +6,9 @@
   import { VIEWS } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
   import SettingRow from './SettingRow.svelte';
+  import { checkNow, install, loadInfo, updates } from '../state/updates.svelte.js';
 
-  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Etichette'], ['note', 'Note e registrazione'], ['claude', 'Claude']];
+  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Etichette'], ['note', 'Note e registrazione'], ['claude', 'Claude'], ['info', 'Informazioni']];
   const tab = $derived(app.settingsTab ?? 'aspetto');
 
   let tags = $state([]);
@@ -20,7 +21,28 @@
     if (tab === 'etichette') call('all_tags', {}, []).then((t) => (tags = t));
     if (tab === 'claude' && !claude) call('claude_config').then((c) => (claude = c));
     if (tab === 'note' && !notes) call('notes_settings').then((n) => (notes = n));
+    if (tab === 'info' && !updates.info) loadInfo();
   });
+
+  const updateText = $derived.by(() => {
+    if (!updates.info?.updates) return 'Questa copia non è stata costruita con lo script di rilascio: non cerca aggiornamenti.';
+    if (updates.installing) return 'Download e installazione: l’app si chiude e si riapre aggiornata.';
+    if (updates.checking) return 'Controllo in corso…';
+    if (updates.error) return updates.error;
+    if (updates.available) return `È disponibile la versione ${updates.available.version}.`;
+    if (updates.checked) return 'Hai la versione più recente.';
+    return 'Si controlla qualche secondo dopo l’avvio, su GitHub.';
+  });
+  const mb = (n) => (n / 1024 / 1024).toFixed(1);
+
+  async function setAutostart(on) {
+    try {
+      await call('set_autostart', { on });
+      updates.info.autostart = on;
+    } catch (e) {
+      showToast(String(e));
+    }
+  }
 
   // Le scelte della registrazione vanno in config.json con le chiavi della versione precedente.
   async function setNotes(field, key, value) {
@@ -216,6 +238,32 @@
       <SettingRow label="Minutaggio cliccabile" desc="Ogni paragrafo trascritto comincia con [mm:ss], che fa ripartire l’audio da lì.">{@render toggle('Minutaggio cliccabile', notes.timestamps, () => setNotes('timestamps', 'transcript_timestamps', !notes.timestamps))}</SettingRow>
     </div>
   </section>
+{:else if tab === 'info' && updates.info}
+  <section>
+    <h2>QuickNotes</h2>
+    <div class="box">
+      <SettingRow label="Versione" desc=""><span class="mono value">{updates.info.version}</span></SettingRow>
+      <SettingRow label="Aggiornamenti" desc={updateText}>
+        {#if updates.available}
+          <button class="btn primary" disabled={updates.installing} onclick={install}>{updates.installing ? (updates.progress?.total ? `${mb(updates.progress.done)} di ${mb(updates.progress.total)} MB` : 'Download…') : 'Aggiorna e riavvia'}</button>
+        {:else if updates.info.updates}
+          <button class="btn" disabled={updates.checking} onclick={checkNow}>Controlla ora</button>
+        {/if}
+      </SettingRow>
+      {#if updates.available?.notes}
+        <div class="notes-box"><div class="nlabel">Novità della {updates.available.version}</div><p class="nbody">{updates.available.notes}</p></div>
+      {/if}
+      {#if updates.info.updates}
+        <SettingRow label="Controlla all’avvio" desc="Se c’è una versione nuova, compare un pulsante nella barra del titolo. Niente si installa senza il tuo clic.">{@render toggle('Controlla all’avvio', app.autoUpdate, () => set('autoUpdate', !app.autoUpdate))}</SettingRow>
+      {/if}
+    </div>
+  </section>
+  <section>
+    <h2>Avvio</h2>
+    <div class="box">
+      <SettingRow label="Avvia con Windows" desc="L’app parte nascosta nell’area di notifica, con Ctrl Alt N e Ctrl Alt D già pronti.">{@render toggle('Avvia con Windows', updates.info.autostart, () => setAutostart(!updates.info.autostart))}</SettingRow>
+    </div>
+  </section>
 {:else if tab === 'claude' && claude}
   <section>
     <h2>Claude (MCP)</h2>
@@ -263,6 +311,9 @@
   .custom { margin-top: 12px; }
   .hex { font-size: 12px; color: var(--muted); }
   .value { font-size: 13px; color: var(--muted); }
+  .notes-box { padding: 12px 16px 14px; }
+  .nlabel { font-size: 12px; font-weight: 600; color: var(--subtle); }
+  .nbody { margin: 4px 0 0; font-size: 13.5px; color: var(--text2); white-space: pre-wrap; }
   input[type='color'] { width: 26px; height: 24px; padding: 0; border: 0; background: transparent; cursor: pointer; }
   .vrow { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px 0 12px; font-size: 13.5px; cursor: grab; }
   .vrow.fixed { color: var(--subtle); cursor: default; padding-right: 12px; }

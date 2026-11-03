@@ -347,6 +347,56 @@ pub fn open_notes_folder(app: AppHandle, state: State<'_, AppState>) -> CmdResul
     app.opener().open_path(state.store.root().to_string_lossy(), None::<&str>).map_err(err)
 }
 
+/// Versione, aggiornamenti e avvio con Windows, per la scheda Informazioni. Gli aggiornamenti sono
+/// configurati solo nelle versioni costruite con `scripts/rilascio.mjs`, che indica da dove scaricarli.
+#[tauri::command]
+pub fn app_info(app: AppHandle) -> CmdResult<Value> {
+    use tauri_plugin_autostart::ManagerExt;
+    let updater = app.config().plugins.0.get("updater");
+    let endpoints = updater.and_then(|u| u.get("endpoints")).and_then(Value::as_array).map(|e| e.len()).unwrap_or(0);
+    Ok(json!({
+        "version": app.package_info().version.to_string(),
+        "updates": endpoints > 0,
+        "autostart": app.autolaunch().is_enabled().unwrap_or(false),
+    }))
+}
+
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, on: bool) -> CmdResult<()> {
+    use tauri_plugin_autostart::ManagerExt;
+    let launcher = app.autolaunch();
+    if on { launcher.enable() } else { launcher.disable() }.map_err(err)
+}
+
+/// La versione più nuova pubblicata, se c'è. La firma si controlla al download, con la chiave pubblica
+/// scritta nell'app: un pacchetto non firmato con la chiave di rilascio non si installa.
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> CmdResult<Option<Value>> {
+    use tauri_plugin_updater::UpdaterExt;
+    let update = app.updater().map_err(err)?.check().await.map_err(err)?;
+    Ok(update.map(|u| json!({"version": u.version, "notes": u.body, "date": u.date.map(|d| d.to_string())})))
+}
+
+/// Scarica e installa l'aggiornamento. La pagina salva tutto prima di chiamarlo: l'installer chiude l'app
+/// e la riapre alla fine. L'avanzamento arriva con l'evento `update-progress`.
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> CmdResult<()> {
+    use tauri_plugin_updater::UpdaterExt;
+    let update = app.updater().map_err(err)?.check().await.map_err(err)?.ok_or("Nessun aggiornamento disponibile")?;
+    let mut done = 0usize;
+    update
+        .download_and_install(
+            |chunk, total| {
+                done += chunk;
+                let _ = app.emit("update-progress", json!({"done": done, "total": total}));
+            },
+            || {},
+        )
+        .await
+        .map_err(err)?;
+    app.restart();
+}
+
 /// Il blocco da copiare in Claude: percorso reale del server MCP accanto all'app.
 #[tauri::command]
 pub fn claude_config() -> CmdResult<Value> {
