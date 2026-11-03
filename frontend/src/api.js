@@ -1,18 +1,21 @@
-// Ponte verso Python: i metodi della classe Api di quicknotes/webapp.py, esposti da pywebview.
-// Aperta nel browser con ?mock (anteprima senza Python) usa dati finti in memoria.
+// Chiamate al backend. Tutto passa da qui, così la pagina non conosce percorsi né file.
+import { invoke } from '@tauri-apps/api/core';
 
-let ready;
+export const inTauri = '__TAURI_INTERNALS__' in window;
 
-function backend() {
-  ready ??= new Promise((resolve) => {
-    if (window.pywebview?.api) return resolve(window.pywebview.api);
-    window.addEventListener('pywebviewready', () => resolve(window.pywebview.api), { once: true });
-    if (new URLSearchParams(location.search).has('mock')) import('./mock.js').then((m) => resolve(m.mockApi));
-  });
-  return ready;
+export const boot = window.__QN__ ?? { theme: 'grafite', ui: {}, today: null, today_iso: '2026-11-01' };
+
+export async function call(command, args = {}, fallback) {
+  if (!inTauri) return fallback;
+  return invoke(command, args);
 }
 
-export async function call(name, ...args) {
-  const api = await backend();
-  return api[name](...args);
+export async function listen(event, handler) {
+  if (!inTauri) return () => {};
+  const { listen: tauriListen } = await import('@tauri-apps/api/event');
+  return tauriListen(event, (e) => handler(e.payload));
+}
+
+export function appReady() {
+  if (inTauri) invoke('app_ready');
 }

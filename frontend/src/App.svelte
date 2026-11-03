@@ -1,115 +1,105 @@
 <script>
   import { onMount } from 'svelte';
-  import NoteList from './components/NoteList.svelte';
-  import NotePage from './components/NotePage.svelte';
-  import Overlays from './components/Overlays.svelte';
-  import Sidebar from './components/Sidebar.svelte';
-  import { call } from './api.js';
-  import { app } from './state.svelte.js';
+  import { call, listen } from './api.js';
+  import { app, refreshCounts, savePrefs, showToast } from './state/app.svelte.js';
+  import { onExternalChange, saveAll } from './state/documents.svelte.js';
+  import { closeTabs, focused, openPage, reopen, splitTo, canSide } from './state/layout.svelte.js';
+  import Sidebar from './shell/Sidebar.svelte';
+  import Rail from './shell/Rail.svelte';
+  import Workspace from './shell/Workspace.svelte';
+  import Icon from './shell/Icon.svelte';
+  import { VIEWS } from './shell/nav.js';
 
-  // larghezze delle colonne, trascinabili e ricordate
-  const LIMITS = { sidebar: [180, 320, 232], list: [260, 520, 340] };
-  let widths = $state(loadWidths());
-  let dragging = $state(null);
-
-  function loadWidths() {
-    try {
-      const saved = JSON.parse(localStorage.getItem('qn.widths') ?? '{}');
-      return { sidebar: saved.sidebar ?? LIMITS.sidebar[2], list: saved.list ?? LIMITS.list[2] };
-    } catch {
-      return { sidebar: LIMITS.sidebar[2], list: LIMITS.list[2] };
-    }
-  }
-
-  function startDrag(e, which) {
-    e.preventDefault();
-    const handle = e.currentTarget;
-    handle.setPointerCapture(e.pointerId);
-    const startX = e.clientX;
-    const start = widths[which];
-    const [min, max] = LIMITS[which];
-    dragging = which;
-    const move = (ev) => (widths[which] = Math.round(Math.min(max, Math.max(min, start + ev.clientX - startX))));
-    const up = () => {
-      dragging = null;
-      handle.removeEventListener('pointermove', move);
-      handle.removeEventListener('pointerup', up);
-      try {
-        localStorage.setItem('qn.widths', JSON.stringify(widths));
-      } catch {}
-    };
-    handle.addEventListener('pointermove', move);
-    handle.addEventListener('pointerup', up);
-  }
-
-  // barra del titolo di Windows chiara o scura come la pagina
-  const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  let systemDark = $state(darkQuery.matches);
-  darkQuery.addEventListener('change', (e) => (systemDark = e.matches));
-  $effect(() => {
-    call('titlebar', app.theme === 'dark' || (app.theme === 'auto' && systemDark));
-  });
+  let Palette = $state(null);
 
   $effect(() => {
-    const root = document.documentElement;
-    if (app.theme === 'auto') delete root.dataset.theme;
-    else root.dataset.theme = app.theme;
-    root.dataset.motion = app.animations ? 'on' : 'off';
+    if (app.palette && !Palette) import('./overlays/Palette.svelte').then((m) => (Palette = m.default));
   });
 
-  // scorciatoie della finestra; i tasti propri del browser (stampa, ricarica, ...) sono disattivati
-  const BROWSER_KEYS = new Set(['p', 'g', 'j', 'u', 'o', 'r', 'h', 'l', 'e', 'k']);
-  function keydown(e) {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) {
-      if (e.key === 'F5' || e.key === 'F3' || e.key === 'F7' || e.key === 'F12') e.preventDefault();
+  onMount(() => {
+    refreshCounts();
+    const offs = [
+      listen('index-updated', refreshCounts),
+      listen('note-changed', onExternalChange),
+      // La finestra si nasconde: si salva subito, anche se l'app resta aperta.
+      listen('flush', saveAll),
+      // L'app si sta chiudendo: prima si salva tutto.
+      listen('flush-and-close', async () => {
+        await saveAll();
+        call('quit');
+      }),
+      listen('open-page', (p) => openPage(p.page, p.title)),
+      // L'app può restare aperta per giorni: "oggi" va riletto ogni volta che torna visibile.
+      listen('window-shown', async () => {
+        const t = await call('today_info');
+        if (t) app.today = t;
+      }),
+      listen('toast', showToast),
+    ];
+    return () => offs.forEach((off) => off.then((f) => f()));
+  });
+
+  function toggleSide() {
+    app.side = app.side === 'open' ? 'closed' : 'open';
+    savePrefs();
+  }
+
+  async function newNote(noteType) {
+    const n = await call('new_note', { title: '', noteType });
+    openPage(`note:${n.id}`, n.title);
+  }
+
+  function onKey(e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'k' || k === 'p' || k === 'o') {
+      app.palette = !app.palette;
+    } else if (k === '\\' && e.altKey) {
+      const g = focused();
+      if (g.active) splitTo(g.id, g.active, g.id, canSide('right') ? 'right' : 'bottom', true);
+    } else if (k === '\\') {
+      toggleSide();
+    } else if (k === 'w' && !e.shiftKey) {
+      const g = focused();
+      if (g.active) closeTabs(g.id, [g.active]);
+    } else if (k === 't' && e.shiftKey) {
+      reopen();
+    } else if (k === 'n') {
+      newNote(e.shiftKey ? 'note' : 'meeting');
+    } else if (k === ',') {
+      openPage('settings', 'Impostazioni');
+    } else if (/^[1-6]$/.test(k) && !e.altKey) {
+      const pages = [`note:${app.today?.id}`, ...app.viewOrder.filter((v) => app.viewVis[v]).map((v) => VIEWS[v].page)];
+      const page = pages[Number(k) - 1];
+      if (page) openPage(page);
+    } else {
       return;
     }
-    const key = e.key.toLowerCase();
-    const handled = {
-      n: () => app.newDraft(e.shiftKey ? 'note' : 'meeting'),
-      f: () => app.requestFocus('search'),
-      s: () => app.save(),
-    }[key];
-    if (handled) {
-      e.preventDefault();
-      handled();
-    } else if (BROWSER_KEYS.has(key) && !e.defaultPrevented) {
-      e.preventDefault();
-    }
+    e.preventDefault();
   }
-
-  // menu contestuale solo dove si scrive (correttore ortografico, copia/incolla)
-  function contextmenu(e) {
-    if (!e.target.closest('.cm-content, input, textarea')) e.preventDefault();
-  }
-
-  onMount(() => app.start());
 </script>
 
-<svelte:window onkeydown={keydown} oncontextmenu={contextmenu} />
+<svelte:window onkeydown={onKey} />
 
-<div class="shell" class:dragging style:--sidebar-w="{widths.sidebar}px" style:--list-w="{widths.list}px">
-  <Sidebar />
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="splitter" class:active={dragging === 'sidebar'} onpointerdown={(e) => startDrag(e, 'sidebar')}></div>
-  <NoteList />
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="splitter" class:active={dragging === 'list'} onpointerdown={(e) => startDrag(e, 'list')}></div>
-  {#if app.note}
-    <NotePage note={app.note} />
+<div class="root">
+  {#if app.side === 'open'}
+    <Sidebar {toggleSide} />
   {:else}
-    <div class="loading"></div>
+    <Rail {toggleSide} />
+  {/if}
+  <Workspace />
+  {#if app.palette && Palette}
+    <Palette />
+  {/if}
+  {#if app.toast}
+    <div class="toast" role="status">
+      <span>{app.toast}</span>
+      <button class="icon-btn" aria-label="Chiudi" onclick={() => (app.toast = '')}><Icon name="close" size={13} /></button>
+    </div>
   {/if}
 </div>
 
-<Overlays />
-
 <style>
-  .shell { height: 100%; display: grid; grid-template-columns: var(--sidebar-w) 1px var(--list-w) 1px minmax(0, 1fr); }
-  .shell.dragging { cursor: col-resize; }
-  .shell.dragging :global(*) { cursor: col-resize !important; user-select: none !important; }
-  .splitter { position: relative; background: var(--border); z-index: 5; transition: background var(--fast) var(--ease); }
-  .splitter::after { content: ''; position: absolute; inset: 0 -4px; cursor: col-resize; }
-  .splitter:hover, .splitter.active { background: var(--accent); }
-  .loading { background: var(--bg); }
+  .root { height: 100%; display: flex; align-items: stretch; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 10px 10px 14px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); font-size: 13px; }
 </style>

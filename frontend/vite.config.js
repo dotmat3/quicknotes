@@ -1,10 +1,14 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// Il build finisce dentro il pacchetto Python: l'app installata non ha bisogno di Node.
 export default defineConfig({
   plugins: [svelte()],
-  base: './',
+  clearScreen: false,
   server: { port: 5173, strictPort: true },
-  build: { outDir: '../quicknotes/webui', emptyOutDir: true, target: 'chrome110', chunkSizeWarningLimit: 1000 },
+  build: {
+    target: 'chrome110',
+    cssCodeSplit: true,
+    // La prima schermata non precarica i blocchi di editor e viste.
+    modulePreload: { polyfill: false },
+  },
 });

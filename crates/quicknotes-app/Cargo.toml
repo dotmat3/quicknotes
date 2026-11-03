@@ -1,0 +1,28 @@
+[package]
+name = "quicknotes-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "App desktop QuickNotes"
+
+[[bin]]
+name = "quicknotes"
+path = "src/main.rs"
+
+[features]
+# Interfaccia inclusa nell'eseguibile. `--no-default-features` usa il server di sviluppo di Vite.
+default = ["embed-ui"]
+embed-ui = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+notify = { version = "8", default-features = false }
+quicknotes-core = { path = "../quicknotes-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"

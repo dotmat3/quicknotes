@@ -7,11 +7,14 @@ __pycache__/
 build/
 dist/
 
-# Frontend (quicknotes/webui/ invece si versiona: e' l'interfaccia compilata, serve a chi installa senza Node)
-frontend/node_modules/
-
 # Editor e sistema
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Rust e frontend
+target/
+crates/quicknotes-app/gen/schemas/
+frontend/node_modules/
+frontend/dist/
