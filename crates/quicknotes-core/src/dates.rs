@@ -72,7 +72,7 @@ pub fn due_label(due: NaiveDate, today: NaiveDate) -> (String, DueLevel) {
 }
 
 /// Colonna della bacheca a cui appartiene una scadenza.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DueGroup {
     Late,
@@ -97,6 +97,15 @@ pub fn due_group(due: Option<NaiveDate>, today: NaiveDate) -> DueGroup {
         Some(sunday) if due <= sunday => DueGroup::Week,
         _ => DueGroup::Later,
     }
+}
+
+/// Il primo giorno che cade in una colonna: la scadenza di un'azione aggiunta con il "+" di quella colonna.
+/// `None` per "In ritardo" e "Senza scadenza", e per "Questa settimana" quando dopodomani è già la settimana dopo.
+pub fn first_day_in(group: DueGroup, today: NaiveDate) -> Option<NaiveDate> {
+    if matches!(group, DueGroup::Late | DueGroup::None) {
+        return None;
+    }
+    (0..=8).filter_map(|n| today.checked_add_days(Days::new(n))).find(|d| due_group(Some(*d), today) == group)
 }
 
 #[cfg(test)]
@@ -134,5 +143,20 @@ mod tests {
         assert_eq!(due_group(None, monday), DueGroup::None);
         let friday = d("2026-12-25");
         assert_eq!(due_group(Some(d("2027-01-01")), friday), DueGroup::Later);
+    }
+
+    #[test]
+    fn primo_giorno_di_ogni_colonna() {
+        let monday = d("2026-11-02");
+        assert_eq!(first_day_in(DueGroup::Soon, monday), Some(monday));
+        assert_eq!(first_day_in(DueGroup::Week, monday), Some(d("2026-11-04")));
+        assert_eq!(first_day_in(DueGroup::Later, monday), Some(d("2026-11-09")));
+        assert_eq!(first_day_in(DueGroup::Late, monday), None);
+        assert_eq!(first_day_in(DueGroup::None, monday), None);
+        let saturday = d("2026-11-07");
+        assert_eq!(first_day_in(DueGroup::Week, saturday), None, "di sabato dopodomani è già lunedì");
+        assert_eq!(first_day_in(DueGroup::Later, saturday), Some(d("2026-11-09")));
+        let sunday = d("2026-11-08");
+        assert_eq!(first_day_in(DueGroup::Later, sunday), Some(d("2026-11-10")), "lunedì è domani, quindi in Oggi e domani");
     }
 }

@@ -78,5 +78,57 @@ export default async function (page, { notes }) {
   await page.locator('button[role=radio]', { hasText: 'Elenco' }).click();
   await page.waitForTimeout(150);
   assert((await page.locator('.rows .act').count()) > 0, 'la vista Elenco mostra le azioni');
+  assert((await page.locator('.list-group[aria-label="In ritardo"] button', { hasText: 'Sposta a domani' }).count()) === 1, 'in Elenco il gruppo In ritardo ha Sposta a domani');
   await page.locator('button[role=radio]', { hasText: 'Bacheca' }).click();
+  await page.waitForSelector('.columns');
+
+  // Il "+" di una colonna dà la sua scadenza; raggruppando per progetto, la sua etichetta.
+  await page.getByRole('button', { name: 'Aggiungi a Oggi e domani' }).click();
+  await page.locator('.col-new').fill('Dalla colonna @Marco');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  assert(read().includes(`- [ ] Dalla colonna @Marco due:${iso}\n`), 'il + di Oggi e domani scrive la scadenza di oggi');
+  assert((await page.locator('.column[aria-label="Oggi e domani"] .act', { hasText: 'Dalla colonna' }).count()) === 1, 'la nuova azione compare nella sua colonna');
+  await page.keyboard.press('Escape');
+  assert((await page.getByRole('button', { name: 'Aggiungi a In ritardo' }).count()) === 0, 'In ritardo non ha il +');
+  await page.locator('button[role=radio]', { hasText: 'Progetto' }).click();
+  await page.getByRole('button', { name: 'Aggiungi a #casa' }).click();
+  await page.locator('.col-new').fill('Dal progetto');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  assert(read().includes('- [ ] Dal progetto #casa\n'), 'il + di un progetto scrive la sua etichetta');
+  await page.keyboard.press('Escape');
+  await page.locator('button[role=radio]', { hasText: 'Scadenza' }).click();
+
+  // Sposta a domani: tutte le azioni in ritardo, anche in altre note.
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const isoTomorrow = `${tomorrow.getFullYear()}-${p(tomorrow.getMonth() + 1)}-${p(tomorrow.getDate())}`;
+  const lateCol = page.locator('.column[aria-label="In ritardo"]');
+  const nLate = await lateCol.locator('.act').count();
+  await lateCol.getByRole('button', { name: 'Sposta a domani' }).click();
+  await page.waitForTimeout(900);
+  assert(nLate >= 2 && (await page.locator('.column[aria-label="In ritardo"] .act').count()) === 0, `Sposta a domani svuota In ritardo (${nLate} azioni)`);
+  assert(read().includes(`- [ ] Richiamare @Elena per il preventivo della cucina #casa due:${isoTomorrow}`), 'nella nota del giorno la scadenza diventa domani');
+  assert(readFileSync(join(dir, 'riunione-budget-q4.md'), 'utf8').includes(`#lavoro-q4 due:${isoTomorrow}`), 'anche nelle altre note');
+  assert((await page.locator('.toast').innerText()).includes('spostate a domani'), 'un avviso dice quante azioni sono state spostate');
+
+  // Pagina etichetta: spunta e pillole come in bacheca.
+  await page.keyboard.press('Control+k');
+  await page.locator('.dialog input').fill('#casa');
+  await page.waitForTimeout(200);
+  await page.locator('.dialog .row', { hasText: '#casa' }).first().click();
+  await page.waitForSelector('button:has-text("Colore")');
+  await page.waitForTimeout(300);
+  const tagAct = page.locator('.act', { hasText: 'Dal progetto' });
+  assert((await tagAct.count()) === 1, 'la pagina etichetta mostra le azioni come schede');
+  await tagAct.hover();
+  await tagAct.getByRole('button', { name: /^Aggiungi una scadenza/ }).click();
+  await page.locator('.pop .opt', { hasText: 'Domani' }).click();
+  await page.waitForTimeout(600);
+  assert(read().includes(`- [ ] Dal progetto #casa due:${isoTomorrow}`), 'una pillola nella pagina etichetta scrive nel file');
+  assert((await page.locator('.act', { hasText: 'Dal progetto' }).getByRole('button', { name: /^Scadenza domani/ }).count()) === 1, 'e la pagina si aggiorna');
+  await page.locator('.act', { hasText: 'Dal progetto' }).getByRole('checkbox').click();
+  await page.waitForTimeout(600);
+  assert(read().includes(`- [x] Dal progetto #casa due:${isoTomorrow} done:${iso}`), 'la spunta nella pagina etichetta scrive done:');
+  assert((await page.locator('.act', { hasText: 'Dal progetto' }).count()) === 0, 'l\'azione fatta esce dalle aperte');
 }

@@ -49,6 +49,9 @@ pub struct Board {
     pub late: usize,
     pub done_this_week: usize,
     pub week_number: u32,
+    /// Scadenza di un'azione aggiunta con il "+" della colonna: `soon`, `week`, `later`. Manca se la colonna
+    /// oggi non può ricevere date.
+    pub column_due: HashMap<DueGroup, String>,
 }
 
 fn clean_text(raw: &str, tag: Option<&str>) -> String {
@@ -62,15 +65,61 @@ fn clean_text(raw: &str, tag: Option<&str>) -> String {
     }
 }
 
-/// Tutte le azioni di primo livello con le loro figlie. Le figlie ereditano etichetta e persone.
-pub fn action_board(store: &NoteStore, today: NaiveDate) -> Result<Board> {
-    let rows = store.actions(&ActionQuery { status: Status::All, limit: 100_000, ..Default::default() })?;
-    let mut children: HashMap<(String, i64), Vec<&ActionRow>> = HashMap::new();
-    for row in &rows {
+type Children<'a> = HashMap<(String, i64), Vec<&'a ActionRow>>;
+
+/// Le figlie di ogni madre, per nota e riga della madre.
+fn children_of(rows: &[ActionRow]) -> Children<'_> {
+    let mut children: Children = HashMap::new();
+    for row in rows {
         if let Some(parent) = row.parent_line {
             children.entry((row.note_id.clone(), parent)).or_default().push(row);
         }
     }
+    children
+}
+
+/// Una scheda della bacheca: la stessa in bacheca, in elenco e nella pagina etichetta.
+fn board_item(row: &ActionRow, children: &Children, today: NaiveDate) -> BoardItem {
+    let due = row.due.as_deref().and_then(dates::parse_day);
+    let label = due.map(|d| dates::due_label(d, today));
+    let mut subs: Vec<SubItem> = children
+        .get(&(row.note_id.clone(), row.line))
+        .map(|c| {
+            c.iter()
+                .map(|s| SubItem {
+                    line: s.line,
+                    raw: s.text.clone(),
+                    text: parser::action_display_text(&s.text),
+                    done: s.done,
+                    due_label: s.due.as_deref().and_then(dates::parse_day).map(|d| dates::due_label(d, today).0),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    subs.sort_by_key(|s| s.line);
+    BoardItem {
+        note_id: row.note_id.clone(),
+        note_title: row.note_title.clone(),
+        line: row.line,
+        raw: row.text.clone(),
+        text: clean_text(&row.text, row.tags.first().map(String::as_str)),
+        done: row.done,
+        done_on: row.done_on.clone(),
+        due: row.due.clone(),
+        due_label: label.as_ref().map(|l| l.0.clone()),
+        due_level: label.map(|l| l.1),
+        group: dates::due_group(due, today),
+        people: row.people.clone(),
+        tag: row.tags.first().cloned().or_else(|| row.project.clone()),
+        description: row.description.clone(),
+        subs,
+    }
+}
+
+/// Tutte le azioni di primo livello con le loro figlie. Le figlie ereditano etichetta e persone.
+pub fn action_board(store: &NoteStore, today: NaiveDate) -> Result<Board> {
+    let rows = store.actions(&ActionQuery { status: Status::All, limit: 100_000, ..Default::default() })?;
+    let children = children_of(&rows);
     let monday = today - Duration::days(i64::from(today.weekday().num_days_from_monday()));
     let sunday = monday + Duration::days(6);
     let (mut open, mut late, mut done_week, mut undated) = (0, 0, 0, 0);
@@ -89,48 +138,18 @@ pub fn action_board(store: &NoteStore, today: NaiveDate) -> Result<Board> {
                 }
             }
         }
-        let due = row.due.as_deref().and_then(dates::parse_day);
-        let group = dates::due_group(due, today);
+        let item = board_item(row, &children, today);
         if !row.done {
             open += 1;
-            late += usize::from(group == DueGroup::Late);
+            late += usize::from(item.group == DueGroup::Late);
         }
-        let label = due.map(|d| dates::due_label(d, today));
-        let tag = row.tags.first().cloned().or_else(|| row.project.clone());
-        let mut subs: Vec<SubItem> = children
-            .get(&(row.note_id.clone(), row.line))
-            .map(|c| {
-                c.iter()
-                    .map(|s| SubItem {
-                        line: s.line,
-                        raw: s.text.clone(),
-                        text: parser::action_display_text(&s.text),
-                        done: s.done,
-                        due_label: s.due.as_deref().and_then(dates::parse_day).map(|d| dates::due_label(d, today).0),
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        subs.sort_by_key(|s| s.line);
-        items.push(BoardItem {
-            note_id: row.note_id.clone(),
-            note_title: row.note_title.clone(),
-            line: row.line,
-            raw: row.text.clone(),
-            text: clean_text(&row.text, row.tags.first().map(String::as_str)),
-            done: row.done,
-            done_on: row.done_on.clone(),
-            due: row.due.clone(),
-            due_label: label.as_ref().map(|l| l.0.clone()),
-            due_level: label.map(|l| l.1),
-            group,
-            people: row.people.clone(),
-            tag,
-            description: row.description.clone(),
-            subs,
-        });
+        items.push(item);
     }
-    Ok(Board { items, open, late, done_this_week: done_week, week_number: today.iso_week().week() })
+    let column_due = [DueGroup::Soon, DueGroup::Week, DueGroup::Later]
+        .into_iter()
+        .filter_map(|g| dates::first_day_in(g, today).map(|d| (g, d.format("%Y-%m-%d").to_string())))
+        .collect();
+    Ok(Board { items, open, late, done_this_week: done_week, week_number: today.iso_week().week(), column_due })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -249,7 +268,8 @@ pub fn people_list(store: &NoteStore, today: NaiveDate) -> Result<Vec<PersonRow>
 pub struct TagPage {
     pub tag: String,
     pub notes_count: usize,
-    pub actions: Vec<PageAction>,
+    /// Azioni aperte di primo livello, come in bacheca: si modificano con le pillole.
+    pub actions: Vec<BoardItem>,
     pub notes: Vec<NoteRef>,
     pub decisions: Vec<DecisionRef>,
     pub people: Vec<String>,
@@ -259,11 +279,12 @@ pub fn tag_page(store: &NoteStore, tag: &str, today: NaiveDate) -> Result<TagPag
     let filter = Filter { project: Some(tag.to_string()), ..Default::default() };
     let notes = store.list_notes(&filter, 500)?;
     let lower = tag.to_lowercase();
-    let rows = store.actions(&ActionQuery { limit: 100_000, ..Default::default() })?;
+    let rows = store.actions(&ActionQuery { status: Status::All, limit: 100_000, ..Default::default() })?;
+    let children = children_of(&rows);
     let actions = rows
         .iter()
-        .filter(|r| r.parent_line.is_none() && (r.tags.iter().any(|t| *t == lower) || r.project.as_deref() == Some(lower.as_str())))
-        .map(|r| page_action(r, today, None))
+        .filter(|r| !r.done && r.parent_line.is_none() && (r.tags.iter().any(|t| *t == lower) || r.project.as_deref() == Some(lower.as_str())))
+        .map(|r| board_item(r, &children, today))
         .collect();
     let mut people: Vec<String> = Vec::new();
     for p in notes.iter().flat_map(|n| n.people.iter()) {
@@ -472,6 +493,9 @@ mod tests {
         assert_eq!(domani.group, DueGroup::Soon);
         assert_eq!(domani.people, ["Marco"]);
         assert_eq!(domani.tag.as_deref(), Some("clientex"), "senza etichetta vale il progetto della nota");
+        assert_eq!(board.column_due.get(&DueGroup::Week).map(String::as_str), Some("2026-11-05"));
+        let json = serde_json::to_value(&board).unwrap();
+        assert_eq!(json["column_due"]["soon"], "2026-11-03", "le chiavi sono i nomi delle colonne");
     }
 
     fn demo() -> (tempfile::TempDir, NoteStore) {
@@ -503,6 +527,8 @@ mod tests {
         assert_eq!(t.tag, "casa");
         assert_eq!(t.notes_count, 2);
         assert_eq!(t.actions.len(), 1);
+        assert_eq!(t.actions[0].raw, "Madre @Giulia #casa due:2026-11-01", "il testo grezzo serve alle pillole per controllare la riga");
+        assert_eq!(t.actions[0].subs.len(), 1, "come in bacheca, con le figlie");
         assert!(t.people.contains(&"Giulia".to_string()));
     }
 

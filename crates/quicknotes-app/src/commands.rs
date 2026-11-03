@@ -230,13 +230,20 @@ pub fn set_action_field(
     state.store.set_action_details(&note_id, line, Some(&text), patch).map(|_| ()).map_err(err)
 }
 
-/// Una nuova azione finisce nella nota di oggi, sezione "Priorità". Restituisce l'id della nota.
+/// Una nuova azione finisce nella nota di oggi, sezione "Priorità". Scadenza ed etichetta arrivano dal "+"
+/// di una colonna. Restituisce l'id della nota.
 #[tauri::command(async)]
-pub fn add_action(state: State<'_, AppState>, text: String) -> CmdResult<String> {
-    let today = Local::now().date_naive();
-    let daily = state.store.daily(today, true).map_err(err)?.ok_or("Nota del giorno non disponibile")?;
-    let note = state.store.add_to_section(&daily.id, Some("Priorità"), &format!("- [ ] {}", text.trim())).map_err(err)?;
+pub fn add_action(state: State<'_, AppState>, text: String, due: Option<String>, tag: Option<String>) -> CmdResult<String> {
+    let due = due.as_deref().and_then(dates::parse_day);
+    let note = state.store.add_action(Local::now().date_naive(), &text, due, tag.as_deref()).map_err(err)?;
     Ok(note.id)
+}
+
+/// "Sposta a domani" sulle azioni in ritardo. Restituisce quante sono state spostate e le note toccate.
+#[tauri::command(async)]
+pub fn postpone_late(state: State<'_, AppState>) -> CmdResult<Value> {
+    let (moved, ids) = state.store.postpone_late(Local::now().date_naive()).map_err(err)?;
+    Ok(json!({ "moved": moved, "ids": ids }))
 }
 
 #[tauri::command(async)]

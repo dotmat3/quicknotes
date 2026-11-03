@@ -1,15 +1,37 @@
 <script>
   import { openPage } from '../state/layout.svelte.js';
+  import ActionItem from './ActionItem.svelte';
   import ActionText from './ActionText.svelte';
+  import DetailPopover from './DetailPopover.svelte';
   import Icon from '../shell/Icon.svelte';
 
   // Le sezioni comuni a persona ed etichetta: azioni, note, decisioni.
-  let { actions = [], notes = [], decisions = [], notesCount = 0 } = $props();
+  // Con `items` (schede della bacheca) le azioni si modificano con spunta e pillole; `actions` è in sola lettura.
+  let { actions = [], items = null, notes = [], decisions = [], notesCount = 0 } = $props();
   const dateLabel = (d) => d?.slice(0, 10) ?? '';
+
+  let popover = $state(null);
+
+  function openPopover(e, item, kind, index) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const key = `${item.note_id}:${item.line}:${kind}:${index}`;
+    popover = popover?.key === key ? null : { key, item, kind, index, anchor: { left: r.left, top: r.top, bottom: r.bottom } };
+  }
 </script>
 
-<h2>Azioni aperte <span class="mono n">{actions.length}</span></h2>
-{#if actions.length}
+<h2>Azioni aperte <span class="mono n">{(items ?? actions).length}</span></h2>
+{#if items?.length}
+  <div class="rows">
+    {#each items as item (`${item.note_id}:${item.line}`)}
+      <ActionItem {item} pop={openPopover} popKey={popover?.key} />
+    {/each}
+  </div>
+  {#if popover}
+    {#key popover.key}
+      <DetailPopover item={popover.item} kind={popover.kind} index={popover.index} anchor={popover.anchor} close={() => (popover = null)} />
+    {/key}
+  {/if}
+{:else if !items && actions.length}
   <div class="rows">
     {#each actions as a, i (i)}
       <div class="row">
@@ -45,6 +67,7 @@
   .rows { border-radius: 12px; border: 1px solid var(--border); background: var(--card); }
   .row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; }
   .row + .row { border-top: 1px solid var(--border); }
+  .rows :global(.act + .act) { border-top: 1px solid var(--border); }
   .box { flex: none; width: 18px; height: 18px; margin-top: 3px; border-radius: 5px; border: 1.5px solid var(--faint); }
   .main { flex: 1; min-width: 0; }
   .t { font-size: 14.5px; line-height: 1.5; }

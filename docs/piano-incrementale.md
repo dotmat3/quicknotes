@@ -6,7 +6,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura della tappa 6.
+Stato al 3 novembre 2026, dopo la chiusura delle tappe 6 e 8.
 
 **Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
@@ -44,7 +44,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: "+" sulle colonne e "Sposta a domani" (8), i comportamenti dei gruppi non ancora provati (7), il confronto a schermo dei temi mai guardati (5).
+1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: i comportamenti dei gruppi non ancora provati (7), registrazioni nel Calendario e scelta della nota nel Grafo (9), il tempo della ricerca a ogni tasto (10), il confronto a schermo dei temi mai guardati (5).
 2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, chiusura con la X, finestra nota rapida che compare davvero.
 3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
 4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
@@ -57,10 +57,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Difetti e limiti noti
 
-- **Cambiare data:** i pulsanti `+` sulle colonne e "Sposta a domani" della tavola Home non ci sono.
 - **Nota rapida subito dopo l'avvio:** la finestra si prepara dopo circa 1,5 secondi. Prima di allora Ctrl Alt N apre la finestra principale.
 - **Calendario:** le registrazioni non compaiono ancora. "Ieri" e "domani" non sono nel pannello rapido di Oggi, a differenza della tavola Home.
-- **Pagina Persona ed Etichetta:** le azioni si possono solo leggere, senza spunta né pillole.
+- **Pagina Persona:** le azioni si possono solo leggere, senza spunta né pillole. Il piano del design prevede le pillole solo in bacheca, elenco e pagina etichetta.
 - **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 sono provati solo in parte.
 - **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
 - **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
@@ -125,11 +124,12 @@ Più schede, fino a 4 gruppi, divisione, trascinamento, riapertura, stessa nota 
 **Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio.
 **Resta da fare:** ridimensionamento con il divisore, ingrandimento, menu contestuale e chiusura di un gruppo sono scritti ma non provati.
 
-### 🟡 8. Azioni
+### ✅ 8. Azioni
 
 Bacheca ed elenco, raggruppamento, pillole con popover, sotto-attività, campo nuova azione, colonne con scadenze reali.
 **Fatta quando:** ogni modifica dalle pillole si ritrova corretta nel file, anche con la nota aperta in un editor.
-**Resta da fare:** "+" sulle colonne, "Sposta a domani", pillole nella pagina etichetta. Da rivedere: i pulsanti `+` nascosti lasciano a volte una riga vuota nelle schede.
+**Provati** (`prova-azioni.mjs`): oltre a pillole e sotto-attività, il "+" delle colonne per scadenza e per progetto, "Sposta a domani" su più note, spunta e pillole nella pagina etichetta.
+**Da rivedere con l'utente:** i pulsanti `+` nascosti lasciano a volte una riga vuota nelle schede (vedi "Da decidere").
 
 ### 🟡 9. Altre viste
 
@@ -213,4 +213,7 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | La modalità vale per la coppia gruppo e scheda, come annulla e cursore, e non si ricorda dopo un riavvio | La stessa nota può stare in Affiancata in un gruppo e in anteprima viva nell'altro |
 | 2026-11-03 | Nell'Anteprima le caselle sono in sola lettura | Abbinare una casella dell'HTML alla riga giusta del file non è sicuro (liste in citazioni, elenchi numerati); si spunta nelle altre modalità |
 | 2026-11-03 | `open_url` passa da `tauri-plugin-opener` lato Rust; la pagina non ha permessi sul plugin | Solo `http` e `https`, controllati in Rust |
+| 2026-11-03 | Il "+" di una colonna scrive la scadenza del primo giorno di quella colonna (Oggi e domani: oggi; Questa settimana: dopodomani; Più avanti: il lunedì dopo). Raggruppando per progetto scrive l'etichetta. Se il testo ha già una scadenza o un'etichetta, vale quella | La tavola mostra il "+" senza dire cosa fa. Il giorno si cambia poi con la pillola |
+| 2026-11-03 | "In ritardo" non ha il "+" ma "Sposta a domani", in bacheca e in elenco. Sposta solo le azioni di primo livello, senza conferma, e un avviso dice quante | Aggiungere un'azione già in ritardo non ha senso. Le figlie hanno scadenze proprie. Con la nota aperta, la modifica arriva all'editor e si annulla da lì |
+| 2026-11-03 | La pagina etichetta riceve le stesse schede della bacheca (`BoardItem`) e si ricarica con la bacheca | Un solo modo di mostrare e modificare un'azione |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

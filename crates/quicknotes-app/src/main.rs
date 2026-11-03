@@ -85,6 +85,7 @@ fn main() {
             commands::complete_action,
             commands::set_action_field,
             commands::add_action,
+            commands::postpone_late,
             commands::person_page,
             commands::people_list,
             commands::tag_page,

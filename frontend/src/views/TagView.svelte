@@ -1,5 +1,6 @@
 <script>
   import { call } from '../api.js';
+  import { board } from '../state/actions.svelte.js';
   import { app, savePrefs, tagColor, theme } from '../state/app.svelte.js';
   import { openPage } from '../state/layout.svelte.js';
   import { TAG_PALETTE, tagColorId } from '../theme/themes.js';
@@ -10,7 +11,9 @@
   let t = $state(null);
   let picking = $state(false);
 
+  // Si ricarica anche dopo ogni modifica dalle pillole, che ricarica la bacheca.
   $effect(() => {
+    board.version;
     call('tag_page', { tag }).then((r) => (t = r));
   });
 
@@ -50,7 +53,7 @@
       {/each}
     </div>
   {/if}
-  <NoteLinks actions={t.actions} notes={t.notes} decisions={t.decisions} notesCount={t.notes_count} />
+  <NoteLinks items={t.actions} notes={t.notes} decisions={t.decisions} notesCount={t.notes_count} />
   {#if t.people.length}
     <h2>Persone coinvolte</h2>
     <div class="people">

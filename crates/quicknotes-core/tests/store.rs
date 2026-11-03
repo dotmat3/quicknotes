@@ -299,3 +299,38 @@ fn refresh_elenca_solo_le_modifiche_esterne() {
     fs::remove_file(dir.path().join("a.md")).unwrap();
     assert_eq!(store.refresh_changes().unwrap(), ["a"]);
 }
+
+#[test]
+fn nuova_azione_con_scadenza_ed_etichetta_della_colonna() {
+    let (dir, store) = store();
+    let today = day("2026-11-03");
+    store.add_action(today, "Chiamare l'idraulico", Some(day("2026-11-05")), Some("casa")).unwrap();
+    store.add_action(today, "Già datata due:2026-12-01 #lavoro", Some(day("2026-11-05")), Some("casa")).unwrap();
+    store.add_action(today, "Senza altro", None, None).unwrap();
+    let text = fs::read_to_string(dir.path().join("2026/11/2026-11-03-giornata.md")).unwrap();
+    assert!(text.contains("## Priorità\n- [ ] Chiamare l'idraulico #casa due:2026-11-05\n"), "{text}");
+    assert!(text.contains("- [ ] Già datata due:2026-12-01 #lavoro\n"), "quello che è scritto resta: {text}");
+    assert!(text.contains("- [ ] Senza altro\n"));
+}
+
+#[test]
+fn sposta_a_domani_solo_le_azioni_in_ritardo_di_primo_livello() {
+    let (dir, store) = store();
+    write(
+        &dir,
+        "2026/11/a.md",
+        "---\ntitle: A\ndate: 2026-11-01\n---\n- [ ] Vecchia #casa due:2026-11-01\n    - [ ] Figlia in ritardo due:2026-10-30\n- [ ] Futura due:2026-11-10\n- [x] Fatta due:2026-10-01 done:2026-10-02\n- [ ] Senza data\n",
+    );
+    write(&dir, "2026/11/b.md", "---\ntitle: B\ndate: 2026-11-02\n---\n- [ ] Altra in ritardo due:2026-11-02\n");
+    store.refresh().unwrap();
+    let (moved, ids) = store.postpone_late(day("2026-11-03")).unwrap();
+    assert_eq!(moved, 2);
+    assert_eq!(ids.len(), 2);
+    let a = fs::read_to_string(dir.path().join("2026/11/a.md")).unwrap();
+    assert!(a.contains("- [ ] Vecchia #casa due:2026-11-04\n"), "{a}");
+    assert!(a.contains("    - [ ] Figlia in ritardo due:2026-10-30\n"), "le figlie restano: {a}");
+    assert!(a.contains("- [ ] Futura due:2026-11-10\n") && a.contains("- [x] Fatta due:2026-10-01 done:2026-10-02\n"));
+    let b = fs::read_to_string(dir.path().join("2026/11/b.md")).unwrap();
+    assert!(b.contains("- [ ] Altra in ritardo due:2026-11-04\n"));
+    assert_eq!(store.postpone_late(day("2026-11-03")).unwrap().0, 0, "una seconda volta non resta nulla");
+}

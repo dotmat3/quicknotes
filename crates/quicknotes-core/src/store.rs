@@ -472,6 +472,46 @@ impl NoteStore {
         Ok(note)
     }
 
+    /// Una nuova azione nella nota del giorno, sezione "Priorità". Scadenza ed etichetta si aggiungono
+    /// solo se il testo non ne ha già una: vale quello che l'utente ha scritto.
+    pub fn add_action(&self, today: NaiveDate, text: &str, due: Option<NaiveDate>, tag: Option<&str>) -> Result<Note> {
+        let daily = self.daily(today, true)?.ok_or_else(|| Error::Invalid("Nota del giorno non disponibile".into()))?;
+        let mut line = format!("- [ ] {}", text.trim());
+        let written = parser::extract(&line).actions.into_iter().next();
+        if let Some(d) = due.filter(|_| written.as_ref().is_none_or(|a| a.due.is_none())) {
+            line = edit::with_due(&line, Some(&d.format("%Y-%m-%d").to_string()));
+        }
+        if let Some(t) = tag.filter(|_| written.as_ref().is_none_or(|a| a.tags.is_empty())) {
+            line = edit::with_tag(&line, Some(t));
+        }
+        self.add_to_section(&daily.id, Some("Priorità"), &line)
+    }
+
+    /// Sposta a domani le azioni di primo livello in ritardo. Una riga cambiata nel frattempo resta com'è.
+    /// Restituisce quante azioni sono state spostate e le note toccate.
+    pub fn postpone_late(&self, today: NaiveDate) -> Result<(usize, Vec<String>)> {
+        let rows = self.actions(&index::ActionQuery { limit: 100_000, ..Default::default() })?;
+        let tomorrow = (today + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+        let mut moved = 0;
+        let mut ids: Vec<String> = Vec::new();
+        for row in rows.iter().filter(|r| r.parent_line.is_none()) {
+            let due = row.due.as_deref().and_then(dates::parse_day);
+            if dates::due_group(due, today) != dates::DueGroup::Late {
+                continue;
+            }
+            let patch = ActionPatch { due: Some(Some(tomorrow.clone())), ..Default::default() };
+            match self.set_action_details(&row.note_id, row.line as usize, Some(&row.text), patch) {
+                Ok(_) => moved += 1,
+                Err(Error::Stale) => continue,
+                Err(e) => return Err(e),
+            }
+            if !ids.contains(&row.note_id) {
+                ids.push(row.note_id.clone());
+            }
+        }
+        Ok((moved, ids))
+    }
+
     /// Il file della nota seguito dalle sue registrazioni audio.
     pub fn note_files(&self, id: &str) -> Result<Vec<PathBuf>> {
         let note = self.read(id)?;

@@ -1,7 +1,8 @@
 <script>
   import { onDestroy } from 'svelte';
   import { listen } from '../api.js';
-  import { addAction, board, loadBoard } from '../state/actions.svelte.js';
+  import { addAction, board, loadBoard, postponeLate } from '../state/actions.svelte.js';
+  import { dueLabel } from '../note/editor/rules.js';
   import { app, savePrefs, tagColor } from '../state/app.svelte.js';
   import ActionItem from './ActionItem.svelte';
   import DetailPopover from './DetailPopover.svelte';
@@ -13,6 +14,9 @@
 
   let draft = $state('');
   let popover = $state(null);
+  // Colonna in cui si sta aggiungendo un'azione con il "+".
+  let adding = $state(null);
+  let colDraft = $state('');
 
   const filter = $derived(app.actFilter ?? 'aperte');
   const items = $derived(board.items);
@@ -64,6 +68,32 @@
     draft = '';
   }
 
+  // Il "+" di una colonna dà la sua scadenza o, raggruppando per progetto, la sua etichetta.
+  function columnPreset(g) {
+    if (g.key === 'done' || g.key === 'late') return null;
+    if (app.actGroup === 'progetto') return { due: null, tag: g.key === 'none' ? null : g.key };
+    if (g.key === 'none') return { due: null, tag: null };
+    const due = board.column_due?.[g.key];
+    return due ? { due, tag: null } : null;
+  }
+
+  function presetHint(p) {
+    if (p.tag) return `#${p.tag}`;
+    return p.due ? `scade ${dueLabel(p.due).label}` : 'senza scadenza';
+  }
+
+  function onColumnKey(e, g) {
+    if (e.key === 'Escape') {
+      adding = null;
+      colDraft = '';
+      return;
+    }
+    if (e.key !== 'Enter' || !colDraft.trim()) return;
+    const p = columnPreset(g);
+    addAction(colDraft, p?.due, p?.tag);
+    colDraft = '';
+  }
+
   function openPopover(e, item, kind, index) {
     const r = e.currentTarget.getBoundingClientRect();
     const key = `${item.note_id}:${item.line}:${kind}:${index}`;
@@ -110,8 +140,21 @@
 {#if app.actView === 'bacheca'}
   <div class="columns">
     {#each groups as g (g.key)}
+      {@const preset = columnPreset(g)}
       <section class="column" aria-label={g.title}>
-        <div class="col-head"><span class="dot" style="background:{g.color}" aria-hidden="true"></span><span class="col-title">{g.title}</span><span class="mono n2">{g.items.length}</span></div>
+        <div class="col-head">
+          <span class="dot" style="background:{g.color}" aria-hidden="true"></span><span class="col-title">{g.title}</span><span class="mono n2">{g.items.length}</span>
+          <span class="grow"></span>
+          {#if g.key === 'late' && app.actGroup !== 'progetto' && g.items.length}
+            <button class="text-btn" onclick={postponeLate}>Sposta a domani</button>
+          {:else if preset}
+            <button class="icon-btn add" aria-label="Aggiungi a {g.title}" title="Aggiungi a {g.title} · {presetHint(preset)}" aria-expanded={adding === g.key} onclick={() => { adding = adding === g.key ? null : g.key; colDraft = ''; }}><Icon name="plus" size={14} /></button>
+          {/if}
+        </div>
+        {#if adding === g.key && preset}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input class="col-new" type="text" aria-label="Nuova azione in {g.title}" placeholder="Nuova azione · {presetHint(preset)}" bind:value={colDraft} onkeydown={(e) => onColumnKey(e, g)} onblur={() => { if (!colDraft.trim()) adding = null; }} autofocus />
+        {/if}
         {#each g.items as item (`${item.note_id}:${item.line}`)}
           <ActionItem {item} card pop={openPopover} popKey={popover?.key} />
         {:else}
@@ -123,7 +166,11 @@
 {:else}
   {#each groups as g (g.key)}
     <section class="list-group" aria-label={g.title}>
-      <div class="col-head list"><span class="dot" style="background:{g.color}" aria-hidden="true"></span><span class="col-title">{g.title}</span><span class="mono n2">{g.items.length}</span></div>
+      <div class="col-head list">
+        <span class="dot" style="background:{g.color}" aria-hidden="true"></span><span class="col-title">{g.title}</span><span class="mono n2">{g.items.length}</span>
+        <span class="grow"></span>
+        {#if g.key === 'late' && app.actGroup !== 'progetto' && g.items.length}<button class="text-btn" onclick={postponeLate}>Sposta a domani</button>{/if}
+      </div>
       <div class="rows">
         {#each g.items as item (`${item.note_id}:${item.line}`)}
           <ActionItem {item} pop={openPopover} popKey={popover?.key} />
@@ -161,7 +208,11 @@
   .n { font-size: 11px; opacity: 0.75; }
   .columns { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; margin-top: 18px; padding-bottom: 10px; }
   .column { flex: 0 0 272px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); }
-  .col-head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
+  .col-head { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 2px 4px; }
+  .col-head .add { width: 26px; height: 26px; }
+  .text-btn { height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; }
+  .text-btn:hover { background: var(--hover); color: var(--text); }
+  .col-new { height: 34px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; outline: none; }
   .col-head.list { padding: 0 4px 8px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; }
   .col-title { font-size: 13px; font-weight: 600; }
