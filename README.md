@@ -60,7 +60,8 @@ Esempi di domande:
 |---|---|
 | `search_notes` | ricerca per parole (anche parziali) con filtri data, persona, progetto, tipo |
 | `list_notes` | elenco cronologico con gli stessi filtri |
-| `read_note`, `read_daily_note` | contenuto completo di una nota / del diario di un giorno |
+| `read_note`, `read_daily_note` | contenuto completo di una nota / del diario di un giorno, con link in uscita e in entrata |
+| `get_backlinks` | note che citano una nota con `[[link]]`, con la riga in cui lo fanno |
 | `list_action_items` | azioni aperte o fatte, per responsabile, progetto, scadenza |
 | `list_decisions` | decisioni registrate con `!decisione` |
 | `list_people_and_projects` | persone e progetti citati, con conteggi |
@@ -76,13 +77,32 @@ Esempi di domande:
 | `- [ ] @Marco invia preventivo due:2026-10-31` | azione con responsabile e scadenza |
 | `- [x] ...` | azione fatta |
 | `... !decisione` | decisione presa |
+| `[[` | link a un'altra nota: scegli dall'elenco e diventa `[[id\|Titolo]]` |
 
 Scorciatoie nell'editor: **Ctrl+T** trasforma la riga in azione (di nuovo: la spunta),
 **Ctrl+D** la marca come decisione, **Ctrl+Shift+H** inserisce l'ora, **Invio** continua
-l'elenco (Invio su una voce vuota lo chiude), **Ctrl+F** cerca, **Ctrl+N** nuovo meeting,
-**Ctrl+Shift+N** nuova nota. Scrivendo `@` o `#` l'editor propone persone e progetti già usati.
+l'elenco (Invio su una voce vuota lo chiude), **Ctrl+F** cerca, **Ctrl+O** apre una nota per
+titolo (anche `@persona` o `#progetto`), **Ctrl+N** nuovo meeting, **Ctrl+Shift+N** nuova nota.
+Scrivendo `@` o `#` l'editor propone persone e progetti già usati.
 
 Nella ricerca puoi combinare filtri e parole: `@laura #clientex budget`.
+
+**Immagini**: incolla (Ctrl+V) uno screenshot o un'immagine copiata, oppure trascina un file nella nota.
+Viene salvata in `images/` accanto alla nota e inserita come `![](images/...)`, quindi si vede anche in
+Obsidian; fuori dalla riga del cursore resta solo l'immagine. Eliminando la nota, le sue immagini
+finiscono nel Cestino con lei.
+
+### Link tra note e schede
+
+- Un `[[link]]` mostra solo il titolo e si apre con un clic (Ctrl+clic mentre lo stai modificando).
+  L'id è il nome del file, quindi il link resta valido se cambi il titolo e funziona anche in
+  Obsidian; si può scrivere anche a mano `[[Titolo della nota]]`. Se la nota non esiste, il clic
+  prepara una bozza con quel titolo.
+- Sotto i campi di ogni nota, **Citata in** elenca le note che la richiamano (al passaggio del
+  mouse, la riga che la cita).
+- **Ctrl+clic** su `@persona` o `#progetto`, o un clic nella barra laterale, apre la **scheda**:
+  azioni aperte, decisioni, note, progetti o persone collegati, e un pulsante per un nuovo
+  meeting già compilato.
 
 ## Tasti globali
 
@@ -153,8 +173,8 @@ quicknotes/
   webui/          frontend compilato (generato da frontend/, incluso nel pacchetto)
 frontend/         sorgenti dell'interfaccia: Svelte 5 + CodeMirror 6
   src/state.svelte.js     stato dell'app, salvataggio automatico, eventi da Python
-  src/editor/             anteprima viva del Markdown, comandi Ctrl+T/D/Shift+H, completamento
-  src/components/         barra laterale, elenchi, pagina della nota, dialog
+  src/editor/             anteprima viva del Markdown e dei [[link]], comandi Ctrl+T/D/Shift+H, completamento
+  src/components/         barra laterale, elenchi, pagina della nota, scheda persona/progetto, apertura rapida, dialog
 ```
 
 La finestra è pywebview: su Windows usa WebView2, cioè Chromium, lo stesso motore di Obsidian.
