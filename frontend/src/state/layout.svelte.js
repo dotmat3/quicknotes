@@ -57,6 +57,8 @@ function afterChange(dropIfEmpty) {
   if (layout.groups.length < 2) layout.max = null;
   layout.drag = layout.dropZone = layout.dropTab = null;
   persist();
+  // Chiudere o spostare schede cambia la pagina visibile: anche quella entra nella cronologia.
+  remember();
 }
 
 export function openPage(id, title) {
@@ -65,6 +67,7 @@ export function openPage(id, title) {
   if (!g.tabs.includes(id)) g.tabs.push(id);
   g.active = id;
   persist();
+  remember();
 }
 
 export function activate(groupId, id) {
@@ -72,7 +75,39 @@ export function activate(groupId, id) {
   g.active = id;
   layout.focus = groupId;
   persist();
+  remember();
 }
+
+// Indietro e Avanti, come in VS Code: le pagine visitate, con il gruppo in cui erano.
+// Tornando su una scheda chiusa, la si riapre.
+const visits = { stack: [], at: -1 };
+
+function remember() {
+  const g = focused();
+  if (!g?.active) return;
+  const cur = visits.stack[visits.at];
+  if (cur?.g === g.id && cur.page === g.active) return;
+  visits.stack.splice(visits.at + 1);
+  visits.stack.push({ g: g.id, page: g.active });
+  if (visits.stack.length > 100) visits.stack.shift();
+  visits.at = visits.stack.length - 1;
+}
+
+function go(delta) {
+  const i = visits.at + delta;
+  const e = visits.stack[i];
+  if (!e) return false;
+  const g = group(e.g) ?? focused();
+  if (!g.tabs.includes(e.page)) g.tabs.push(e.page);
+  g.active = e.page;
+  layout.focus = g.id;
+  visits.at = i;
+  persist();
+  return true;
+}
+
+export const goBack = () => go(-1);
+export const goForward = () => go(1);
 
 export function closeTabs(groupId, ids) {
   const g = group(groupId);
@@ -188,3 +223,6 @@ export function resizeAt(i, pos) {
 }
 
 export const saveLayout = persist;
+
+// La pagina aperta all'avvio è il primo passo della cronologia.
+remember();

@@ -3,7 +3,7 @@
   import { call, listen } from './api.js';
   import { app, refreshCounts, savePrefs, showToast } from './state/app.svelte.js';
   import { onExternalChange, saveAll } from './state/documents.svelte.js';
-  import { closeTabs, focused, openPage, reopen, splitTo, canSide } from './state/layout.svelte.js';
+  import { closeTabs, focused, goBack, goForward, openPage, reopen, splitTo, canSide } from './state/layout.svelte.js';
   import Sidebar from './shell/Sidebar.svelte';
   import Rail from './shell/Rail.svelte';
   import Workspace from './shell/Workspace.svelte';
@@ -54,6 +54,30 @@
     document.documentElement.classList.toggle('qn-ctrl', e.ctrlKey || e.metaKey);
   }
 
+  // Indietro e Avanti come in VS Code: Alt ← / Alt → e i tasti laterali del mouse. Vanno presi prima
+  // dell'editor, che altrimenti userebbe Alt ← per spostare il cursore.
+  function onNavKey(e) {
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'ArrowLeft') goBack();
+      else goForward();
+    } else if (e.key === 'F1') {
+      e.preventDefault();
+      openPage('view:help');
+    }
+  }
+
+  // Il browser userebbe i tasti laterali per la sua cronologia: qui navigano tra le pagine dell'app.
+  function onMouseNav(e) {
+    if (e.button !== 3 && e.button !== 4) return;
+    e.preventDefault();
+    if (e.type === 'mouseup') {
+      if (e.button === 3) goBack();
+      else goForward();
+    }
+  }
+
   function onKey(e) {
     if (!e.ctrlKey && !e.metaKey) return;
     const k = e.key.toLowerCase();
@@ -85,6 +109,9 @@
 </script>
 
 <svelte:window
+  onkeydowncapture={onNavKey}
+  onmousedown={onMouseNav}
+  onmouseup={onMouseNav}
   onkeydown={(e) => { ctrlHeld(e); onKey(e); }}
   onkeyup={ctrlHeld}
   onmousemove={ctrlHeld}
@@ -103,6 +130,7 @@
   {#if app.palette && Palette}
     <Palette />
   {/if}
+  <button class="help" aria-label="Guida e comandi (F1)" title="Guida e comandi · F1" onclick={() => openPage('view:help')}>?</button>
   {#if app.toast}
     <div class="toast" role="status">
       <span>{app.toast}</span>
@@ -115,5 +143,7 @@
 <style>
   .app { height: 100%; display: flex; flex-direction: column; }
   .root { flex: 1; min-height: 0; display: flex; align-items: stretch; }
+  .help { position: fixed; right: 18px; bottom: 16px; z-index: 50; width: 26px; height: 26px; padding: 0; border: 1px solid var(--border3); border-radius: 50%; background: var(--chrome); color: var(--muted); font-size: 13px; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); }
+  .help:hover { color: var(--text); background: var(--hover); }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 10px 10px 14px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); font-size: 13px; }
 </style>

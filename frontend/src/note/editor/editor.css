@@ -36,7 +36,7 @@
 .cm-bullet span { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
 
 .cm-task { color: var(--text); }
-.cm-task-box { display: inline-flex; width: 16px; height: 16px; margin-right: 12px; border: 1.5px solid var(--faint); border-radius: 4px; align-items: center; justify-content: center; vertical-align: -2.5px; text-indent: 0; cursor: pointer; }
+.cm-task-box { display: inline-flex; width: 16px; height: 16px; margin-right: 12px; border: 1.5px solid var(--faint); border-radius: 4px; align-items: center; justify-content: center; vertical-align: -0.3px; text-indent: 0; cursor: pointer; }
 .cm-task-box:hover { border-color: var(--accent); }
 .cm-task-box svg { width: 11px; height: 11px; fill: none; stroke: var(--on-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
 .cm-task-box.checked { background: var(--accent); border-color: var(--accent); }
@@ -123,3 +123,7 @@
 .cm-tooltip-autocomplete .qn-ai { margin-right: 10px; vertical-align: -3px; }
 .cm-alert-option { display: inline-flex; flex-direction: column; margin-left: 10px; vertical-align: top; font-family: inherit; }
 .cm-alert-option-desc { font-size: 11.5px; color: var(--subtle); }
+
+/* Suggerimenti: un formato sbagliato si vede subito. */
+.cm-tooltip-autocomplete .cm-opt-invalid { color: var(--late) !important; }
+.cm-tooltip-autocomplete .cm-opt-invalid .cm-completionDetail { color: var(--late); }

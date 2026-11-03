@@ -28,6 +28,7 @@
     ['Persone', 'view:people'],
     ['Grafo', 'view:graph'],
     ['Impostazioni', 'settings'],
+    ['Guida e comandi', 'view:help'],
   ];
   const COMMANDS = [
     ['Nuova nota', 'Ctrl Shift N', () => createNote('', 'note')],

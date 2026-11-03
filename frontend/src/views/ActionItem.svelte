@@ -122,9 +122,9 @@
   .faded { opacity: 0.75; }
   .head { display: flex; gap: 12px; align-items: flex-start; }
   .card .head { gap: 10px; }
-  .box { flex: none; width: 18px; height: 18px; margin-top: 3px; padding: 0; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--faint); background: transparent; }
+  .box { flex: none; width: 18px; height: 18px; margin-top: 0.5px; padding: 0; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--faint); background: transparent; }
   .box.on { border: 0; background: var(--accent); color: var(--on-accent); }
-  .box.small { width: 15px; height: 15px; margin-top: 2px; border-radius: 4px; }
+  .box.small { width: 15px; height: 15px; margin-top: 1px; border-radius: 4px; }
   .main { flex: 1; min-width: 0; }
   .text { font-size: 14.5px; line-height: 1.5; }
   .card .text { font-size: 13.5px; line-height: 1.45; }

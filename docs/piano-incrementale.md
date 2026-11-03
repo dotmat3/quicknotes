@@ -30,7 +30,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs` | Con `demo-note.mjs` | |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
@@ -121,6 +121,8 @@ Token, 6 temi, Personalizzato, Automatico, font inclusi. Barra aperta come in Ho
 CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modifiche esterne, completamento di `@`, `#` e `[[`, comandi di spunta che scrivono `done:`, rientro di sotto-attività e descrizioni, avvisi e tabelle.
 **Fatta quando:** si può usare l'app per scrivere davvero, senza mai perdere testo chiudendola; misurata la latenza di scrittura.
 **Provati** (`prova-editor.mjs`, `prova-modalita.mjs`): tabelle nell'anteprima viva, menu `⋯` con le modalità Anteprima viva, Sorgente, Affiancata e Anteprima, Anteprima sanificata, note a piè di pagina, link `[[…]]` ed esterni, `open_url` che rifiuta i file, Ctrl F, completamento di `@`, `#` e `[[`. Latenza misurata.
+**Suggerimenti mentre si scrive, come in VS Code** (`prova-guida.mjs`): `due:`, `entro:`, `scadenza:` propongono le date con il giorno per esteso e segnalano un formato sbagliato o una data inesistente; `done:` propone oggi e ieri; `!` propone `!decisione`; `- [` l'azione; ``` la lingua, e chiude il blocco; `|` a inizio riga una tabella; `/` a inizio riga o Ctrl Spazio su una riga vuota l'elenco delle strutture.
+**Caselle delle azioni:** allineate al testo (scarto misurato da 2,2 px a 0 nell'editor, da 2,4 a −0,1 px nelle schede).
 **Spostato alla tappa 12:** il minutaggio `[mm:ss]`, che serve solo con l'audio.
 **GitHub Markdown come nella tavola Markdown** (`prova-gfm.mjs`): avvisi con icona ed etichette del design (Nota, Suggerimento, Importante, Avvertenza, Attenzione); scrivendo `> [!` compare l'elenco dei tipi con icona e descrizione; blocchi di codice con il nome della lingua e i colori della sintassi, nell'editor e nell'Anteprima (`@codemirror/language-data`, lingue caricate quando servono); note a piè di pagina e indirizzi nudi anche nell'anteprima viva; in Sorgente i segni hanno i colori della tavola; `<details>` ammesso nell'Anteprima.
 
@@ -128,6 +130,8 @@ CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modi
 
 Più schede, fino a 4 gruppi, divisione, trascinamento, riapertura, stessa nota in due gruppi sincronizzata, annulla e cursore conservati.
 **Fatta quando:** i comportamenti della tavola Home funzionano tutti con note vere.
+**Indietro e Avanti come in VS Code** (`prova-guida.mjs`): Alt ← e Alt →, e i tasti laterali del mouse. La cronologia ricorda gruppo e pagina; tornando su una scheda chiusa la riapre.
+**Guida** (`view:help`): pulsante ? in basso a destra, F1 o Ctrl K. Tavola dei comandi e della sintassi, con un campo per filtrarla.
 **Tasto centrale del mouse:** chiude la scheda sotto il puntatore, anche se non è attiva (`prova-gruppi.mjs`).
 **Correzione del 3 novembre:** nell'app vera il trascinamento delle schede non partiva, perché su Windows il gestore di trascinamento di Tauri intercetta tutto. Ora è disattivato (`disable_drag_drop_handler`). Le prove non se ne accorgevano: Playwright simula il trascinamento senza passare dal sistema.
 **Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio (`prova-schede.mjs`, `prova-riavvio.mjs`, `prova-editor.mjs`). Divisore e doppio clic, ingrandimento, menu contestuale delle schede, chiusura di un gruppo, Ctrl 1…6 e Ctrl W (`prova-gruppi.mjs`).
@@ -235,4 +239,6 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | "Note isolate" parte spento | L'app crea una nota del giorno vuota a ogni avvio: accese, riempirebbero il grafo di punti |
 | 2026-11-03 | Una regola sola per i clic: il contenuto reso (link resi, Anteprima, tabelle, schede, grafo) si apre con un clic e ha sempre la manina; il testo che si sta scrivendo (`@`, `#`, link sulla riga del cursore, tutto in Sorgente) si apre con Ctrl+clic e la manina compare solo con Ctrl premuto | Richiesta dell'utente. Prima nelle tabelle `@` e `#` avevano la manina ma non si aprivano, e in Sorgente non si apriva nulla |
 | 2026-11-03 | Il menu `⋯` compare solo dove ha voci: nota (modalità, "Copia il link alla nota"), persona ed etichetta ("Cerca … nelle note"). Nelle viste e nelle Impostazioni non c'è | Richiesta dell'utente: prima nelle viste era un pulsante disattivato |
+| 2026-11-03 | Alt ← e Alt → navigano tra le pagine anche dentro l'editor | Come in VS Code su Windows. CodeMirror li userebbe per spostare il cursore di una parola sintattica |
+| 2026-11-03 | La Guida è una scheda come le altre, non un riquadro sopra la pagina | Si può tenere aperta accanto alla nota, in un altro gruppo |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

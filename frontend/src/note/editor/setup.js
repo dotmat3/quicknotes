@@ -10,6 +10,7 @@ import { Decoration, drawSelection, dropCursor, EditorView, keymap, lineNumbers,
 import { classHighlighter, tags as t } from '@lezer/highlight';
 import { livePreview, toggleTaskAt } from './livePreview.js';
 import { ACTION, ALERT_DESCRIPTIONS, ALERT_LABELS, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, diff } from './rules.js';
+import { SUGGESTIONS } from './suggest.js';
 import { tables } from './tables.js';
 import './editor.css';
 
@@ -243,7 +244,12 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
       modeConf.of(modeExtensions('live', tagColor)),
       EditorState.phrases.of(PHRASES),
       search({ top: true }),
-      autocompletion({ override: [alertCompletions, completions(suggest)], icons: false, addToOptions: alertOptionParts }),
+      autocompletion({
+        override: [alertCompletions, ...SUGGESTIONS, completions(suggest)],
+        icons: false,
+        addToOptions: alertOptionParts,
+        optionClass: (c) => (c.type === 'invalid' ? 'cm-opt-invalid' : ''),
+      }),
       placeholder('Inizia a scrivere…'),
       Prec.high(
         keymap.of([

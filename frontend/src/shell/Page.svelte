@@ -13,6 +13,7 @@
     'view:calendar': () => import('../views/CalendarView.svelte'),
     'view:people': () => import('../views/PeopleView.svelte'),
     'view:graph': () => import('../views/GraphView.svelte'),
+    'view:help': () => import('../views/HelpView.svelte'),
     settings: () => import('../views/SettingsView.svelte'),
   };
 
@@ -21,7 +22,7 @@
   const WIDTH = { leggibile: 'narrow', ampia: 'wide', intera: '' };
   const viewKey = $derived(`${groupId}:${page}`);
   const mode = $derived(modes[viewKey] ?? 'live');
-  const widthClass = $derived(kind === 'settings' ? 'settings' : kind === 'view' ? WIDTH[app.viewW] : mode === 'split' ? '' : WIDTH[app.noteW]);
+  const widthClass = $derived(kind === 'settings' || page === 'view:help' ? 'settings' : kind === 'view' ? WIDTH[app.viewW] : mode === 'split' ? '' : WIDTH[app.noteW]);
 
   let menu = $state(false);
   let menuBtn = $state();
