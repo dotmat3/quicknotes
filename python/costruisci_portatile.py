@@ -27,6 +27,13 @@ REPO = HERE.parent
 DIST = HERE / "dist"
 OUT = DIST / "QuickNotes-prova"
 PACKAGES = ["pywebview==6.2.1", "pyyaml==6.0.3"]
+DOTNET_CONFIG = """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <runtime>
+    <loadFromRemoteSources enabled="true"/>
+  </runtime>
+</configuration>
+"""
 
 LEGGIMI = """QuickNotes - prova Python con pywebview
 =======================================
@@ -74,6 +81,11 @@ def main() -> None:
     # Il file ._pth decide dove Python cerca i moduli: niente PYTHONPATH, niente cartella corrente.
     (OUT / "python" / f"python{short}._pth").write_text(
         f"python{short}.zip\n.\n..\\lib\n..\\app\n", encoding="utf-8")
+    # Estratti da uno zip scaricato, i file portano il marchio "da internet" e .NET Framework rifiuta di
+    # caricare Python.Runtime.dll (pythonnet: "Failed to resolve Python.Runtime.Loader.Initialize").
+    # loadFromRemoteSources è l'opzione documentata di .NET per le app che caricano le proprie DLL così.
+    for exe in ("python.exe", "pythonw.exe"):
+        (OUT / "python" / f"{exe}.config").write_text(DOTNET_CONFIG, encoding="utf-8")
 
     print("3/5 librerie")
     # Stesso Python e stessa piattaforma della destinazione: le ruote scelte da pip sono quelle giuste.

@@ -395,4 +395,10 @@ def system_is_dark() -> bool:
 def main(debug: bool = False, hidden: bool = False) -> None:
     if send_to_running_instance("show"):
         return
-    Shell(debug=debug, hidden=hidden).run()
+    shell = Shell(debug=debug, hidden=hidden)
+    try:
+        shell.run()
+    except Exception as e:  # noqa: BLE001 - con pythonw nessuno vedrebbe l'errore
+        shell.log.exception("avvio della finestra")
+        message_box(f"QuickNotes non riesce ad aprire la finestra:\n{type(e).__name__}: {e}\n\n"
+                    "Apri Verifica.cmd per capire cosa manca su questo PC.")

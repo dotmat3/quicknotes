@@ -111,8 +111,38 @@ def check_packages(r: Report) -> bool:
             r.add(OK, "pythonnet e .NET caricati", f"CLR {Environment.Version}")
         except Exception as e:  # noqa: BLE001
             r.add(FAIL, "pythonnet (.NET dentro Python)", f"{type(e).__name__}: {e}")
+            r.info("             " + pythonnet_hint())
             ok = False
     return ok
+
+
+def _marked_from_internet(path: Path) -> bool:
+    """Il file porta il marchio "scaricato da internet" (flusso NTFS Zone.Identifier)."""
+    try:
+        with open(f"{path}:Zone.Identifier", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return False
+    return "ZoneId=3" in text or "ZoneId=4" in text
+
+
+def pythonnet_hint() -> str:
+    """Perché pythonnet non parte, per quanto si può capire da qui."""
+    import importlib.util
+    spec = importlib.util.find_spec("pythonnet")
+    dll = Path(spec.origin).parent / "runtime" / "Python.Runtime.dll" if spec and spec.origin else None
+    if dll is None or not dll.exists():
+        return ("Manca Python.Runtime.dll: probabilmente l'antivirus l'ha messo in quarantena. "
+                "Controlla la cronologia delle protezioni di Windows Security.")
+    config = Path(sys.executable).with_name(Path(sys.executable).name + ".config")
+    if _marked_from_internet(dll):
+        if not config.exists():
+            return (f"I file sono marcati come scaricati da internet e manca {config.name}. "
+                    "Estrai di nuovo lo zip dopo averlo sbloccato (tasto destro > Proprieta' > Sblocca).")
+        return ("I file sono marcati come scaricati da internet. Estrai di nuovo lo zip dopo averlo sbloccato "
+                "(tasto destro > Proprieta' > Sblocca); se il problema resta, le regole aziendali bloccano le DLL .NET.")
+    return ("I file non sono marcati e la DLL c'e': probabilmente una regola aziendale (AppLocker, WDAC) "
+            "o l'antivirus blocca le DLL non firmate. Serve un'eccezione dall'IT per la cartella dell'app.")
 
 
 def _writable(path: Path) -> str | None:
