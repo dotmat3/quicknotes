@@ -6,7 +6,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura delle tappe 6 e 8.
+Stato al 3 novembre 2026, dopo la chiusura delle tappe 6, 7 e 8.
 
 **Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
@@ -30,7 +30,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs` | Con `demo-note.mjs` | |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
 
@@ -44,7 +44,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: i comportamenti dei gruppi non ancora provati (7), registrazioni nel Calendario e scelta della nota nel Grafo (9), il tempo della ricerca a ogni tasto (10), il confronto a schermo dei temi mai guardati (5).
+1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario e scelta della nota nel Grafo (9), il tempo della ricerca a ogni tasto (10), il confronto a schermo dei temi mai guardati (5).
 2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, chiusura con la X, finestra nota rapida che compare davvero.
 3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
 4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
@@ -60,7 +60,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 - **Nota rapida subito dopo l'avvio:** la finestra si prepara dopo circa 1,5 secondi. Prima di allora Ctrl Alt N apre la finestra principale.
 - **Calendario:** le registrazioni non compaiono ancora. "Ieri" e "domani" non sono nel pannello rapido di Oggi, a differenza della tavola Home.
 - **Pagina Persona:** le azioni si possono solo leggere, senza spunta né pillole. Il piano del design prevede le pillole solo in bacheca, elenco e pagina etichetta.
-- **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 sono provati solo in parte.
+- **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 funzionano in WebView2: la pagina li riceve prima del browser.
 - **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
 - **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
 - **README** descrive ancora la versione Python: si aggiorna alla tappa 15.
@@ -117,12 +117,11 @@ CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modi
 **Provati** (`prova-editor.mjs`, `prova-modalita.mjs`): tabelle nell'anteprima viva, menu `⋯` con le modalità Anteprima viva, Sorgente, Affiancata e Anteprima, Anteprima sanificata, note a piè di pagina, link `[[…]]` ed esterni, `open_url` che rifiuta i file, Ctrl F, completamento di `@`, `#` e `[[`. Latenza misurata.
 **Spostato alla tappa 12:** il minutaggio `[mm:ss]`, che serve solo con l'audio.
 
-### 🟡 7. Schede e gruppi
+### ✅ 7. Schede e gruppi
 
 Più schede, fino a 4 gruppi, divisione, trascinamento, riapertura, stessa nota in due gruppi sincronizzata, annulla e cursore conservati.
 **Fatta quando:** i comportamenti della tavola Home funzionano tutti con note vere.
-**Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio.
-**Resta da fare:** ridimensionamento con il divisore, ingrandimento, menu contestuale e chiusura di un gruppo sono scritti ma non provati.
+**Provati:** divisione, sincronizzazione, riordino e trascinamento sul bordo, chiusura e riapertura, disposizione ricordata dopo un riavvio (`prova-schede.mjs`, `prova-riavvio.mjs`, `prova-editor.mjs`). Divisore e doppio clic, ingrandimento, menu contestuale delle schede, chiusura di un gruppo, Ctrl 1…6 e Ctrl W (`prova-gruppi.mjs`).
 
 ### ✅ 8. Azioni
 
