@@ -6,6 +6,7 @@ import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { classHighlighter, highlightCode } from '@lezer/highlight';
 import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, alertIcon, dueLabel } from './editor/rules.js';
+import { imageUrl } from './images.js';
 import './preview.css';
 
 const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -25,9 +26,18 @@ const md = new Marked({
 // Niente stili, classi o id dalla nota: non devono poter imitare i controlli dell'app.
 const PURIFY = {
   FORBID_TAGS: ['style', 'form', 'button', 'textarea', 'select', 'option', 'iframe', 'object', 'embed', 'audio', 'video', 'source', 'svg', 'math', 'dialog'],
-  FORBID_ATTR: ['style', 'class', 'id', 'name', 'for', 'form'],
+  FORBID_ATTR: ['style', 'class', 'id', 'name', 'for', 'form', 'srcset'],
   RETURN_DOM_FRAGMENT: true,
 };
+
+// Un <img> comincia a caricare appena entra nella pagina, anche se non è ancora mostrato. L'indirizzo
+// passa quindi in un attributo inerte già durante la sanificazione, e `decorate` lo rimette solo per le
+// immagini della cartella delle note: nessuna richiesta parte verso il web o verso indirizzi sbagliati.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.nodeName !== 'IMG' || !node.hasAttribute('src')) return;
+  node.setAttribute('data-src', node.getAttribute('src'));
+  node.removeAttribute('src');
+});
 
 const ALERT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 const FENCE = /^\s*(```|~~~)/;
@@ -163,11 +173,19 @@ function decorate(root, ctx) {
     a.classList.add('pv-link');
   }
 
-  // Immagini e file collegati arriveranno con l'apertura sicura dei file: per ora resta il nome.
+  // Immagini: solo quelle dentro la cartella delle note, servite da Rust. Indirizzi web e file mancanti
+  // lasciano un segnaposto con il nome.
   for (const img of root.querySelectorAll('img')) {
-    const src = img.getAttribute('src') ?? '';
-    if (/^data:image\/(png|jpe?g|gif|webp);/i.test(src)) continue;
-    img.replaceWith(el('span', 'pv-embed', img.alt || src));
+    const src = img.dataset.src ?? '';
+    img.removeAttribute('data-src');
+    const url = /^data:image\/(png|jpe?g|gif|webp);/i.test(src) ? src : imageUrl(ctx.notePath, src);
+    if (!url) {
+      img.replaceWith(el('span', 'pv-embed', img.alt || src));
+      continue;
+    }
+    img.src = url;
+    img.classList.add('pv-img');
+    img.addEventListener('error', () => img.replaceWith(el('span', 'pv-embed', `Immagine mancante: ${img.alt || src}`)), { once: true });
   }
 
   const texts = [];
@@ -185,7 +203,7 @@ function decorate(root, ctx) {
 }
 
 // Restituisce un elemento con la nota già sanificata e decorata.
-export function renderMarkdown(text, tagColor) {
+export function renderMarkdown(text, tagColor, notePath = '') {
   const { source, notes } = prepare(text);
   const root = document.createElement('div');
   root.append(DOMPurify.sanitize(md.parse(source), PURIFY));
@@ -204,7 +222,7 @@ export function renderMarkdown(text, tagColor) {
     section.append(ol);
     root.append(section);
   }
-  decorate(root, { tagColor, notes, order });
+  decorate(root, { tagColor, notes, order, notePath });
   for (const pre of root.querySelectorAll('pre[data-lang]')) pre.prepend(el('span', 'pv-code-lang', pre.dataset.lang));
   highlightBlocks(root);
   return root;

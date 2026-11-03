@@ -3,24 +3,26 @@
 import { syntaxTree } from '@codemirror/language';
 import { StateField } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType } from '@codemirror/view';
+import { notePathFacet } from '../images.js';
 import { renderMarkdown } from '../preview.js';
 
 // Blocchi che non possono contenere una tabella: non serve scendere nei loro figli.
 const LEAVES = new Set(['Paragraph', 'FencedCode', 'CodeBlock', 'ATXHeading1', 'ATXHeading2', 'ATXHeading3', 'ATXHeading4', 'ATXHeading5', 'ATXHeading6', 'HTMLBlock', 'SetextHeading1', 'SetextHeading2']);
 
 class TableWidget extends WidgetType {
-  constructor(source, tagColor) {
+  constructor(source, tagColor, notePath) {
     super();
     this.source = source;
     this.tagColor = tagColor;
+    this.notePath = notePath;
   }
   eq(other) {
-    return other.source === this.source;
+    return other.source === this.source && other.notePath === this.notePath;
   }
   toDOM() {
     const wrap = document.createElement('div');
     wrap.className = 'cm-table pv';
-    wrap.append(...renderMarkdown(this.source, this.tagColor).childNodes);
+    wrap.append(...renderMarkdown(this.source, this.tagColor, this.notePath).childNodes);
     return wrap;
   }
   // Il clic arriva all'editor: porta il cursore nella tabella, o apre @, # e [[link]].
@@ -39,7 +41,7 @@ function build(state, tagColor) {
       const from = state.doc.lineAt(node.from).from;
       const to = state.doc.lineAt(node.to).to;
       if (!ranges.some((r) => r.to >= from && r.from <= to)) {
-        decos.push(Decoration.replace({ widget: new TableWidget(state.sliceDoc(from, to), tagColor), block: true }).range(from, to));
+        decos.push(Decoration.replace({ widget: new TableWidget(state.sliceDoc(from, to), tagColor, state.facet(notePathFacet)), block: true }).range(from, to));
       }
       return false;
     },

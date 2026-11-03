@@ -5,6 +5,7 @@
   import { closeTabs, focused, openPage } from '../state/layout.svelte.js';
   import { MODES, docs, loadDoc, modes, save, savedStates, setApplyToViews, setMode, setText, views } from '../state/documents.svelte.js';
   import { noteStats } from './editor/rules.js';
+  import { saveImages } from './images.js';
   import Icon from '../shell/Icon.svelte';
 
   let { id, page, groupId } = $props();
@@ -62,7 +63,8 @@
       }
     };
     const stored = savedStates.get(viewKey);
-    const state = stored && editor.stateText(stored) === docs[id].text ? stored : editor.createState(docs[id].text, { onChange, onOpen, tagColor, suggest });
+    const onImages = (files) => saveImages(noteId, files, showToast);
+    const state = stored && editor.stateText(stored) === docs[id].text ? stored : editor.createState(docs[id].text, { onChange, onOpen, tagColor, suggest, path: docs[id].note.path, onImages });
     view = editor.createView(host, state);
     editor.setMode(view, mode, tagColor);
     views.set(viewKey, view);
@@ -188,7 +190,7 @@
     </div>
     {#if mode === 'split' || mode === 'preview'}
       {#await import('./Preview.svelte') then { default: Preview }}
-        <div class="side"><Preview text={doc.text} {onOpen} /></div>
+        <div class="side"><Preview text={doc.text} notePath={note?.path} {onOpen} /></div>
       {/await}
     {/if}
   </div>

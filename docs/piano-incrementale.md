@@ -6,7 +6,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura delle tappe dalla 5 alla 11. Resta l'audio (12), poi file, schizzi e rilascio.
+Stato al 3 novembre 2026, dopo la chiusura delle tappe dalla 5 alla 11. Resta la tappa 12 (audio, video e spazio su disco), poi file, schizzi e rilascio.
 
 **Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
@@ -31,6 +31,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
 | `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs`, `prova-ricerca.mjs` | Con `demo-note.mjs` | |
+| `prova-immagini.mjs` | Con `demo-note.mjs` | L'ultimo passaggio mette un'immagine negli appunti di Windows e preme Ctrl V davvero: sostituisce gli appunti, e per qualche secondo il PC non va usato |
 | `prova-sistema.mjs` | Con `demo-note.mjs` | Tasti e mouse veri per circa 20 secondi: il PC non va usato. Nessun'altra QuickNotes aperta. Alla fine esce dall'app dal menu |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
@@ -48,15 +49,19 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Tappa 12, audio**, compresa la finestra di registrazione spostata qui dalla tappa 11. Prima va scelto come compilare `whisper-rs`, che richiede CMake e libclang (non installati).
+1. **Tappa 12, audio, video e spazio su disco**, compresa la finestra di registrazione spostata qui dalla tappa 11. Prima delle righe di codice servono le risposte su video e soglie (vedi "Da decidere") e la scelta di come compilare `whisper-rs`, che richiede CMake e libclang (non installati).
 2. **Da provare a mano, l'unica cosa che le prove non raggiungono:** il clic fisico sull'icona dell'area di notifica (la prova manda all'icona lo stesso messaggio di Esplora risorse) e i tasti laterali di un mouse vero.
-3. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
+3. **Tappe 13-15:** file ed esportazione (le immagini incollate ci sono già), schizzi, rilascio.
 
 ### Da decidere con l'utente
 
 - **Pulsanti `+` delle pillole:** nascosti lasciano a volte una riga vuota nelle schede; mostrandoli al passaggio del mouse senza riservare spazio, le schede si sposterebbero sotto il puntatore.
 - **Proposte ancora non confermate** in [piano-implementazione-design.md](piano-implementazione-design.md#proposte-non-ancora-confermate), tra cui figlia in ritardo e figlie in Calendario.
 - **Note del giorno vuote:** l'app le crea a ogni avvio e con le frecce, e il Calendario con "Crea la nota del giorno".
+- **Video, tappa 12:** cosa si registra (tutto lo schermo, una finestra scelta, la webcam), quale audio (microfono, audio del sistema, entrambi) e con quale qualità (risoluzione e fotogrammi, che decidono i MB al minuto).
+- **Fine della registrazione, tappa 12:** se il riquadro deve comparire sempre o si può dire "Non chiedere più, fai sempre così"; se "Elimina dopo la trascrizione" vale anche per l'audio o solo per i video.
+- **Note non collegate, tappa 12:** se la regola proposta va bene (nessun link, persona, etichetta o azione, come le "Note isolate" del Grafo) o se una nota con solo testo, ma citata da nessuno, conta già come non collegata.
+- **Soglie dello spazio, tappa 12:** quelle proposte (10 GB per la cartella, 5 GB di video, 10% o 5 GB liberi sul disco) e se l'utente le può cambiare dalle Impostazioni.
 
 ### Difetti e limiti noti
 
@@ -70,9 +75,10 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 - **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
 - **README** descrive ancora la versione Python: si aggiorna alla tappa 15.
 - **Barra del titolo:** passando sul pulsante Ingrandisci non compare il menu dei layout a scatto di Windows 11, che richiede la cornice di sistema.
-- **File trascinati da Esplora risorse:** con il gestore di Tauri disattivato, la pagina riceve i file senza percorso. Alla tappa 13 gli allegati per trascinamento andranno letti come contenuto, oppure aggiunti dal menu `⋯`.
+- **File trascinati da Esplora risorse:** con il gestore di Tauri disattivato, la pagina riceve i file senza percorso. Le immagini si leggono già come contenuto e si salvano in `images/`; gli altri allegati, alla tappa 13, si leggeranno allo stesso modo oppure si aggiungeranno dal menu `⋯`. Un file lasciato fuori dall'editor si ignora.
 - **Grafo:** le note del giorno vuote sono nascoste con "Note isolate" spento, che è il valore iniziale. I link verso note inesistenti non diventano nodi.
-- **Anteprima e tabelle:** immagini e file collegati mostrano solo il nome, finché la tappa 13 non porta l'apertura sicura dei file. I link a file non si aprono.
+- **Anteprima e tabelle:** i file collegati che non sono immagini mostrano solo il nome, finché la tappa 13 non porta l'apertura sicura dei file. I link a file non si aprono. Le immagini dal web restano un segnaposto con il nome, per scelta.
+- **Immagini:** il nome è data e ora (`AAAA-MM-GG-HHMMSS.png`); sopra i 10 MB l'app chiede conferma, sopra i 50 MB rifiuta. Non si ridimensionano né si comprimono. Un'immagine mancante fa comparire in console un 404 prima del segnaposto.
 - **Menu `⋯`:** contiene solo le modalità. Esporta, Allega un file e Inserisci uno schizzo arrivano con le tappe 13 e 14.
 - **Dipendenze di sviluppo:** `npm audit` segnala avvisi su `vitest` e sul plugin Svelte di Vite. Non finiscono nel pacchetto dell'app.
 
@@ -169,13 +175,67 @@ Nota rapida e finestra di registrazione precaricate e nascoste. Chiudere la fine
 **Provati dal vivo** (`prova-sistema.mjs`, con tasti e mouse veri): Ctrl Alt N mostra la nota rapida in primo piano con il fuoco nel campo, Esc la nasconde e il testo resta, Ctrl Invio salva e passa alla finestra principale; Ctrl Alt D apre la nota del giorno; Ctrl Alt R per ora avvisa; Alt F4 nasconde senza chiudere; il clic sull'icona dell'area di notifica riapre; il menu ha le quattro voci, "Nota rapida" funziona ed "Esci" chiude il processo. Con il mouse: doppio clic sulla barra del titolo (ingrandisci e ripristina), spostamento della finestra dalla barra, ridimensionamento dal bordo destro, trascinamento di una scheda davanti alla prima.
 **Spostato alla tappa 12:** la finestra di registrazione, che senza audio non avrebbe niente da fare.
 
-### ⬜ 12. Audio
+### ⬜ 12. Audio, video e spazio su disco
 
-Finestra di registrazione precaricata e nascosta (tavola Registrazione), registrazione con pausa e annullamento, riproduzione dal minutaggio (`[mm:ss]` come pulsante nell'editor, vedi il piano del design), trascrizione con `whisper-rs`. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale.
+Ampliata il 3 novembre su richiesta dell'utente: oltre all'audio, la registrazione di video, una scelta esplicita di cosa fare alla fine di ogni registrazione e lo spazio occupato nelle Impostazioni. Si procede in quest'ordine, e ogni passo si chiude con le sue prove prima del successivo.
 
-### ⬜ 13. File ed esportazione
+**1. Registrazione audio.** Finestra di registrazione precaricata e nascosta (tavola Registrazione), avviata da Ctrl Alt R, dal pulsante Registra e dal menu dell'area di notifica. Pausa e ripresa (il tempo esclude le pause), annullamento, livello del microfono. WAV 16 kHz mono in `AAAA/MM/audio/<id>-HHMMSS.wav`, circa 1,9 MB al minuto. Durante la registrazione il file si scrive in una cartella di lavoro dentro la cartella delle note (non in `%TEMP%`): una chiusura improvvisa non lo perde, e al riavvio l'app propone di recuperarlo.
+
+**2. Registrazione video.** Prima una prova isolata, come per gli schizzi, per scegliere la strada:
+- **Nativa:** cattura con Windows Graphics Capture e compressione H.264 con Media Foundation, dal codice Rust. Nessun programma esterno, ma più codice da scrivere.
+- **ffmpeg** accanto all'app: meno codice, ma circa 80 MB in più nel pacchetto.
+
+La prova misura CPU durante la registrazione, MB al minuto e ritardo tra audio e video, su 10 minuti reali. Il file è un MP4 (H.264 e AAC) in `AAAA/MM/video/<id>-HHMMSS.mp4`; nella nota va una riga `🎬 [Video HH:MM (durata)](video/…)`, che Calendario e Ctrl K mostrano come le registrazioni audio. Cosa si registra è da decidere (vedi "Da decidere").
+
+**3. Alla fine di ogni registrazione, audio o video, l'app chiede cosa fare.** Un riquadro "Registrazione terminata" con durata e dimensione del file, e le scelte:
+- **Trascrivi:** ora, più tardi (nella nota resta un pulsante "Trascrivi") o mai.
+- **Associa a:** la nota attiva, la nota di oggi, una nuova nota, oppure un'altra nota cercata come in Ctrl K. Il file si sposta accanto alla nota scelta e la riga va nella sua sezione "Trascrizioni".
+- **Il file:** conservalo, oppure eliminalo dopo la trascrizione. Per un video anche "Conserva solo l'audio", che occupa molto meno.
+- **Elimina la registrazione**, con conferma: il file va nel Cestino, non sparisce.
+
+Il riquadro propone l'ultima scelta fatta. Se lo si chiude senza scegliere, o l'app si chiude, il file resta e la riga va nella nota di oggi: non si perde mai una registrazione. Questa regola sostituisce quella del piano del design ("Destinazione della registrazione"), che va aggiornato quando la tappa parte.
+
+**4. Trascrizione** con `whisper-rs`, anche dell'audio estratto da un video. Avanzamento sul pulsante Registra, come prevede il design. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale. Serve prima decidere come compilarlo: richiede CMake e libclang, non installati.
+
+**5. Riproduzione dal minutaggio:** `[mm:ss]` diventa un pulsante nell'editor (vedi il piano del design). Per l'audio la riproduzione è in Rust; per un video si apre un riquadro con il video al punto giusto, oppure il lettore di sistema (da decidere con la prova del passo 2).
+
+**6. Spazio su disco nelle Impostazioni.** Una sezione "Spazio occupato" nella scheda Note e registrazione:
+- totale della cartella delle note, diviso tra note (`.md`), audio, video, immagini, allegati e schizzi, indice di ricerca; più lo spazio libero sul disco;
+- i file più grandi, con "Mostra nella cartella" ed "Elimina" (nel Cestino, con conferma, e con un avviso se una nota li cita ancora);
+- il calcolo gira in Rust in sottofondo e non blocca mai la pagina; si aggiorna aprendo la scheda e dopo ogni registrazione.
+
+**Avvisi quando lo spazio è troppo:** nella sezione, in evidenza, se si supera una soglia; e nel riquadro di fine registrazione, se quel file la fa superare. Soglie proposte, da confermare: cartella delle note oltre 10 GB, video oltre 5 GB, spazio libero sul disco sotto il 10% o sotto 5 GB. Se la cartella è sincronizzata (OneDrive, Dropbox), un avviso dice che anche i video verranno caricati.
+
+**7. Note e file non collegati, nelle Impostazioni.** Aggiunta su richiesta dell'utente, nella stessa scheda, sotto "Spazio occupato". Due elenchi:
+- **Note non collegate a niente:** nessun `[[link]]` in entrata o in uscita, nessuna `@persona`, nessuna `#etichetta`, nessuna azione. È la stessa regola delle "Note isolate" del Grafo, così i due posti dicono la stessa cosa. Le note del giorno vuote, che l'app crea da sola, stanno in un gruppo a parte, che si svuota con un solo pulsante.
+- **File non citati da nessuna nota:** immagini, audio, video, allegati e schizzi che nessuna nota cita più (per esempio dopo aver cancellato la riga che li mostrava). Di solito è qui che si libera davvero spazio.
+
+Per ogni voce: titolo o nome del file, data, dimensione e percorso. Un clic apre l'anteprima a destra, la stessa di Ctrl K per le note, l'immagine o il lettore per i file. Si può aprire la nota, mostrarla nella cartella, oppure selezionare più voci e premere "Elimina", con il totale dello spazio liberato. Eliminare porta sempre nel Cestino, dopo una conferma che elenca cosa sparisce. Una nota si porta dietro le sue registrazioni (`note_files`, come nella versione precedente), e la conferma lo dice. Un file citato da una nota non compare mai nell'elenco: il controllo si rifà subito prima di eliminare, perché nel frattempo una nota potrebbe averlo citato.
+
+**Fatta quando:**
+- registrazione audio e video, scelta finale, trascrizione e riproduzione funzionano su registrazioni reali di almeno 10 minuti;
+- nessuna chiusura (Esci, chiusura forzata, spegnimento del PC) perde una registrazione;
+- lo spazio mostrato coincide con quello misurato da Esplora risorse;
+- gli elenchi delle note e dei file non collegati non contengono mai una nota o un file citato, e nulla si elimina senza passare dal Cestino;
+- sono annotati CPU e memoria durante la registrazione, MB al minuto e tempo di trascrizione per minuto d'audio.
+
+**Prove automatiche:** un dispositivo audio finto (un WAV letto al posto del microfono, scelto con una variabile d'ambiente) e una registrazione video breve della finestra dell'app. Così le prove non dipendono dal microfono. Il riquadro di fine registrazione e la sezione dello spazio si provano via CDP, su cartelle di prova con file di dimensioni note. Per gli elenchi dei non collegati, la cartella di prova ha note isolate, note del giorno vuote, file citati e file orfani, compreso un file citato solo da un `[[link]]` o solo da un'immagine in una tabella.
+
+### 🟡 13. File ed esportazione
 
 Link a file con apertura sicura, allegati, HTML e Markdown. PDF con `PrintToPdf` di WebView2, che da Tauri dovrebbe essere raggiungibile tramite `with_webview`: da verificare per primo.
+
+**✅ Immagini incollate nella nota**, aggiunte su richiesta dell'utente e fatte il 3 novembre (`prova-immagini.mjs`):
+- **Incollare:** Ctrl V con un'immagine negli appunti (uno screenshot, un'immagine copiata dal browser o da Esplora risorse) la salva in `images/` accanto alla nota. È la cartella che usava già la versione precedente, vedi [architettura.md](architettura.md). Al cursore va il tag Markdown standard `![](images/AAAA-MM-GG-HHMMSS.png)`, così il file resta leggibile in qualsiasi editor Markdown e su GitHub. Due immagini nello stesso secondo ricevono un numero. Funziona anche trascinando un file immagine nella nota, che oggi arriva alla pagina senza percorso: il contenuto si legge dalla pagina e si salva come per l'incolla.
+- **Formato:** gli screenshot si salvano in PNG; JPEG, GIF e WebP restano come sono. Si accettano solo immagini, riconosciute dal contenuto e non solo dall'estensione. Si accetta anche BMP; SVG no, perché può contenere script. Sopra i 10 MB l'app chiede prima di salvarla, sopra i 50 MB rifiuta.
+- **Vista nella nota:** nell'anteprima viva il tag diventa l'immagine, alla larghezza della nota, e torna testo quando il cursore è sulla riga, come i link e le tabelle. L'immagine compare anche in Anteprima, nelle tabelle e nel riquadro di Ctrl K. Il testo tra parentesi quadre resta la descrizione dell'immagine. Un file mancante mostra un segnaposto con il nome.
+- **Sicurezza:** la pagina non legge file liberamente. Rust serve le immagini con il protocollo `qnfile` (`http://qnfile.localhost/<percorso nella cartella delle note>`), che risponde solo a file immagine veri dentro la cartella delle note e rifiuta `..`, percorsi assoluti e nomi codificati. La CSP ammette `qnfile` solo come sorgente di immagini, non per `fetch`, e non ammette immagini dal web. Gli `<img>` dell'HTML delle note perdono l'indirizzo già durante la sanificazione e lo riprendono solo se è un'immagine della cartella delle note: nessuna richiesta parte verso internet.
+- **Spazio:** le immagini contano nella sezione "Spazio occupato". Togliendo il tag dalla nota, il file non si cancella: compare tra i "File non citati" della tappa 12, da dove lo si elimina.
+
+**Fatta quando:** uno screenshot incollato compare subito nella nota, il file è in `images/` e il testo della nota contiene solo il tag Markdown; la nota riaperta, l'Anteprima e un editor esterno mostrano la stessa immagine; un percorso che esce dalla cartella delle note, per esempio `![](../../x.png)`, non viene mai servito.
+
+**Provato** (`prova-immagini.mjs` e test di `images.rs`): incolla e trascinamento con il tag giusto e un PNG vero in `images/`; immagine nell'anteprima viva, testo del tag con il cursore sulla riga; con testo semplice negli appunti vince il testo; un file che si spaccia per PNG viene rifiutato senza lasciare tracce; un'immagine lasciata fuori dall'editor non fa uscire la pagina dall'app; il protocollo serve l'immagine e rifiuta nota, percorsi fuori dalla cartella e file di sistema; `fetch` non può leggere `qnfile`; Anteprima con due immagini e un'immagine dal web come segnaposto; **appunti veri di Windows e Ctrl V vero**. Non provato: un'immagine copiata da un browser vero, che mette negli appunti anche HTML.
+**Corretto durante la prova:** gli `<img>` dell'Anteprima cominciavano a caricare l'indirizzo scritto nella nota prima di essere sostituiti, anche verso il web (la CSP lo bloccava, ma il tentativo partiva).
 
 ### ⬜ 14. Schizzi Excalidraw
 
@@ -213,6 +273,7 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 10 | Ctrl K con tipi e gruppi, dal tasto ai risultati a schermo, 1000 note | mediana 17,8 ms, 95° percentile 24,4 ms (prima delle correzioni: 23 e 31,5) | < 30 ms ✅ |
 | 10 | Ctrl K, dal tasto all'anteprima aggiornata | mediana 20 ms; 95° percentile 98 ms, perché la prima volta che si sceglie una nota il riquadro aspetta 60 ms che la scelta si fermi | |
 | 6 | Scrittura e cambio scheda, ripresi dopo le tappe 9-11 | scrittura 3,9 / 5,1 / 5,8 ms di mediana; cambio scheda 25,9 ms; memoria 11,2 MB privati | invariati ✅ |
+| 13 | Scrittura e cambio scheda, ripresi dopo le immagini nell'anteprima viva | scrittura 4,2 / 5,1 / 5,8 ms di mediana; cambio scheda 25,3 ms; memoria 10,1 MB privati | invariati ✅ |
 
 **L'avvio a freddo supera l'obiettivo.** La creazione di WebView2 è fuori dal controllo di Rust. Idea da provare: mostrare subito la finestra con lo sfondo del tema, così la risposta si percepisce prima, controllando che non compaia un lampo.
 
@@ -257,4 +318,8 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | La finestra di registrazione passa alla tappa 12 | Senza audio sarebbe una finestra finta |
 | 2026-11-03 | Aprendo una nota da Ctrl K o dal Calendario, la riga trovata si accende e sfuma con un'animazione CSS | Una decorazione spenta solo da un timer poteva restare accesa in una scheda nascosta nel frattempo |
 | 2026-11-03 | `prova-sistema.mjs` usa tasti e mouse veri, attraverso PowerShell e Win32 | Playwright simula gli eventi dentro la pagina e non raggiunge tasti globali, area di notifica, primo piano e bordi della finestra. Il trascinamento delle schede rotto alla tappa 7 non l'aveva visto |
+| 2026-11-03 | La tappa 12 comprende anche registrazione video, una scelta esplicita alla fine di ogni registrazione (trascrivere, a quale nota associarla, conservare o eliminare il file) e lo spazio occupato nelle Impostazioni, con avvisi | Richiesta dell'utente. I video pesano molto più dell'audio: lo spazio va mostrato e tenuto d'occhio |
+| 2026-11-03 | Immagini incollate in `images/` accanto alla nota, con il tag Markdown standard (tappa 13); in Impostazioni gli elenchi delle note e dei file non collegati, da ispezionare ed eliminare nel Cestino (tappa 12, passo 7) | Richiesta dell'utente. `images/` è la cartella della versione precedente; il tag standard tiene le note leggibili fuori dall'app |
+| 2026-11-03 | Immagini servite da un protocollo dell'app (`qnfile`), non con l'asset protocol di Tauri | Il protocollo controlla in Rust che il file sia un'immagine vera dentro la cartella delle note; l'asset protocol servirebbe qualsiasi file del suo ambito |
+| 2026-11-03 | Le immagini incollate si chiamano con data e ora e non si comprimono | Il nome non dipende dal titolo, che può cambiare. Il file resta quello copiato |
 | 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

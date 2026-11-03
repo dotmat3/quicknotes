@@ -78,6 +78,12 @@
     }
   }
 
+  // Un file lasciato fuori dall'editor farebbe aprire il file a WebView2, al posto dell'app. Nell'editor le
+  // immagini si inseriscono nella nota; altrove il file si ignora.
+  function stayOnPage(e) {
+    if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+  }
+
   function onKey(e) {
     if (!e.ctrlKey && !e.metaKey) return;
     const k = e.key.toLowerCase();
@@ -116,6 +122,8 @@
   onkeyup={ctrlHeld}
   onmousemove={ctrlHeld}
   onblur={() => document.documentElement.classList.remove('qn-ctrl')}
+  ondragover={stayOnPage}
+  ondrop={stayOnPage}
 />
 
 <div class="app">

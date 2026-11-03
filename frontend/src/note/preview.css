@@ -68,3 +68,6 @@
 .tok-typeName, .tok-className, .tok-namespace, .tok-macroName { color: var(--person); }
 .tok-variableName.tok-definition, .tok-propertyName.tok-definition { color: var(--text); font-weight: 500; }
 .tok-invalid { color: var(--late); }
+
+/* Immagini della nota, servite dalla cartella delle note. */
+.pv img.pv-img { display: block; max-width: 100%; height: auto; margin: 6px 0; border-radius: 8px; border: 1px solid var(--border); }

@@ -4,14 +4,14 @@
   import { previewClick, renderMarkdown } from './preview.js';
   import { tagColor } from '../state/app.svelte.js';
 
-  let { text, onOpen } = $props();
+  let { text, notePath = '', onOpen } = $props();
 
   let host = $state();
   let timer = null;
   let drawn = false;
 
   function draw(t) {
-    host.replaceChildren(...renderMarkdown(t, tagColor).childNodes);
+    host.replaceChildren(...renderMarkdown(t, tagColor, notePath).childNodes);
     drawn = true;
   }
 

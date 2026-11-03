@@ -103,7 +103,25 @@ fn main() {
             commands::notes_settings,
             commands::set_notes_setting,
             commands::open_notes_folder,
+            commands::save_image,
         ])
+        // Le immagini delle note: `http://qnfile.localhost/<percorso nella cartella delle note>`. Si servono
+        // solo file immagine dentro la cartella delle note; la lettura avviene fuori dal thread della finestra.
+        .register_asynchronous_uri_scheme_protocol("qnfile", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let path = request.uri().path().to_string();
+            std::thread::spawn(move || {
+                let found = app.try_state::<AppState>().and_then(|s| quicknotes_core::images::resolve(s.store.root(), &path));
+                let response = match found.and_then(|(file, mime)| std::fs::read(file).ok().map(|b| (b, mime))) {
+                    Some((bytes, mime)) => tauri::http::Response::builder()
+                        .header("Content-Type", mime)
+                        .header("Cache-Control", "no-cache")
+                        .body(bytes),
+                    None => tauri::http::Response::builder().status(404).body(Vec::new()),
+                };
+                responder.respond(response.expect("risposta valida"));
+            });
+        })
         .on_window_event(|window, event| {
             // Chiudere non termina l'app: la finestra si nasconde e riaprirla è immediato.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

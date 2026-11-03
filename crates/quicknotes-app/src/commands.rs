@@ -308,6 +308,18 @@ pub fn open_url(app: AppHandle, url: String) -> CmdResult<()> {
     app.opener().open_url(parsed.as_str(), None::<&str>).map_err(err)
 }
 
+/// Un'immagine incollata o trascinata nella nota. I byte arrivano così come sono, senza JSON; la nota è
+/// nell'intestazione `x-note`, codificata. Restituisce il percorso da scrivere nel tag Markdown.
+#[tauri::command(async)]
+pub fn save_image(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> CmdResult<String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("Immagine non ricevuta".into());
+    };
+    let note = request.headers().get("x-note").and_then(|v| v.to_str().ok()).ok_or("Nota non indicata")?;
+    let note = quicknotes_core::images::percent_decode(note).ok_or("Nota non valida")?;
+    state.store.save_image(&note, bytes, Local::now().naive_local()).map_err(err)
+}
+
 /// La scheda Note e registrazione delle Impostazioni.
 #[tauri::command(async)]
 pub fn notes_settings(state: State<'_, AppState>) -> CmdResult<Value> {

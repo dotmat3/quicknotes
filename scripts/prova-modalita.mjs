@@ -25,8 +25,9 @@ Ultima riga.
 `;
 
 // La nota di prova contiene apposta gestori on…: WebView2 li segnala già mentre DOMPurify legge l'HTML,
-// e la CSP li blocca. Nessuno viene eseguito, come controlla la prova.
-export const expectedErrors = [/^error: Executing inline event handler violates the following Content Security Policy/];
+// e la CSP li blocca. Nessuno viene eseguito, come controlla la prova. Il suo <img src=x> si cerca nella
+// cartella delle note, non c'è (404) e lascia il segnaposto.
+export const expectedErrors = [/^error: Executing inline event handler violates the following Content Security Policy/, /status of 404 \(Not Found\)/];
 
 export default async function (page, { notes }) {
   const now = new Date();

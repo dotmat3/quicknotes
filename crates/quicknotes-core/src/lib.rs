@@ -4,6 +4,7 @@
 pub mod config;
 pub mod dates;
 pub mod edit;
+pub mod images;
 pub mod index;
 pub mod parser;
 pub mod store;

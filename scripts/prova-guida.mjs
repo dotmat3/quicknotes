@@ -47,9 +47,11 @@ export default async function (page, { notes }) {
   assert(dates[0].includes('Oggi') && dates[1].includes('Domani') && dates.some((o) => o.includes('Fine del mese')), `due: propone le date: ${dates.slice(0, 3).map((o) => o.replace(/\s+/g, ' ')).join(' | ')}`);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(700);
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  assert(read().includes(`- [ ] Chiamare il fornitore due:${iso(tomorrow)}`), 'scegliendo Domani si scrive la data nel formato giusto');
+  // Il salvataggio arriva dopo una breve attesa: si guarda il file finché il testo c'è, fino a 3 secondi.
+  let saved = false;
+  for (let i = 0; i < 30 && !saved; i++, await page.waitForTimeout(100)) saved = read().includes(`- [ ] Chiamare il fornitore due:${iso(tomorrow)}`);
+  assert(saved, 'scegliendo Domani si scrive la data nel formato giusto');
   await page.keyboard.type(' entro:2026-13');
   await page.waitForSelector('.cm-tooltip-autocomplete .cm-opt-invalid');
   assert((await options())[0].includes('Formato AAAA-MM-GG'), 'una data incompleta o sbagliata viene segnalata');

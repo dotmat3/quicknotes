@@ -134,3 +134,8 @@
   0%, 45% { background: color-mix(in srgb, var(--accent) 20%, transparent); }
   100% { background: transparent; }
 }
+
+/* Immagini della nota nell'anteprima viva: a tutta larghezza, con il testo che torna sulla riga del cursore. */
+.cm-image { display: block; margin: 6px 0; line-height: 0; }
+.cm-image img { display: block; max-width: 100%; max-height: 520px; border-radius: 8px; border: 1px solid var(--border); }
+.cm-image-missing { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--hover); color: var(--subtle); font-size: 13px; }

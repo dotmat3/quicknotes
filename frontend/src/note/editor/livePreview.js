@@ -2,6 +2,7 @@
 // caselle cliccabili, @persone e #etichette sono evidenziate, scadenze e decisioni diventano etichette.
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
+import { imageUrl, notePathFacet } from '../images.js';
 import { ALERT_LABELS, DECISION, DONE, DUE, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, dueLabel, isoToday, withChecked } from './rules.js';
 
 const SKIP_NODES = new Set(['InlineCode', 'URL', 'CodeText', 'FencedCode', 'CodeBlock', 'Autolink']);
@@ -79,6 +80,38 @@ class AlertTitleWidget extends WidgetType {
     el.className = 'cm-alert-title';
     el.append(alertIcon(this.kind), ALERT_LABELS[this.kind]);
     return el;
+  }
+}
+
+// Un'immagine della nota al posto del tag ![](…). Un file mancante lascia un segnaposto con il nome.
+class ImageWidget extends WidgetType {
+  constructor(url, alt, src) {
+    super();
+    this.url = url;
+    this.alt = alt;
+    this.src = src;
+  }
+  eq(other) {
+    return other.url === this.url && other.alt === this.alt;
+  }
+  toDOM(view) {
+    const wrap = document.createElement('span');
+    wrap.className = 'cm-image';
+    const img = document.createElement('img');
+    img.alt = this.alt;
+    img.src = this.url;
+    // L'altezza si conosce solo a immagine caricata: CodeMirror deve rimisurare la riga.
+    img.addEventListener('load', () => view.requestMeasure());
+    img.addEventListener('error', () => {
+      wrap.className = 'cm-image-missing';
+      wrap.textContent = `Immagine mancante: ${this.alt || this.src}`;
+      view.requestMeasure();
+    });
+    wrap.append(img);
+    return wrap;
+  }
+  ignoreEvent() {
+    return false;
   }
 }
 
@@ -193,6 +226,16 @@ function build(view, focused, tagColor) {
           // Indirizzo scritto nudo, come su GitHub: è già un link.
           const active = isActive(node.from);
           decos.push(Decoration.mark({ class: 'cm-link', attributes: { 'data-href': doc.sliceString(node.from, node.to), ...(active ? CTRL : {}) } }).range(node.from, node.to));
+          return false;
+        }
+        if (name === 'Image') {
+          // Fuori dalla riga del cursore il tag diventa l'immagine; sulla riga si vede e si modifica il testo.
+          const url = node.node.getChild('URL');
+          const marks = node.node.getChildren('LinkMark');
+          if (!url || marks.length < 2 || isActive(node.from)) return false;
+          const src = doc.sliceString(url.from, url.to);
+          const href = imageUrl(state.facet(notePathFacet), src);
+          if (href) replace(node.from, node.to, Decoration.replace({ widget: new ImageWidget(href, doc.sliceString(marks[0].to, marks[1].from), src) }));
           return false;
         }
         if (name === 'Link') {

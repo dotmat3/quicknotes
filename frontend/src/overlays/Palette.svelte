@@ -189,7 +189,7 @@
     const lines = p.note.body.split('\n');
     const start = p.line ? Math.max(0, p.line - 7) : 0;
     const part = lines.slice(start, start + 40).join('\n') + (start + 40 < lines.length ? '\n\n…' : '');
-    content.replaceChildren(...render(part, tagColor).childNodes);
+    content.replaceChildren(...render(part, tagColor, p.note.path).childNodes);
     highlight(content, hl);
     const first = content.querySelector('mark');
     pane.scrollTop = first ? Math.max(0, first.offsetTop - pane.clientHeight / 3) : 0;

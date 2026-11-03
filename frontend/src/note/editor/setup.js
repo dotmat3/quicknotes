@@ -10,6 +10,7 @@ import { Decoration, drawSelection, dropCursor, EditorView, keymap, lineNumbers,
 import { classHighlighter, tags as t } from '@lezer/highlight';
 import { livePreview, toggleTaskAt } from './livePreview.js';
 import { ACTION, ALERT_DESCRIPTIONS, ALERT_LABELS, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, diff } from './rules.js';
+import { imagesIn, notePathFacet } from '../images.js';
 import { SUGGESTIONS } from './suggest.js';
 import { tables } from './tables.js';
 import './editor.css';
@@ -249,7 +250,22 @@ export function unflash(view) {
   if (view.state.field(flashField, false)?.size) view.dispatch({ effects: flash.of(null) });
 }
 
-export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
+// Immagini incollate o trascinate: `onImages` le salva e restituisce i tag Markdown, che vanno al cursore
+// (incollando) o dove cade il trascinamento, ognuno sulla sua riga se sono più d'una.
+function insertImages(view, files, onImages, at) {
+  onImages(files).then((tags) => {
+    if (!tags.length || !view.dom.isConnected) return;
+    const text = tags.join('\n');
+    if (at == null) {
+      view.dispatch(view.state.replaceSelection(text), { userEvent: 'input.paste', scrollIntoView: true });
+    } else {
+      const pos = Math.min(at, view.state.doc.length);
+      view.dispatch({ changes: { from: pos, insert: text }, selection: { anchor: pos + text.length }, userEvent: 'input.drop', scrollIntoView: true });
+    }
+  });
+}
+
+export function createState(doc, { onChange, onOpen, tagColor, suggest, path = '', onImages }) {
   return EditorState.create({
     doc,
     selection: EditorSelection.cursor(doc.length),
@@ -275,6 +291,7 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
       }),
       placeholder('Inizia a scrivere…'),
       flashField,
+      notePathFacet.of(path),
       Prec.high(
         keymap.of([
           { key: 'Mod-t', run: toggleAction, preventDefault: true },
@@ -300,6 +317,20 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
           else if (d.href !== undefined) onOpen('url', d.href);
           else if (d.person) onOpen('person', d.person);
           else onOpen('tag', d.tag);
+          return true;
+        },
+        paste(e, view) {
+          const files = onImages ? imagesIn(e.clipboardData, true) : [];
+          if (!files.length) return false;
+          e.preventDefault();
+          insertImages(view, files, onImages, null);
+          return true;
+        },
+        drop(e, view) {
+          const files = onImages ? imagesIn(e.dataTransfer, false) : [];
+          if (!files.length) return false;
+          e.preventDefault();
+          insertImages(view, files, onImages, view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.selection.main.head);
           return true;
         },
         // Un link nelle tabelle è un vero <a>: la pagina non deve mai seguirlo.

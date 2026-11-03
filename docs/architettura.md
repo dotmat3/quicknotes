@@ -96,7 +96,7 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono già note e configurazione reali. La
 | Sintassi | `@persona`, `#tag`, `- [ ]`, `due:` (anche `entro:` e `scadenza:`), `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`. Si aggiungono `done:` e `![[….excalidraw]]` |
 | Audio | `AAAA/MM/audio/<id>-HHMMSS.wav` e righe `🎙️ [Registrazione HH:MM (durata)](file)` |
 | Trascrizioni | `### Trascrizione HH:MM`, con paragrafi `[mm:ss]`. `parser::recordings` e `parser::transcript_lines` le leggono per Calendario e Ctrl K; una registrazione cade nel giorno della nota che la contiene, perché il nome del WAV non ha la data |
-| Immagini | `images/` accanto alla nota, con `![](images/…)` |
+| Immagini | `images/` accanto alla nota, con `![](images/…)`. Incollate o trascinate: `images/AAAA-MM-GG-HHMMSS.png` (`quicknotes-core::images`). La pagina le carica da `http://qnfile.localhost/<percorso nella cartella delle note>`: il protocollo, registrato in `main.rs`, serve solo immagini vere dentro la cartella delle note |
 | Indice | **Nuovo file** `<note>/.quicknotes/index-v3.db`. Il vecchio `index.db` non viene toccato, così la vecchia versione continua a funzionare |
 
 **Un salvataggio non riscrive ciò che non è cambiato.** Il frontmatter resta testo esattamente com'era finché non si modificano i metadati. La versione precedente lo riscriveva a ogni salvataggio; qui un file non cambia mai forma senza motivo. Anche gli a capo restano quelli del file.
@@ -164,6 +164,7 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 - **HTML generato sempre sanificato** con DOMPurify (`note/preview.js`), senza stili, classi e id presi dalla nota. I link esterni passano da `open_url`, solo `http` e `https`. Gli `on…` scritti in una nota fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML: WebView2 la produce con qualsiasi modo di analizzarlo, e il gestore non viene mai eseguito.
 - **`open_file`** rifiuta eseguibili e percorsi che escono dalla cartella delle note, e chiede conferma per i file esterni. Non ancora realizzato: arriva con la tappa 13.
 - **Percorsi:** la pagina indica le note per id. Rust risolve il percorso e controlla che resti nella cartella delle note.
+- **Immagini:** il protocollo `qnfile` rifiuta `..`, percorsi assoluti e file che non sono immagini (riconosciute dai primi byte; niente SVG). La CSP lo ammette solo in `img-src`. DOMPurify toglie l'indirizzo agli `<img>` durante la sanificazione, e `preview.js` lo rimette solo per le immagini della cartella delle note: le note non possono far partire richieste verso il web.
 
 ## Misure
 
