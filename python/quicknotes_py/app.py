@@ -259,7 +259,9 @@ class Shell:
     def request_close(self) -> None:
         """La pagina salva tutto, poi chiama `quit`. Se non risponde entro 3 secondi si chiude comunque."""
         self.emit("flush-and-close")
-        threading.Timer(3, self.quit).start()
+        timer = threading.Timer(3, self.quit)
+        timer.daemon = True
+        timer.start()
 
     def quit(self) -> None:
         if self.quitting:
@@ -269,9 +271,12 @@ class Shell:
             self.window.destroy()
 
     def _on_closing(self):
+        """La X della finestra. Gira sul thread della finestra: qui `run_js` aspetterebbe una risposta che
+        solo questo thread può dare, e l'app si bloccherebbe. Si annulla la chiusura e si chiede alla pagina
+        di salvare da un altro thread; la pagina poi chiama `quit`."""
         if self.quitting:
             return True
-        self.request_close()
+        threading.Thread(target=self.request_close, daemon=True).start()
         return False
 
     def _on_shown(self):

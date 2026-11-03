@@ -2,7 +2,7 @@
 // CDP e controlla scrittura, salvataggio su disco, comandi, modifiche esterne, immagini e chiusura.
 // Uso: node scripts/prova-python.mjs [foto.png]   (prima: cd frontend && npm run build:py)
 // Con QN_PYTHON=<cartella portatile>/python/pythonw.exe prova la cartella portatile al posto della venv.
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -99,10 +99,18 @@ try {
   if (shot) await page.screenshot({ path: shot });
   check(errors.length === 0, `nessun errore nella pagina${errors.length ? ': ' + errors.join(' | ') : ''}`);
 
-  // Chiusura: la pagina salva e chiama quit.
-  await page.evaluate(() => window.pywebview.api.invoke('hide_main', {})).catch(() => {});
-  for (let i = 0; i < 20 && !exited; i++) await new Promise((r) => setTimeout(r, 250));
-  check(exited, 'l\'app si chiude dopo aver salvato');
+  // Chiusura con la X della finestra (WM_CLOSE), subito dopo aver scritto: il testo deve arrivare su disco
+  // anche se il salvataggio automatico non è ancora partito, e l'app deve terminare senza bloccarsi.
+  await page.click('.cm-content');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' ultima parola');
+  // Con la venv il processo avviato è solo un lanciatore: la finestra va cercata per titolo.
+  const closed = execSync('powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -like \'python*\' '
+    + '-and $_.MainWindowTitle -like \'*QuickNotes\' } | ForEach-Object { $_.CloseMainWindow() }"').toString().trim();
+  check(closed === 'True', 'X della finestra premuta');
+  for (let i = 0; i < 40 && !exited; i++) await new Promise((r) => setTimeout(r, 250));
+  check(exited, 'la X chiude l\'app senza bloccarla');
+  check(readFileSync(dailyPath, 'utf8').includes('ultima parola'), 'testo scritto subito prima della chiusura salvato');
   await browser.close().catch(() => {});
 } catch (e) {
   failures.push(String(e));
