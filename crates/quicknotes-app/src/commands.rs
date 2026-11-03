@@ -275,6 +275,17 @@ pub fn new_note(state: State<'_, AppState>, title: String, note_type: String) ->
     Ok(json!({"id": note.id, "title": note.title()}))
 }
 
+/// Apre un link della nota nel browser. Solo `http` e `https`: niente file, niente altri protocolli.
+#[tauri::command]
+pub fn open_url(app: AppHandle, url: String) -> CmdResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let parsed = tauri::Url::parse(&url).map_err(|_| format!("Link non valido: {url}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(format!("Si aprono solo i link http e https: {url}"));
+    }
+    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(err)
+}
+
 /// Il blocco da copiare in Claude: percorso reale del server MCP accanto all'app.
 #[tauri::command]
 pub fn claude_config() -> CmdResult<Value> {

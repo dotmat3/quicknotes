@@ -2,11 +2,10 @@
 // caselle cliccabili, @persone e #etichette sono evidenziate, scadenze e decisioni diventano etichette.
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
-import { DECISION, DONE, DUE, MENTION, TAG, WIKI, dueLabel, isoToday, withChecked } from './rules.js';
+import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, dueLabel, isoToday, withChecked } from './rules.js';
 
 const SKIP_NODES = new Set(['InlineCode', 'URL', 'CodeText', 'FencedCode', 'CodeBlock', 'Autolink']);
 const ALERT = /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i;
-const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Attenzione', CAUTION: 'Pericolo' };
 
 class CheckboxWidget extends WidgetType {
   constructor(checked) {
@@ -171,7 +170,10 @@ function build(view, focused, tagColor) {
         if (name === 'Link') {
           const marks = node.node.getChildren('LinkMark');
           if (marks.length >= 2 && marks[0].to < marks[1].from) {
-            decos.push(mark('cm-link').range(marks[0].to, marks[1].from));
+            const url = node.node.getChild('URL');
+            // Fuori dalla riga del cursore il link si apre con un clic, come i [[link]].
+            const href = url && !isActive(node.from) ? { attributes: { 'data-href': doc.sliceString(url.from, url.to) } } : {};
+            decos.push(Decoration.mark({ class: 'cm-link', ...href }).range(marks[0].to, marks[1].from));
             if (!isActive(node.from)) {
               replace(node.from, marks[0].to);
               replace(marks[1].from, node.to);

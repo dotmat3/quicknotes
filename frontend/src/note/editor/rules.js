@@ -7,6 +7,7 @@ export const DONE = /\bdone\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
 export const DECISION = /!(?:decisione|decision|dec)(?![\p{L}\p{N}_])/giu;
 export const WIKI = /(!?)\[\[([^\]\n|]+)(?:\|([^\]\n]*))?\]\]/g;
 export const ACTION = /^(\s*)[-*+]\s+\[( |x|X)\]\s*(.*)$/;
+export const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Attenzione', CAUTION: 'Pericolo' };
 
 const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const DAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];

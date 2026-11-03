@@ -77,7 +77,8 @@ docs/
 | MCP | Scritto a mano su `serde_json` | Solo strumenti e prompt; verificato con il client dell'SDK ufficiale |
 | Microfono e riproduzione | `cpal`, `hound`, `rodio` | |
 | Trascrizione locale | `whisper-rs` (whisper.cpp) | Dietro una feature: richiede CMake e libclang per compilare |
-| Editor | CodeMirror 6 | |
+| Editor | CodeMirror 6, con `@codemirror/search` per Ctrl F | |
+| Apertura dei link web | `tauri-plugin-opener`, usato solo da Rust | |
 | Markdown nell'Anteprima e nell'esportazione | `marked` e `DOMPurify` | |
 
 ## Compatibilità con i dati esistenti
@@ -157,11 +158,13 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 
 - **CSP rigida:** nessuno script esterno, nessuna connessione di rete. Font inclusi nel pacchetto. Sono ammessi solo gli stili in linea, necessari a Svelte e CodeMirror.
 - **Permessi Tauri minimi**, finestra per finestra.
-- **HTML generato sempre sanificato** con DOMPurify. I link esterni passano da `open_url`, solo `http` e `https`. Non ancora realizzato: arriva con la modalità Anteprima.
+- **HTML generato sempre sanificato** con DOMPurify (`note/preview.js`), senza stili, classi e id presi dalla nota. I link esterni passano da `open_url`, solo `http` e `https`. Gli `on…` scritti in una nota fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML: WebView2 la produce con qualsiasi modo di analizzarlo, e il gestore non viene mai eseguito.
 - **`open_file`** rifiuta eseguibili e percorsi che escono dalla cartella delle note, e chiede conferma per i file esterni. Non ancora realizzato: arriva con la tappa 13.
 - **Percorsi:** la pagina indica le note per id. Rust risolve il percorso e controlla che resti nella cartella delle note.
 
 ## Misure
+
+`node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` misura scrittura (dalla traccia della timeline), cambio scheda e memoria.
 
 L'app registra i tempi delle fasi di avvio in un file se è impostata `QUICKNOTES_TRACE=<file>`: `main`, `dati pronti`, `finestra creata`, `indice allineato`, `prima pittura`. `node scripts/misura-avvio.mjs <cartella>` ripete l'avvio e dà le mediane. `cargo run --release -p quicknotes-core --example genera_note -- <cartella vuota> 1000` genera le note e misura indice e ricerca.
 

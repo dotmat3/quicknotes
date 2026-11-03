@@ -3,6 +3,7 @@
   import { call } from '../api.js';
   import { app, tagColor } from '../state/app.svelte.js';
   import { applyLayout, focused, layout, openPage, reopen, splitTo, canSide } from '../state/layout.svelte.js';
+  import { MODES, setMode } from '../state/documents.svelte.js';
   import { pageArg } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
 
@@ -36,6 +37,7 @@
     ['Layout: due colonne', '', () => applyLayout(2, 'row')],
     ['Layout: due righe', '', () => applyLayout(2, 'col')],
     ['Riapri scheda chiusa', 'Ctrl Shift T', reopen],
+    ...MODES.map(([m, label]) => [`Modalità della nota: ${label}`, '', () => active().active?.startsWith('note:') && setMode(`${active().id}:${active().active}`, m)]),
   ];
 
   async function createNote(title, noteType) {

@@ -8,6 +8,20 @@ export const docs = $state({});
 export const views = new Map();
 export const savedStates = new Map();
 
+// Modalità di ogni (gruppo, scheda): anteprima viva se manca.
+export const MODES = [
+  ['live', 'Anteprima viva'],
+  ['source', 'Sorgente'],
+  ['split', 'Affiancata'],
+  ['preview', 'Anteprima'],
+];
+export const modes = $state({});
+
+export function setMode(key, mode) {
+  if (mode === 'live') delete modes[key];
+  else modes[key] = mode;
+}
+
 const SAVE_DELAY = 350;
 
 export async function loadDoc(id) {

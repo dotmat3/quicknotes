@@ -39,11 +39,17 @@ try {
   console.log('url iniziale:', page.url());
   await page.goto(page.url().startsWith('http') ? page.url() : 'http://tauri.localhost/').catch((e) => console.log('navigazione:', e.message.split('\n')[0]));
   await page.waitForTimeout(1500);
+  let expected = [];
   if (scriptPath) {
     const mod = await import(pathToFileURL(resolve(scriptPath)).href);
+    // Una prova può dichiarare gli errori che provoca di proposito.
+    expected = mod.expectedErrors ?? [];
     await mod.default(page, { notes: resolve(notes), work });
   }
   if (shot) await page.screenshot({ path: shot });
+  const unexpected = errors.filter((e) => !expected.some((re) => re.test(e)));
+  if (unexpected.length < errors.length) console.log(`errori attesi dalla prova: ${errors.length - unexpected.length}`);
+  errors.splice(0, errors.length, ...unexpected);
   if (errors.length) {
     code = 1;
     console.log('ERRORI DELLA PAGINA:\n' + errors.join('\n'));

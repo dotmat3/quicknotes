@@ -6,9 +6,9 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026. Il lavoro è in pausa su richiesta, dopo la tappa 11.
+Stato al 3 novembre 2026, dopo la chiusura della tappa 6.
 
-**Nulla è stato salvato in git.** Tutto il codice nuovo è solo nella cartella di lavoro, sul ramo `main`: l'unico commit resta `eb05f3e`, quello della versione Python. Il primo passo consigliato è chiedere all'utente se fare un commit, su un ramo nuovo. Il codice Python cancellato si può ancora leggere con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno perse.
+**Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
 **Per ripartire:**
 
@@ -30,10 +30,11 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | Prova | Cartella | Note |
 |---|---|---|
 | `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs` | Con `demo-note.mjs` | |
+| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs` | Con `demo-note.mjs` | |
+| `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
 
-Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando tutti i controlli `ok:` sono passati.
+Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando tutti i controlli `ok:` sono passati. Una prova può dichiarare gli errori che provoca di proposito con `export const expectedErrors`: `cdp.mjs` li conta a parte.
 
 **Strumenti già installati su questo PC:** Rust 1.99 con Rustup, Visual Studio Build Tools 2022, Node 23. Non ci sono CMake né libclang, che serviranno a `whisper-rs` alla tappa 12.
 
@@ -43,7 +44,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: le modalità dell'editor e le tabelle (6), il menu `⋯` della nota, oggi disattivato.
+1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: "+" sulle colonne e "Sposta a domani" (8), i comportamenti dei gruppi non ancora provati (7), il confronto a schermo dei temi mai guardati (5).
 2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, chiusura con la X, finestra nota rapida che compare davvero.
 3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
 4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
@@ -65,6 +66,9 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 - **`quicknotes-mcp.exe`** non è ancora incluso nell'installer; le Impostazioni avvisano se manca accanto all'app.
 - **README** descrive ancora la versione Python: si aggiorna alla tappa 15.
 - **Grafo:** mostra solo i collegamenti attorno alla nota di oggi, con una disposizione a cerchio semplice.
+- **Anteprima e tabelle:** immagini e file collegati mostrano solo il nome, finché la tappa 13 non porta l'apertura sicura dei file. I link a file non si aprono.
+- **Menu `⋯`:** contiene solo le modalità. Esporta, Allega un file e Inserisci uno schizzo arrivano con le tappe 13 e 14.
+- **Dipendenze di sviluppo:** `npm audit` segnala avvisi su `vitest` e sul plugin Svelte di Vite. Non finiscono nel pacchetto dell'app.
 
 ## Criteri validi per ogni tappa
 
@@ -107,11 +111,12 @@ Token, 6 temi, Personalizzato, Automatico, font inclusi. Barra aperta come in Ho
 **Fatta quando:** il confronto a schermo con la tavola Home è fedele in tutti i temi.
 **Resta da fare:** confronto a schermo fatto solo con Carta e Grafite, senza misure di fedeltà. Mancano le varianti Mezzanotte, Salvia, Lavanda, Nebbia e il Personalizzato, scritti ma mai guardati.
 
-### 🟡 6. Editor
+### ✅ 6. Editor
 
 CodeMirror 6 in un blocco separato, anteprima viva, salvataggio automatico, modifiche esterne, completamento di `@`, `#` e `[[`, comandi di spunta che scrivono `done:`, rientro di sotto-attività e descrizioni, avvisi e tabelle.
 **Fatta quando:** si può usare l'app per scrivere davvero, senza mai perdere testo chiudendola; misurata la latenza di scrittura.
-**Resta da fare:** tabelle, modalità Sorgente/Affiancata/Anteprima con Anteprima sanificata, minutaggio, Ctrl F, misura della latenza. Il completamento di `@`, `#` e `[[` e i clic sui link sono scritti ma non provati.
+**Provati** (`prova-editor.mjs`, `prova-modalita.mjs`): tabelle nell'anteprima viva, menu `⋯` con le modalità Anteprima viva, Sorgente, Affiancata e Anteprima, Anteprima sanificata, note a piè di pagina, link `[[…]]` ed esterni, `open_url` che rifiuta i file, Ctrl F, completamento di `@`, `#` e `[[`. Latenza misurata.
+**Spostato alla tappa 12:** il minutaggio `[mm:ss]`, che serve solo con l'audio.
 
 ### 🟡 7. Schede e gruppi
 
@@ -145,7 +150,7 @@ Nota rapida e finestra di registrazione precaricate e nascoste. Chiudere la fine
 
 ### ⬜ 12. Audio
 
-Registrazione con pausa e annullamento, riproduzione dal minutaggio, trascrizione con `whisper-rs`. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale.
+Registrazione con pausa e annullamento, riproduzione dal minutaggio (`[mm:ss]` come pulsante nell'editor, vedi il piano del design), trascrizione con `whisper-rs`. Scelta da verificare: qualità e velocità rispetto a faster-whisper, su una registrazione reale.
 
 ### ⬜ 13. File ed esportazione
 
@@ -174,8 +179,19 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 11 | Avvio a freddo fino alla prima pittura, 1000 note | **496 ms** (di cui circa 390 ms per creare WebView2) | < 400 ms ❌ |
 | 11 | Riapertura con una seconda istanza, fino alla sua uscita | 26 ms | < 80 ms ✅, ma il tempo di comparsa della finestra non è compreso |
 | 11 | Dimensione di `quicknotes.exe` | 8,9 MB | |
+| 6 | Scrittura, dal tasto alla pittura, nota del giorno di prova | mediana 4,2 ms, 95° percentile 6,8 ms | < 16 ms ✅ |
+| 6 | Scrittura, stessa nota con 2000 righe in sezioni | mediana 5,0 ms, 95° percentile 6,9 ms | < 16 ms ✅ |
+| 6 | Scrittura in fondo a una lista unica di 500 righe | mediana 5,7 ms, 95° percentile 7,0 ms | < 16 ms ✅ |
+| 6 | Scrittura in fondo a un blocco unico di 2000 righe (caso limite) | mediana 23 ms | < 16 ms ❌, vedi sotto |
+| 6 | Cambio scheda, dal clic all'editor dipinto | mediana 25 ms, 95° percentile 29 ms | < 50 ms ✅ |
+| 6 | Memoria di `quicknotes.exe` a riposo, escluso WebView2 | 9-11 MB privati, 33-35 MB di insieme di lavoro | < 40 MB ✅ |
+| 6 | Blocco iniziale della pagina (`App`), dopo l'aggiunta del menu `⋯` | 39 kB, 14,5 kB compressi | |
 
-**L'avvio a freddo supera l'obiettivo.** La creazione di WebView2 è fuori dal controllo di Rust. Idea da provare: mostrare subito la finestra con lo sfondo del tema, così la risposta si percepisce prima, controllando che non compaia un lampo. Mai misurati: latenza di scrittura, cambio scheda, memoria.
+**L'avvio a freddo supera l'obiettivo.** La creazione di WebView2 è fuori dal controllo di Rust. Idea da provare: mostrare subito la finestra con lo sfondo del tema, così la risposta si percepisce prima, controllando che non compaia un lampo.
+
+**Come si misura la scrittura:** `misura-latenza.mjs` legge la traccia della timeline di WebView2, dalla `keydown` alla fine della prima pittura. Un segnale in pagina dopo `requestAnimationFrame` non va bene: aspetta anche il lavoro in sottofondo dopo il fotogramma, e su una nota lunga dava 24 ms invece di 5.
+
+**Caso limite della scrittura:** l'analizzatore Markdown di CodeMirror riusa solo i blocchi di primo livello. Scrivendo dentro un blocco unico molto lungo, per esempio 2000 righe senza righe vuote che diventano un'unica lista, a ogni tasto rianalizza tutto il blocco. Con 500 righe resta sotto i 6 ms; non si interviene finché non capita con note vere.
 
 ## Registro delle decisioni prese lungo il percorso
 
@@ -192,3 +208,9 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 2026-11-03 | Chiudere la finestra la nasconde; si esce dal menu dell'area di notifica | Riaprire è immediato |
 | 2026-11-03 | All'avvio si ripristinano le schede; se la nota di oggi non c'è, si apre e diventa attiva | Il lavoro resta dov'era, ma ogni giorno nuovo parte dalla sua nota |
 | 2026-11-03 | La nota rapida si prepara 1,5 secondi dopo l'avvio | Non pesa sull'avvio e dopo è immediata |
+| 2026-11-03 | Commit del lavoro sul ramo `rust-tauri`, senza `README.md` né `crates/quicknotes-app/gen/schemas` (generata da Tauri) | Richiesta dell'utente |
+| 2026-11-03 | Le modalità si scelgono dal menu `⋯` e da Ctrl K; fuori dall'anteprima viva una barra in basso permette di cambiarle o tornare indietro | La tavola Home non le mostra; la barra in basso è quella prevista nel piano del design |
+| 2026-11-03 | La modalità vale per la coppia gruppo e scheda, come annulla e cursore, e non si ricorda dopo un riavvio | La stessa nota può stare in Affiancata in un gruppo e in anteprima viva nell'altro |
+| 2026-11-03 | Nell'Anteprima le caselle sono in sola lettura | Abbinare una casella dell'HTML alla riga giusta del file non è sicuro (liste in citazioni, elenchi numerati); si spunta nelle altre modalità |
+| 2026-11-03 | `open_url` passa da `tauri-plugin-opener` lato Rust; la pagina non ha permessi sul plugin | Solo `http` e `https`, controllati in Rust |
+| 2026-11-03 | Gli `on…` nell'HTML delle note fanno comparire in console una segnalazione della CSP mentre DOMPurify legge l'HTML | Succede con qualsiasi modo di analizzare HTML in WebView2. Il gestore non viene mai eseguito: la prova lo controlla |

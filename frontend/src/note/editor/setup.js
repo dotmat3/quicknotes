@@ -3,12 +3,45 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentLess, indentMore, isolateHistory } from '@codemirror/commands';
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
-import { Annotation, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
-import { drawSelection, dropCursor, EditorView, keymap, placeholder } from '@codemirror/view';
+import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
+import { Annotation, Compartment, EditorSelection, EditorState, Facet, Prec, Transaction } from '@codemirror/state';
+import { drawSelection, dropCursor, EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { livePreview, toggleTaskAt } from './livePreview.js';
 import { ACTION, diff } from './rules.js';
+import { tables } from './tables.js';
 import './editor.css';
+
+const PHRASES = {
+  Find: 'Cerca',
+  Replace: 'Sostituisci',
+  next: 'Successivo',
+  previous: 'Precedente',
+  all: 'Tutti',
+  'match case': 'Maiuscole',
+  regexp: 'Espressione regolare',
+  'by word': 'Parola intera',
+  replace: 'Sostituisci',
+  'replace all': 'Sostituisci tutti',
+  close: 'Chiudi',
+  'Go to line': 'Vai alla riga',
+  go: 'Vai',
+};
+
+// Anteprima viva oppure testo grezzo con i numeri di riga (Sorgente e Affiancata).
+const modeConf = new Compartment();
+const modeKind = Facet.define({ combine: (v) => v[0] ?? 'live' });
+
+function modeExtensions(kind, tagColor) {
+  return kind === 'live'
+    ? [modeKind.of('live'), livePreview(tagColor), tables(tagColor)]
+    : [modeKind.of('source'), lineNumbers(), highlightSelectionMatches(), EditorView.editorAttributes.of({ class: 'cm-source' })];
+}
+
+export function setMode(view, mode, tagColor) {
+  const kind = mode === 'live' ? 'live' : 'source';
+  if (view.state.facet(modeKind) !== kind) view.dispatch({ effects: modeConf.reconfigure(modeExtensions(kind, tagColor)) });
+}
 
 const highlight = HighlightStyle.define([
   { tag: t.strong, class: 'tok-strong' },
@@ -109,7 +142,9 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
       EditorView.contentAttributes.of({ spellcheck: 'true', lang: 'it', 'aria-label': 'Testo della nota' }),
       markdown({ base: markdownLanguage, addKeymap: false }),
       syntaxHighlighting(highlight),
-      livePreview(tagColor),
+      modeConf.of(modeExtensions('live', tagColor)),
+      EditorState.phrases.of(PHRASES),
+      search({ top: true }),
       autocompletion({ override: [completions(suggest)], icons: false }),
       placeholder('Inizia a scrivere…'),
       Prec.high(
@@ -123,17 +158,25 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest }) {
           ...completionKeymap,
         ]),
       ),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap.filter((b) => b.key !== 'Mod-d')]),
       EditorView.domEventHandlers({
-        mousedown(e, view) {
-          const el = e.target.closest?.('[data-wiki],[data-person],[data-tag]');
+        mousedown(e) {
+          const el = e.target.closest?.('[data-wiki],[data-href],[data-person],[data-tag]');
           if (!el) return false;
           // Mentre si scrive sulla riga serve Ctrl+clic; fuori basta un clic.
-          if (el.dataset.wiki === undefined && !(e.ctrlKey || e.metaKey)) return false;
+          const d = el.dataset;
+          if (d.wiki === undefined && d.href === undefined && !(e.ctrlKey || e.metaKey)) return false;
           e.preventDefault();
-          if (el.dataset.wiki !== undefined) onOpen('wiki', el.dataset.wiki);
-          else if (el.dataset.person) onOpen('person', el.dataset.person);
-          else onOpen('tag', el.dataset.tag);
+          if (d.wiki !== undefined) onOpen('wiki', d.wiki);
+          else if (d.href !== undefined) onOpen('url', d.href);
+          else if (d.person) onOpen('person', d.person);
+          else onOpen('tag', d.tag);
+          return true;
+        },
+        // Un link nelle tabelle è un vero <a>: la pagina non deve mai seguirlo.
+        click(e) {
+          if (!e.target.closest?.('a')) return false;
+          e.preventDefault();
           return true;
         },
       }),

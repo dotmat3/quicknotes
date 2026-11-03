@@ -3,7 +3,7 @@
   import { call } from '../api.js';
   import { app, showToast, tagColor } from '../state/app.svelte.js';
   import { closeTabs, focused, openPage } from '../state/layout.svelte.js';
-  import { docs, loadDoc, save, savedStates, setApplyToViews, setText, views } from '../state/documents.svelte.js';
+  import { MODES, docs, loadDoc, modes, save, savedStates, setApplyToViews, setMode, setText, views } from '../state/documents.svelte.js';
   import { noteStats } from './editor/rules.js';
   import Icon from '../shell/Icon.svelte';
 
@@ -14,6 +14,9 @@
   let error = $state('');
   let editorReady = $state(false);
   let view = null;
+  let editorMod = null;
+
+  const mode = $derived(modes[viewKey] ?? 'live');
 
   const doc = $derived(docs[id]);
   const note = $derived(doc?.note);
@@ -33,6 +36,10 @@
   async function onOpen(kind, target) {
     if (kind === 'person') return openPage(`person:${target}`);
     if (kind === 'tag') return openPage(`tag:${target.toLowerCase()}`);
+    if (kind === 'url') {
+      if (/^https?:\/\//i.test(target)) return call('open_url', { url: target });
+      return showToast(`Per ora si aprono solo i link web: ${target}`);
+    }
     const found = await call('resolve_link', { target });
     if (found) openPage(`note:${found.id}`, found.title);
     else showToast(`Nota non trovata: ${target}`);
@@ -41,6 +48,7 @@
   async function mountEditor() {
     const editor = await import('./editor/setup.js');
     if (destroyed) return;
+    editorMod = editor;
     // Lo stato conservato sopravvive a questo componente: i suoi callback non devono dipendere dalla vista corrente.
     const noteId = id;
     const myKey = viewKey;
@@ -55,13 +63,24 @@
     const stored = savedStates.get(viewKey);
     const state = stored && editor.stateText(stored) === docs[id].text ? stored : editor.createState(docs[id].text, { onChange, onOpen, tagColor, suggest });
     view = editor.createView(host, state);
+    editor.setMode(view, mode, tagColor);
     views.set(viewKey, view);
     editorReady = true;
     setApplyToViews((noteId, text) => {
       for (const [key, v] of views) if (key.endsWith(`:note:${noteId}`)) editor.applyText(v, text);
     });
-    if (focused().id === groupId) view.focus();
+    if (focused().id === groupId && mode !== 'preview') view.focus();
   }
+
+  // Il focus passa all'editor solo quando la modalità cambia, non al montaggio.
+  let lastMode = null;
+  $effect(() => {
+    const m = mode;
+    if (!editorReady) return;
+    editorMod.setMode(view, m, tagColor);
+    if (lastMode && lastMode !== m && m !== 'preview') view.focus();
+    lastMode = m;
+  });
 
   let destroyed = false;
   onMount(async () => {
@@ -91,7 +110,7 @@
   }
 
   export function focusEditor() {
-    view?.focus();
+    if (mode !== 'preview') view?.focus();
   }
 </script>
 
@@ -114,9 +133,23 @@
     {#if stats.total}<span class="pill static">{stats.done} di {stats.total} azioni</span>{/if}
     {#each people as p (p.toLowerCase())}<button class="pill person" onclick={() => openPage(`person:${p}`)}>@{p}</button>{/each}
   </div>
-  <div class="host" bind:this={host}>
-    {#if !editorReady}<div class="plain">{doc.text}</div>{/if}
+  <div class="body" class:split={mode === 'split'}>
+    <div class="host" class:gone={mode === 'preview'} bind:this={host}>
+      {#if !editorReady}<div class="plain">{doc.text}</div>{/if}
+    </div>
+    {#if mode === 'split' || mode === 'preview'}
+      {#await import('./Preview.svelte') then { default: Preview }}
+        <div class="side"><Preview text={doc.text} {onOpen} /></div>
+      {/await}
+    {/if}
   </div>
+  {#if mode !== 'live'}
+    <div class="modebar" role="group" aria-label="Modalità della nota">
+      {#each MODES as [m, label] (m)}
+        <button class:on={mode === m} aria-pressed={mode === m} onclick={() => setMode(viewKey, m)}>{label}</button>
+      {/each}
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -129,4 +162,11 @@
   .person { color: var(--person); }
   .plain { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text2); }
   .err { margin: 12px 0; color: var(--late); }
+  .body.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  .body.split .side { padding-left: 32px; border-left: 1px solid var(--border2); }
+  .gone { display: none; }
+  .modebar { position: sticky; bottom: 12px; z-index: 6; display: flex; width: max-content; margin: 0 auto; padding: 3px; gap: 2px; border-radius: 9px; background: var(--chrome); border: 1px solid var(--border3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+  .modebar button { height: 26px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12.5px; }
+  .modebar button:hover { background: var(--hover); }
+  .modebar button.on { background: var(--hover); color: var(--text); font-weight: 500; }
 </style>

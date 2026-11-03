@@ -60,9 +60,12 @@ fn main() {
         // Va registrato per primo: una seconda istanza riapre questa e termina subito.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(desktop::on_shortcut).build())
+        // Solo per `open_url`: la pagina non ha permessi sul plugin.
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             app_ready,
             commands::save_ui,
+            commands::open_url,
             commands::sidebar,
             commands::recent_notes,
             commands::top_people,
