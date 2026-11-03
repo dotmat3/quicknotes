@@ -1,10 +1,9 @@
-// Immagini nelle note: Rust le salva in images/ accanto alla nota e le serve con il protocollo qnfile, solo
-// se sono immagini vere dentro la cartella delle note. Nel testo resta il tag Markdown standard ![](images/…).
-import { invoke } from '@tauri-apps/api/core';
+// Immagini nelle note: il backend le salva in images/ accanto alla nota e le serve solo se sono immagini vere
+// dentro la cartella delle note. Nel testo resta il tag Markdown standard ![](images/…).
 import { Facet } from '@codemirror/state';
+import { fileOrigin, saveImage } from '../api.js';
 
-// Su Windows Tauri espone i protocolli dell'app come http://<nome>.localhost.
-const ORIGIN = /Windows|Android/.test(navigator.userAgent) ? 'http://qnfile.localhost/' : 'qnfile://localhost/';
+const ORIGIN = fileOrigin;
 
 // Sopra questa dimensione si chiede prima di salvare.
 const LARGE = 10 * 1024 * 1024;
@@ -49,7 +48,7 @@ export async function saveImages(noteId, files, onError) {
     if (file.size > LARGE && !confirm(`L'immagine pesa ${mb} MB. Salvarla accanto alla nota?`)) continue;
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const rel = await invoke('save_image', bytes, { headers: { 'x-note': encodeURIComponent(noteId) } });
+      const rel = await saveImage(noteId, bytes);
       tags.push(`![](${rel})`);
     } catch (e) {
       onError(`Immagine non salvata: ${e}`);

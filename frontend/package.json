@@ -5,6 +5,7 @@
     "test": "vitest run",
     "dev": "vite",
     "build": "vite build",
+    "build:py": "vite build --base=./ --outDir ../python/quicknotes_py/webui --emptyOutDir",
     "tauri": "tauri"
   },
   "private": true,

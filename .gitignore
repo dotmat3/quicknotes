@@ -21,3 +21,7 @@ frontend/dist/
 
 # Rilasci: eseguibili costruiti da scripts/rilascio.mjs
 rilasci/
+
+# Prova pywebview: interfaccia compilata e cartella portatile
+python/quicknotes_py/webui/
+python/dist/

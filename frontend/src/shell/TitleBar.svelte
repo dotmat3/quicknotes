@@ -2,7 +2,7 @@
   // Barra del titolo disegnata dalla pagina, come in VS Code: si trascina per spostare la finestra,
   // il doppio clic la ingrandisce. Chiudere la nasconde nell'area di notifica, come la X di sistema.
   import { onMount } from 'svelte';
-  import { call, inTauri } from '../api.js';
+  import { call, inPy, inTauri } from '../api.js';
   import { app } from '../state/app.svelte.js';
   import { focused } from '../state/layout.svelte.js';
   import { pageTitle } from './nav.js';
@@ -13,6 +13,11 @@
   const title = $derived.by(() => {
     const page = focused()?.active;
     return page ? `${pageTitle(page, app.titles)} — QuickNotes` : 'QuickNotes';
+  });
+
+  // pywebview usa la cornice di Windows: qui resta solo il titolo della finestra.
+  $effect(() => {
+    if (inPy) call('set_title', { title });
   });
 
   onMount(() => {
@@ -27,6 +32,7 @@
   });
 </script>
 
+{#if !inPy}
 <header class="titlebar" data-tauri-drag-region>
   <span class="title" data-tauri-drag-region>{title}</span>
   <div class="controls">
@@ -45,6 +51,7 @@
     </button>
   </div>
 </header>
+{/if}
 
 <style>
   .titlebar { flex: none; position: relative; display: flex; align-items: center; justify-content: center; height: 32px; user-select: none; }
