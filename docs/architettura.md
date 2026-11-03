@@ -164,7 +164,7 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 
 ## Misure
 
-`node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` misura scrittura (dalla traccia della timeline), cambio scheda e memoria.
+`node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` misura scrittura (dalla traccia della timeline), cambio scheda e memoria. Con le 1000 note di `genera_note`, `scripts/misura-ricerca.mjs` misura la ricerca Ctrl K a ogni tasto.
 
 L'app registra i tempi delle fasi di avvio in un file se è impostata `QUICKNOTES_TRACE=<file>`: `main`, `dati pronti`, `finestra creata`, `indice allineato`, `prima pittura`. `node scripts/misura-avvio.mjs <cartella>` ripete l'avvio e dà le mediane. `cargo run --release -p quicknotes-core --example genera_note -- <cartella vuota> 1000` genera le note e misura indice e ricerca.
 

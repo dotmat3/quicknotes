@@ -32,6 +32,7 @@ node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
 | `prova-editor.mjs` | Vuota | |
 | `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs` | Con `demo-note.mjs` | |
 | `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
+| `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
 | `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
 
 Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando tutti i controlli `ok:` sono passati. Una prova può dichiarare gli errori che provoca di proposito con `export const expectedErrors`: `cdp.mjs` li conta a parte.
@@ -44,7 +45,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Prossimi passi, in ordine
 
-1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario e scelta della nota nel Grafo (9), il tempo della ricerca a ogni tasto (10), il confronto a schermo dei temi mai guardati (5).
+1. **Chiudere le tappe in corso:** vedi "Resta da fare" sotto ciascuna. Le più utili: registrazioni nel Calendario e scelta della nota nel Grafo (9), pannello di anteprima e trascrizioni nella ricerca (10), il confronto a schermo dei temi mai guardati (5).
 2. **Provare a mano ciò che le prove automatiche non raggiungono:** tasti globali, menu dell'area di notifica, chiusura con la X, finestra nota rapida che compare davvero.
 3. **Tappa 12, audio.** Il pulsante Registra oggi non fa nulla nella barra aperta e mostra un avviso nella striscia.
 4. **Tappe 13-15:** file ed esportazione, schizzi, rilascio.
@@ -139,7 +140,7 @@ Calendario, Persone, Persona, Etichetta con colore, Grafo, Impostazioni.
 
 Note, viste, comandi, filtri `@`, `#`, `!`.
 **Fatta quando:** i risultati arrivano entro l'obiettivo a ogni tasto.
-**Resta da fare:** misurare il tempo a ogni tasto nell'app; manca il pannello di anteprima e i risultati nelle trascrizioni.
+**Misurato** (`misura-ricerca.mjs`): entro l'obiettivo, vedi le misure. **Resta da fare:** il pannello di anteprima e i risultati nelle trascrizioni.
 
 ### 🟡 11. Area di notifica, tasti globali, finestre secondarie
 
@@ -185,6 +186,8 @@ Tutte su questo PC con build di release. L'avvio è a cache del disco calda: dop
 | 6 | Cambio scheda, dal clic all'editor dipinto | mediana 25 ms, 95° percentile 29 ms | < 50 ms ✅ |
 | 6 | Memoria di `quicknotes.exe` a riposo, escluso WebView2 | 9-11 MB privati, 33-35 MB di insieme di lavoro | < 40 MB ✅ |
 | 6 | Blocco iniziale della pagina (`App`), dopo l'aggiunta del menu `⋯` | 39 kB, 14,5 kB compressi | |
+| 10 | `search_all` chiamato dalla pagina, IPC compreso, 1000 note | mediana 8,8 ms, 95° percentile 21 ms; la più lenta è `@gi` (21 ms) | |
+| 10 | Ctrl K, dal tasto ai risultati aggiornati a schermo, 1000 note | mediana 11 ms, 95° percentile 15 ms | < 30 ms ✅ |
 
 **L'avvio a freddo supera l'obiettivo.** La creazione di WebView2 è fuori dal controllo di Rust. Idea da provare: mostrare subito la finestra con lo sfondo del tema, così la risposta si percepisce prima, controllando che non compaia un lampo.
 
