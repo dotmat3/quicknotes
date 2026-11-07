@@ -141,6 +141,34 @@ export function closeTabs(groupId, ids) {
   afterChange(groupId);
 }
 
+// Una nota rinominata cambia pagina (`to`), una eliminata sparisce (`to` null): ovunque compaia, in tutti i
+// gruppi, tra le schede chiuse, nella cronologia e tra i preferiti.
+export function replacePage(from, to) {
+  for (const g of layout.groups) {
+    const i = g.tabs.indexOf(from);
+    if (i < 0) continue;
+    if (to && !g.tabs.includes(to)) g.tabs[i] = to;
+    else g.tabs.splice(i, 1);
+    if (g.active === from) g.active = to ?? g.tabs[Math.min(i, g.tabs.length - 1)] ?? null;
+  }
+  if (!to && layout.groups.length > 1) {
+    const left = layout.groups.filter((g) => g.tabs.length);
+    layout.groups = left.length ? left : [layout.groups[0]];
+  }
+  const swap = (list) => [...new Set(list.map((p) => (p === from ? to : p)).filter(Boolean))];
+  layout.closed = swap(layout.closed);
+  const kept = visits.stack.slice(0, visits.at + 1).filter((e) => to || e.page !== from).length;
+  visits.stack = visits.stack.flatMap((e) => (e.page !== from ? [e] : to ? [{ ...e, page: to }] : []));
+  visits.at = Math.min(kept, visits.stack.length) - 1;
+  if (app.favs.includes(from)) app.favs = swap(app.favs);
+  for (const map of [app.titles, app.paths ?? {}]) {
+    if (to && from in map) map[to] = map[from];
+    delete map[from];
+  }
+  savePrefs();
+  afterChange();
+}
+
 export function reopen() {
   const id = layout.closed.pop();
   if (id) openPage(id);

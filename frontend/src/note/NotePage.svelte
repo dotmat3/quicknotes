@@ -3,7 +3,7 @@
   import { call } from '../api.js';
   import { app, showToast, tagColor } from '../state/app.svelte.js';
   import { closeTabs, focused, openPage } from '../state/layout.svelte.js';
-  import { MODES, docs, loadDoc, modes, save, savedStates, setApplyToViews, setMode, setText, views } from '../state/documents.svelte.js';
+  import { MODES, canRename, docs, loadDoc, modes, renameNote, save, savedStates, setApplyToViews, setMode, setText, views } from '../state/documents.svelte.js';
   import { noteStats } from './editor/rules.js';
   import { saveImages } from './images.js';
   import Icon from '../shell/Icon.svelte';
@@ -138,6 +138,35 @@
     openPage(`note:${n.id}`, n.title);
   }
 
+  // Rinomina: il titolo diventa una casella. Invio o clic fuori confermano, Esc annulla.
+  const renaming = $derived(app.rename === viewKey && !!note && canRename(id));
+  let draft = $state('');
+  $effect(() => {
+    if (renaming) draft = note.title;
+  });
+
+  function startRename() {
+    if (canRename(id)) app.rename = viewKey;
+  }
+
+  function endRename(keep) {
+    if (app.rename !== viewKey) return;
+    app.rename = null;
+    if (keep) renameNote(id, draft);
+    if (mode !== 'preview') view?.focus();
+  }
+
+  function renameKey(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      endRename(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      endRename(false);
+    }
+  }
+
   export function focusEditor() {
     if (mode !== 'preview') view?.focus();
   }
@@ -155,7 +184,12 @@
       <button class="day" aria-label="Giorno successivo" onclick={() => goDay(1)}><Icon name="right" size={14} /></button>
     </div>
   {/if}
-  <h1 class:big={note.is_daily}>{note.title}</h1>
+  {#if renaming}
+    <input class="title-edit" aria-label="Nuovo titolo della nota" bind:value={draft} onkeydown={renameKey} onblur={() => endRename(true)} {@attach (el) => { el.focus(); el.select(); }} />
+  {:else}
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <h1 class:big={note.is_daily} class:renamable={canRename(id)} title={canRename(id) ? 'Doppio clic o F2 per rinominare' : undefined} ondblclick={startRename}>{note.title}</h1>
+  {/if}
   <div class="pills">
     {#if !note.is_daily}<span class="pill static">{note.date_label}</span>{/if}
     {#if linked.total}
@@ -209,6 +243,8 @@
   .day { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--subtle); display: flex; align-items: center; justify-content: center; }
   .day:hover { background: var(--hover); }
   h1.big { font-size: 32px; line-height: 1.15; }
+  h1.renamable { cursor: text; }
+  .title-edit { display: block; width: 100%; margin: 0; padding: 0; border: 0; box-shadow: 0 1px 0 var(--accent); background: transparent; color: var(--text); font: inherit; font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; outline: none; }
   .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 22px; min-height: 26px; }
   .pill.static { display: inline-flex; align-items: center; }
   .person { color: var(--person); }

@@ -49,6 +49,7 @@ def _board_item(row: dict, children: dict, today: date) -> dict:
         "text": _clean_text(row["text"], tag), "done": row["done"], "done_on": row["done_on"], "due": row["due"],
         "due_label": label[0] if label else None, "due_level": label[1] if label else None,
         "group": dates.due_group(dates.parse_day(row["due"]), today), "people": row["people"],
+        "priority": row["priority"],
         "tag": tag or row["project"], "description": row["description"], "subs": subs,
     }
 
@@ -93,7 +94,8 @@ def _note_ref(n: dict) -> dict:
 def _page_action(row: dict, today: date, parent: str | None) -> dict:
     label = _label(row["due"], today)
     return {"note_id": row["note_id"], "note_title": row["note_title"], "text": parser.action_display_text(row["text"]),
-            "due_label": label[0] if label else None, "due_level": label[1] if label else None, "parent": parent}
+            "due_label": label[0] if label else None, "due_level": label[1] if label else None, "parent": parent,
+            "priority": row["priority"]}
 
 
 def _decision_ref(d: dict) -> dict:

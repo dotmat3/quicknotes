@@ -1,6 +1,9 @@
 // Documenti aperti: testo, salvataggio e viste. La stessa nota può stare in più gruppi.
+import { tick } from 'svelte';
 import { call } from '../api.js';
-import { showToast } from './app.svelte.js';
+import { app, showToast } from './app.svelte.js';
+import { replacePage } from './layout.svelte.js';
+import { petCheck } from '../pet/store.svelte.js';
 
 export const docs = $state({});
 
@@ -56,6 +59,8 @@ export async function save(id) {
       // Se cambiano i [[link]], cambiano anche le note collegate mostrate nell'intestazione.
       if (wikiLinks(text) !== wikiLinks(d.base)) d.note = await call('read_note', { id });
       d.base = text;
+      // Un'azione spuntata nell'editor vale crocchette: Micio lo nota al salvataggio.
+      petCheck();
     }
   } catch (e) {
     d.dirty = true;
@@ -80,6 +85,76 @@ const wikiLinks = (text) => (text.match(/\[\[[^\]\n]+\]\]/g) ?? []).join('\n');
 
 export async function saveAll() {
   await Promise.all(Object.keys(docs).map(save));
+}
+
+// La nota del giorno prende il nome dalla data; quella di oggi non si elimina.
+export const canRename = (id) => !id.endsWith('-giornata');
+export const canDelete = (id) => id !== app.today?.id;
+
+// Le viste di una nota che non c'è più con quel nome: chiuse, perdono modalità e cronologia delle modifiche.
+async function forget(id, newId) {
+  const page = `note:${id}`;
+  for (const key of Object.keys(modes)) {
+    if (!key.endsWith(`:${page}`)) continue;
+    if (newId) modes[`${key.slice(0, -page.length)}note:${newId}`] = modes[key];
+    delete modes[key];
+  }
+  replacePage(page, newId ? `note:${newId}` : null);
+  // L'editor chiuso conserva il suo stato solo dopo essere stato smontato.
+  await tick();
+  delete docs[id];
+  for (const key of [...savedStates.keys()]) if (key.endsWith(`:${page}`)) savedStates.delete(key);
+}
+
+// Nuovo titolo e nuovo nome del file. Prima si salva tutto: anche le note con i link da aggiornare.
+export async function renameNote(id, title) {
+  title = title.trim();
+  const d = docs[id];
+  if (!title || title === d?.note.title) return;
+  try {
+    await saveAll();
+    const r = await call('rename_note', { id, title });
+    if (r.id === id) {
+      if (d) d.note = await call('read_note', { id });
+      app.titles[`note:${id}`] = title;
+    } else {
+      if (d) clearTimeout(d.timer);
+      app.titles[`note:${r.id}`] = title;
+      await forget(id, r.id);
+    }
+    if (r.relinked) showToast(`Rinominata. Link aggiornati in ${r.relinked === 1 ? 'una nota' : `${r.relinked} note`}.`);
+  } catch (e) {
+    showToast(`Rinomina non riuscita: ${e}`);
+  }
+}
+
+// Chiede conferma e manda la nota nel Cestino, con le ultime modifiche salvate.
+export async function askDelete(id) {
+  const note = docs[id]?.note ?? (await call('read_note', { id }).catch(() => null));
+  const title = note?.title ?? app.titles[`note:${id}`] ?? id;
+  const cited = new Set((note?.links_in ?? []).map((l) => l.note_id)).size;
+  app.confirm = {
+    title: `Eliminare «${title}»?`,
+    text: `La nota va nel Cestino, da dove si può ripristinare.${cited ? ` ${cited === 1 ? 'Una nota la cita' : `${cited} note la citano`}: quei link non porteranno più a niente.` : ''}`,
+    ok: 'Elimina',
+    run: () => deleteNote(id, title),
+  };
+}
+
+async function deleteNote(id, title) {
+  try {
+    await save(id);
+    const r = await call('delete_note', { id });
+    const d = docs[id];
+    if (d) {
+      clearTimeout(d.timer);
+      d.dirty = false;
+    }
+    await forget(id, null);
+    showToast(r.recycled ? `«${title}» è nel Cestino.` : `«${title}» è in .quicknotes/cestino, nella cartella delle note.`);
+  } catch (e) {
+    showToast(`Eliminazione non riuscita: ${e}`);
+  }
 }
 
 let applyToViews = () => {};

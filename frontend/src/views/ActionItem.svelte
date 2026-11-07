@@ -5,6 +5,7 @@
   import { completeAll, loadBoard, setDone } from '../state/actions.svelte.js';
   import { docs, onExternalChange, save } from '../state/documents.svelte.js';
   import ActionText from './ActionText.svelte';
+  import { PRIORITIES } from '../note/editor/rules.js';
   import Icon from '../shell/Icon.svelte';
 
   // `pop` apre il popover unico della vista: sta fuori dalle colonne, che lo taglierebbero.
@@ -35,6 +36,8 @@
 
   const dueLook = $derived(item.due_level === 'late' ? 'background:color-mix(in srgb, var(--late) 14%, transparent);color:var(--late)' : item.due_level === 'soon' ? 'background:var(--border2);color:var(--text)' : 'background:var(--border2);color:var(--muted)');
   const tc = $derived(item.tag ? tagColor(item.tag) : null);
+  const prio = $derived(PRIORITIES.find(([p]) => p === item.priority));
+  const PRIO_COLOR = { alta: 'var(--late)', media: 'var(--accent)', bassa: 'var(--muted)' };
   const key = (kind, idx = 0) => `${item.note_id}:${item.line}:${kind}:${idx}`;
   const aria = (label) => `${label} · ${item.text}`;
 </script>
@@ -50,11 +53,15 @@
 
       {#if item.done}
         <div class="static">
+          {#if prio}<span>{prio[2]} {prio[0]}</span>{/if}
           {#if item.tag}<span style="color:var(--faint)">#{item.tag}</span>{/if}
           {#if item.done_on || item.due_label}<span class="mono">{item.done_on ?? item.due_label}</span>{/if}
         </div>
       {:else}
         <div class="pills">
+          {#if prio}
+            <button class="pl" style="background:color-mix(in srgb, {PRIO_COLOR[prio[0]]} 14%, transparent);color:{PRIO_COLOR[prio[0]]}" aria-label={aria(`Priorità ${prio[0]}`)} aria-haspopup="dialog" aria-expanded={popKey === key('priority')} onclick={(e) => pop(e, item, 'priority', 0)}>{prio[2]} {prio[1]}</button>
+          {/if}
           {#if item.due_label}
             <button class="pl" style={dueLook} aria-label={aria(`Scadenza ${item.due_label}`)} aria-haspopup="dialog" aria-expanded={popKey === key('due')} onclick={(e) => pop(e, item, 'due', 0)}>{item.due_label}</button>
           {/if}
@@ -67,6 +74,7 @@
           {#if item.description}
             <button class="pl" style="background:var(--border2);color:var(--muted)" aria-label={aria('Modifica la descrizione')} aria-haspopup="dialog" aria-expanded={popKey === key('description')} onclick={(e) => pop(e, item, 'description', 0)}>Descrizione</button>
           {/if}
+          {#if !prio}<button class="pl add" aria-label={aria('Aggiungi una priorità')} aria-haspopup="dialog" aria-expanded={popKey === key('priority')} onclick={(e) => pop(e, item, 'priority', 0)}>+ priorità</button>{/if}
           {#if !item.due_label}<button class="pl add" aria-label={aria('Aggiungi una scadenza')} aria-haspopup="dialog" aria-expanded={popKey === key('due')} onclick={(e) => pop(e, item, 'due', 0)}>+ scadenza</button>{/if}
           <button class="pl add" aria-label={aria('Aggiungi una persona')} aria-haspopup="dialog" aria-expanded={popKey === key('person', item.people.length)} onclick={(e) => pop(e, item, 'person', item.people.length)}>+ persona</button>
           {#if !item.tag}<button class="pl add" aria-label={aria('Aggiungi un’etichetta')} aria-haspopup="dialog" aria-expanded={popKey === key('tag')} onclick={(e) => pop(e, item, 'tag', 0)}>+ etichetta</button>{/if}

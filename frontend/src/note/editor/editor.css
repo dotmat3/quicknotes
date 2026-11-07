@@ -48,6 +48,12 @@
 .cm-mention { color: var(--person); }
 .cm-tag { color: var(--accent); }
 .cm-decision { color: var(--dec); font-weight: 600; }
+/* Priorità: alta in rosso, media nel colore dell'app, bassa smorzata. */
+.cm-prio { font-size: 12px; font-weight: 600; margin-left: 4px; display: inline-block; text-indent: 0; }
+.cm-prio.alta, .cm-prio-raw.alta { color: var(--late); }
+.cm-prio.media, .cm-prio-raw.media { color: var(--accent); }
+.cm-prio.bassa, .cm-prio-raw.bassa { color: var(--subtle); }
+.cm-prio.done { color: var(--faint); }
 .cm-date-raw { font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--subtle); }
 .cm-due { font-family: 'Geist Mono', monospace; font-size: 12px; margin-left: 4px; color: var(--subtle); display: inline-block; text-indent: 0; }
 .cm-due.late { color: var(--late); }

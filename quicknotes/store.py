@@ -7,6 +7,7 @@ metadati non vengono modificati, e gli a capo restano quelli del file. Le scritt
 from __future__ import annotations
 
 import os
+import re
 import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -126,13 +127,20 @@ class NoteStore:
         self._read_lock = threading.Lock()
         # Leggi, cambia, scrivi: due modifiche alla stessa nota non si incrociano.
         self.edit_lock = threading.RLock()
+        self._closed = False
 
     def close(self) -> None:
-        self._writer.close()
-        self._reader.close()
+        """Chiude l'indice dopo che le letture e le scritture in corso sono finite. Dopo, un allineamento non
+        fa nulla e un salvataggio scrive solo il file: l'indice si riallinea al prossimo avvio."""
+        with self._write_lock, self._read_lock:
+            self._closed = True
+            self._writer.close()
+            self._reader.close()
 
     def _read(self, query, *args):
         with self._read_lock:
+            if self._closed:
+                raise QuickNotesError("QuickNotes si sta chiudendo")
             return query(self._reader, *args)
 
     def rel(self, path: Path) -> str:
@@ -171,6 +179,8 @@ class NoteStore:
         aggiorna già l'indice, quindi qui compaiono solo le modifiche esterne."""
         on_disk = self._scan()
         with self._write_lock:
+            if self._closed:
+                return []
             db = self._writer
             known = index.signatures(db)
             changed = [(p, sig) for p, sig in on_disk.items() if known.get(p) != sig]
@@ -202,6 +212,8 @@ class NoteStore:
 
     def reindex(self) -> int:
         with self._write_lock:
+            if self._closed:
+                return 0
             index.clear(self._writer)
         return self.refresh()
 
@@ -239,6 +251,8 @@ class NoteStore:
             raise
         st = note.path.stat()
         with self._write_lock:
+            if self._closed:
+                return
             self._writer.execute("BEGIN")
             try:
                 index.index_note(self._writer, rel, note, _mtime_ms(st), st.st_size)
@@ -318,6 +332,134 @@ class NoteStore:
         note = self.read(note_id)
         return self.create_note(f"{note.title} (conflitto {now.strftime('%H:%M')})", body, "note", when=now)
 
+    # ---- rinomina ed elimina
+    def rename(self, note_id: str, title: str) -> tuple[Note, list[str]]:
+        """Cambia il titolo e, con lui, il nome del file: resta la data in testa, il resto segue il titolo. I
+        [[link]] delle altre note che la citano vengono aggiornati. Restituisce la nota e gli id delle note
+        riscritte."""
+        title = " ".join(title.split())
+        if not title:
+            raise QuickNotesError("Il titolo non può essere vuoto")
+        with self.edit_lock:
+            note = self.read(note_id)
+            if note.note_type == "daily" or note.id.endswith("-giornata"):
+                raise QuickNotesError("La nota del giorno prende il nome dalla data: non si rinomina")
+            old_id, old_title, old_path = note.id, note.title, note.path
+            if title == old_title:
+                return note, []
+            refs = self._read(index.backlinks, old_id, old_title)
+            self._set_title(note, title)
+            new_path = self._renamed_path(note, title)
+            if new_path != old_path:
+                note.path, note.id = new_path, new_path.stem
+            self.save(note)
+            if new_path != old_path:
+                old_path.unlink(missing_ok=True)
+                self._forget(old_path)
+            changed = self._relink(refs, old_id, old_title, note.id, title)
+            return note, changed
+
+    @staticmethod
+    def _set_title(note: Note, title: str) -> None:
+        """Il titolo sta dove l'utente l'ha messo: nel frontmatter, oppure nel primo `# Titolo` se il frontmatter
+        non lo ha."""
+        h1 = parser.first_h1(note.body)
+        if parser.meta_str(note.meta, "title") or h1 is None:
+            note.meta["title"] = title
+            note.meta_dirty = True
+        else:
+            lines = parser.lines_of(note.body)
+            i = next(i for i, l in enumerate(lines) if l.startswith("# ") and l[2:].strip() == h1)
+            lines[i] = f"# {title}"
+            note.body = "\n".join(lines) + ("\n" if note.body.endswith("\n") else "")
+        note.title = title
+
+    def _renamed_path(self, note: Note, title: str) -> Path:
+        """Il nuovo file nella stessa cartella. Le note dell'app hanno data e ora in testa (`2026-11-06-1030-`),
+        che restano; un file senza data prende solo il titolo."""
+        m = re.match(r"^\d{4}-\d{2}-\d{2}-(?:\d{4}-)?", note.id)
+        base = (m.group(0) if m else "") + parser.slugify(title)
+        if re.fullmatch(re.escape(base) + r"(-\d+)?", note.id):
+            return note.path  # stesso nome di prima, magari con il numero che lo distingue da un'altra nota
+        candidate, n = base, 2
+        while True:
+            path = note.path.with_name(f"{candidate}.md")
+            if candidate.lower() == note.id.lower() or (not path.exists() and self._path_for_id(candidate) is None):
+                return path
+            candidate = f"{base}-{n}"
+            n += 1
+
+    def _forget(self, path: Path) -> None:
+        """Toglie dall'indice un file che non c'è più."""
+        with self._write_lock:
+            if self._closed:
+                return
+            self._writer.execute("BEGIN")
+            try:
+                index.delete_rows(self._writer, self.rel(path))
+                self._writer.execute("COMMIT")
+            except BaseException:
+                self._writer.execute("ROLLBACK")
+                raise
+
+    def _relink(self, refs: list[dict], old_id: str, old_title: str, new_id: str, new_title: str) -> list[str]:
+        """Riscrive i [[link]] alla nota rinominata, solo sulle righe che l'indice indica."""
+        keys = {old_id.lower(), old_title.lower()}
+
+        def fix(m: re.Match) -> str:
+            inner = m.group(1)
+            target, sep, label = inner.partition("|")
+            t = target.strip()
+            if t.lower() not in keys:
+                return m.group(0)
+            if t.lower() == old_id.lower():
+                # [[id|Titolo]]: cambia l'id; il testo mostrato segue il titolo solo se era il titolo.
+                shown = new_title if sep and label.strip().lower() == old_title.lower() else label
+                return f"[[{new_id}{sep}{shown}]]"
+            return f"[[{new_title}{sep}{label}]]"
+
+        lines_by_note: dict[str, set[int]] = {}
+        for r in refs:
+            lines_by_note.setdefault(r["note_id"], set()).add(r["line"])
+        changed = []
+        for ref_id, line_nos in lines_by_note.items():
+            try:
+                ref = self.read(ref_id)
+            except NoteNotFound:
+                continue
+            lines = parser.lines_of(ref.body)
+            before = list(lines)
+            for n in line_nos:
+                if 1 <= n <= len(lines):
+                    # Non i `![[...]]`, che incorporano immagini.
+                    lines[n - 1] = re.sub(r"(?<!!)\[\[([^\]\n]+)\]\]", fix, lines[n - 1])
+            if lines != before:
+                ref.body = "\n".join(lines) + ("\n" if ref.body.endswith("\n") else "")
+                self.save(ref)
+                changed.append(ref.id)
+        return changed
+
+    def trash(self, note_id: str, to_recycle_bin=None) -> bool:
+        """Elimina la nota senza perderla: nel Cestino di Windows, oppure, dove il Cestino non c'è, in
+        `.quicknotes/cestino`. True se è andata nel Cestino di Windows. Le immagini restano: un'altra nota
+        potrebbe usarle."""
+        with self.edit_lock:
+            note = self.read(note_id)
+            path = note.path
+            if to_recycle_bin is not None and to_recycle_bin(path):
+                recycled = True
+            else:
+                recycled = False
+                folder = self.root / ".quicknotes" / "cestino"
+                folder.mkdir(parents=True, exist_ok=True)
+                dest, n = folder / path.name, 2
+                while dest.exists():
+                    dest = folder / f"{path.stem}-{n}.md"
+                    n += 1
+                os.replace(path, dest)
+            self._forget(path)
+            return recycled
+
     def append(self, note_id: str, text: str, heading: str | None = None) -> Note:
         with self.edit_lock:
             note = self.read(note_id)
@@ -346,9 +488,10 @@ class NoteStore:
             self.save(note)
             return note
 
-    def add_action(self, today: date, text: str, due: date | None = None, tag: str | None = None) -> Note:
-        """Una nuova azione nella nota del giorno, sezione "Priorità". Scadenza ed etichetta si aggiungono solo
-        se il testo non ne ha già una: vale quello che l'utente ha scritto."""
+    def add_action(self, today: date, text: str, due: date | None = None, tag: str | None = None,
+                   priority: str | None = None) -> Note:
+        """Una nuova azione nella nota del giorno, sezione "Priorità". Scadenza, etichetta e priorità si
+        aggiungono solo se il testo non ne ha già una: vale quello che l'utente ha scritto."""
         daily = self.daily(today, True)
         line = f"- [ ] {text.strip()}"
         written = parser.extract(line).actions
@@ -357,6 +500,9 @@ class NoteStore:
             line = edit.with_due(line, dates.iso(due))
         if tag and (written is None or not written.tags):
             line = edit.with_tag(line, tag)
+        priority = parser.priority_name(priority)
+        if priority and (written is None or written.priority is None):
+            line = edit.with_priority(line, priority)
         return self.add_to_section(daily.id, "Priorità", line)
 
     def postpone_late(self, today: date) -> tuple[int, list[str]]:
@@ -422,7 +568,7 @@ class NoteStore:
     _UNSET = object()
 
     def set_action_details(self, note_id: str, line_no: int, expected: str | None, *, due=_UNSET,
-                           person: tuple[int, str | None] | None = None, tag=_UNSET,
+                           person: tuple[int, str | None] | None = None, tag=_UNSET, priority=_UNSET,
                            description: str | None = None) -> Note:
         """Modifica i dettagli di un'azione. Un dettaglio non passato resta com'è; None lo toglie.
         Se la riga è cambiata nel frattempo non scrive."""
@@ -437,6 +583,8 @@ class NoteStore:
                     line = edit.with_person(line, person[0], person[1])
                 if tag is not self._UNSET:
                     line = edit.with_tag(line, tag)
+                if priority is not self._UNSET:
+                    line = edit.with_priority(line, parser.priority_name(priority))
                 return line
             _change_line(note, line_no, change)
             if description is not None:
@@ -452,8 +600,10 @@ class NoteStore:
         return self._read(index.list_notes, flt or Filter(), limit)
 
     def actions(self, **query) -> list[dict]:
-        with self._read_lock:
-            return index.actions(self._reader, **query)
+        return self._read(lambda db: index.actions(db, **query))
+
+    def done_since(self, day: str) -> int:
+        return self._read(index.done_since, day)
 
     def decisions(self, flt: Filter | None = None, query: str = "", limit: int = 100) -> list[dict]:
         return self._read(index.decisions, flt or Filter(), query, limit)

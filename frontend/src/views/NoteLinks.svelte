@@ -4,6 +4,7 @@
   import ActionText from './ActionText.svelte';
   import DetailPopover from './DetailPopover.svelte';
   import Icon from '../shell/Icon.svelte';
+  import { prioArrow } from '../note/editor/rules.js';
 
   // Le sezioni comuni a persona ed etichetta: azioni, note, decisioni.
   // Con `items` (schede della bacheca) le azioni si modificano con spunta e pillole; `actions` è in sola lettura.
@@ -41,6 +42,7 @@
           {#if a.parent}<div class="parent">In: {a.parent}</div>{/if}
           <button class="src" onclick={() => openPage(`note:${a.note_id}`, a.note_title)}><Icon name="note" size={12} />{a.note_title}</button>
         </div>
+        {#if a.priority}<span class="prio {a.priority}" title="Priorità {a.priority}">{prioArrow(a.priority)} {a.priority}</span>{/if}
         {#if a.due_label}<span class="mono due" class:late={a.due_level === 'late'}>{a.due_label}</span>{/if}
       </div>
     {/each}
@@ -74,6 +76,10 @@
   .parent { font-size: 12.5px; color: var(--subtle); }
   .src { display: flex; align-items: center; gap: 4px; margin-top: 3px; padding: 0; border: 0; background: transparent; color: var(--subtle); font-size: 12px; }
   .due { flex: none; font-size: 11.5px; padding: 2px 7px; border-radius: 5px; background: var(--raised); color: var(--muted); }
+  .prio { flex: none; font-size: 11.5px; font-weight: 600; padding: 2px 4px; }
+  .prio.alta { color: var(--late); }
+  .prio.media { color: var(--accent); }
+  .prio.bassa { color: var(--subtle); }
   .due.late { background: color-mix(in srgb, var(--late) 14%, transparent); color: var(--late); }
   .none { font-size: 14px; color: var(--subtle); }
   .note, .dec { display: flex; gap: 12px; width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); font-size: 14.5px; text-align: left; }

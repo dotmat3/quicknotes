@@ -120,6 +120,17 @@ class Modifiche(unittest.TestCase):
         self.assertEqual(edit.with_done("    - [ ] Fatta done:2026-11-01 ora", None), "    - [ ] Fatta ora")
         self.assertEqual(edit.with_done("- [x] A done:2026-01-01", "2026-02-02"), "- [x] A done:2026-02-02")
 
+    def test_priorita_delle_azioni(self):
+        acts = extract("- [ ] A prio:alta\n- [ ] B Priorità: Media due:2026-01-01\n- [ ] C priority:low\n"
+                       "- [ ] D prio:urgente\n- [ ] E\n```\n- [ ] F prio:alta\n```\n").actions
+        self.assertEqual([a.priority for a in acts], ["alta", "media", "bassa", None, None])
+        self.assertEqual(parser.action_display_text("B Priorità: Media due:2026-01-01 #x"), "B #x")
+        self.assertEqual(edit.with_priority("- [ ] A #x due:2026-01-01", "alta"), "- [ ] A #x prio:alta due:2026-01-01")
+        self.assertEqual(edit.with_priority("- [ ] A priorità:bassa #x", "media"), "- [ ] A prio:media #x")
+        self.assertEqual(edit.with_priority("- [ ] A prio:alta #x", None), "- [ ] A #x")
+        self.assertEqual(edit.with_priority("- [ ] A", None), "- [ ] A")
+        self.assertEqual([parser.priority_name(v) for v in ("HIGH", "bassa", "", None, "x")], ["alta", "bassa", None, None, None])
+
     def test_due_sta_prima_di_done(self):
         self.assertEqual(edit.with_due("- [x] A done:2026-01-01", "2026-02-02"), "- [x] A due:2026-02-02 done:2026-01-01")
         self.assertEqual(edit.with_due("- [ ] A due:2026-01-01 #x", "2026-02-02"), "- [ ] A #x due:2026-02-02")

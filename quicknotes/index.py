@@ -14,7 +14,8 @@ if TYPE_CHECKING:
     from .store import Note
 
 # 5: le righe di notes_fts hanno lo stesso rowid della nota, così si cancellano senza scorrere la tabella.
-SCHEMA_VERSION = 5
+# 6: la priorità delle azioni.
+SCHEMA_VERSION = 6
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS notes(
     path TEXT PRIMARY KEY, id TEXT, type TEXT, title TEXT, date TEXT,
@@ -29,7 +30,7 @@ CREATE INDEX IF NOT EXISTS note_tags_path ON note_tags(path);
 CREATE INDEX IF NOT EXISTS note_tags_tag ON note_tags(tag);
 CREATE TABLE IF NOT EXISTS actions(
     path TEXT, line_no INTEGER, text TEXT, done INTEGER, owner TEXT, due TEXT,
-    done_on TEXT, parent_line INTEGER, people TEXT, tags TEXT, description TEXT);
+    done_on TEXT, parent_line INTEGER, people TEXT, tags TEXT, description TEXT, priority TEXT);
 CREATE INDEX IF NOT EXISTS actions_path ON actions(path);
 CREATE INDEX IF NOT EXISTS actions_done ON actions(done, due);
 CREATE TABLE IF NOT EXISTS decisions(path TEXT, line_no INTEGER, text TEXT);
@@ -104,9 +105,9 @@ def index_note(db: sqlite3.Connection, rel: str, note: Note, mtime: int, size: i
                        (rel, note.id, note.note_type, note.title, note.date, note.project.lower(), mtime, size)).lastrowid
     db.executemany("INSERT INTO note_people VALUES(?,?,?)", [(rel, p, p.lower()) for p in people])
     db.executemany("INSERT INTO note_tags VALUES(?,?)", [(rel, t) for t in tags])
-    db.executemany("INSERT INTO actions VALUES(?,?,?,?,?,?,?,?,?,?,?)", [
+    db.executemany("INSERT INTO actions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", [
         (rel, a.line_no, a.text, int(a.done), a.owner, a.due, a.done_on, a.parent_line,
-         " ".join(a.people), " ".join(a.tags), a.description) for a in ex.actions])
+         " ".join(a.people), " ".join(a.tags), a.description, a.priority) for a in ex.actions])
     db.executemany("INSERT INTO decisions VALUES(?,?,?)", [(rel, d.line_no, d.text) for d in ex.decisions])
     db.executemany("INSERT INTO links VALUES(?,?,?,?,?,?)", [
         (rel, l.line_no, l.target, l.target.lower(), l.label, l.line) for l in ex.links])
@@ -202,6 +203,11 @@ def _terms(text: str) -> list[str]:
     return [t for t in re.split(r"[^\w]+", text) if t]
 
 
+def done_since(db: sqlite3.Connection, day: str) -> int:
+    """Le azioni completate da quel giorno in poi (con la data `done:`), figlie comprese."""
+    return db.execute("SELECT count(*) FROM actions WHERE done = 1 AND done_on >= ?", (day[:10],)).fetchone()[0]
+
+
 def actions(db: sqlite3.Connection, status: str = "open", owner: str | None = None, project: str | None = None,
             due_before: str | None = None, date_from: str | None = None, date_to: str | None = None,
             text: str | None = None, limit: int = 100_000) -> list[dict]:
@@ -229,7 +235,7 @@ def actions(db: sqlite3.Connection, status: str = "open", owner: str | None = No
         "text": r["text"], "done": bool(r["done"]), "owner": r["owner"], "due": r["due"], "done_on": r["done_on"],
         "note_id": r["id"], "note_title": r["title"], "note_date": r["date"], "line": r["line_no"],
         "parent_line": r["parent_line"], "description": r["description"], "people": r["people"].split(),
-        "tags": r["tags"].split(), "project": r["project"] or None,
+        "tags": r["tags"].split(), "project": r["project"] or None, "priority": r["priority"],
     } for r in rows]
 
 

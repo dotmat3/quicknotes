@@ -58,6 +58,9 @@
             { label: 'Tutte le note', hint: '', go: () => { app.graphLocal = false; openPage('view:graph'); } },
             { label: 'Attorno alla nota aperta', hint: '', go: () => { app.graphLocal = true; openPage('view:graph'); } },
           ],
+          micio: [
+            { label: 'Apri la stanza', hint: '', go: () => openPage('view:micio') },
+          ],
         }[k],
       })),
     { key: 'registra', label: 'Registra', icon: 'mic', kbd: 'Ctrl Alt R', go: rec, bottom: true, late: true, spacer: true, fly: [{ label: 'Avvia la registrazione', hint: '', go: rec }] },

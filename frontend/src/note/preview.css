@@ -33,6 +33,11 @@
 .pv .pv-due.late { color: var(--late); }
 .pv .pv-due.soon { color: var(--text); }
 .pv li.pv-task-done .pv-due { color: var(--faint); }
+.pv .pv-prio { font-size: 12px; font-weight: 600; margin-left: 2px; }
+.pv .pv-prio.alta { color: var(--late); }
+.pv .pv-prio.media { color: var(--accent); }
+.pv .pv-prio.bassa { color: var(--subtle); }
+.pv li.pv-task-done .pv-prio { color: var(--faint); }
 .pv .pv-embed { display: inline-block; padding: 1px 8px; border: 1px dashed var(--border3); border-radius: 6px; font-size: 13px; color: var(--subtle); }
 .pv .pv-alert { padding: 2px 0 2px 16px; border-left: 3px solid var(--alert); }
 .pv .pv-alert > :last-child { margin-bottom: 0; }

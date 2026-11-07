@@ -9,7 +9,7 @@ from pathlib import Path
 
 from quicknotes import dates, views
 from quicknotes.index import Filter
-from quicknotes.store import NoteNotFound, NoteStore, QuickNotesError, StaleLine
+from quicknotes.store import Note, NoteNotFound, NoteStore, QuickNotesError, StaleLine
 
 OLD_MEETING = ("---\ntype: meeting\ntitle: Kickoff cliente X\ndate: 2026-10-27T10:00\npeople: [Marco, Laura]\n"
                "project: clientex\nextra: da conservare   # commento\n---\n- Budget confermato !decisione\n"
@@ -215,6 +215,32 @@ class Archivio(Base):
         self.assertIn("- [ ] Già datata due:2026-12-01 #lavoro\n", text)
         self.assertIn("- [ ] Senza altro\n", text)
 
+    def test_azioni_completate_da_una_data(self):
+        self.write("a.md", "- [x] Vecchia done:2026-10-01\n- [x] Nuova done:2026-11-05\n    - [x] Figlia done:2026-11-06\n"
+                           "- [x] Senza data\n- [ ] Aperta\n")
+        self.store.refresh()
+        self.assertEqual(self.store.done_since("2026-11-05"), 2)
+        self.assertEqual(self.store.done_since("2026-01-01"), 3)
+        self.store.set_action_done("a", 5, "Aperta", d("2026-11-07"))
+        self.assertEqual(self.store.done_since("2026-11-05"), 3)
+
+    def test_priorita_dalla_bacheca_e_dalla_colonna(self):
+        line = "- [ ] Preparare il budget #lavoro due:2026-11-06"
+        self.write("a.md", line + "\n")
+        self.store.refresh()
+        self.store.set_action_details("a", 1, line, priority="alta")
+        self.assertEqual(self.text("a.md"), "- [ ] Preparare il budget #lavoro prio:alta due:2026-11-06\n")
+        self.assertEqual(self.store.actions()[0]["priority"], "alta")
+        self.assertEqual(views.action_board(self.store, d("2026-11-03"))["items"][0]["priority"], "alta")
+        self.assertEqual(views.action_board(self.store, d("2026-11-03"))["items"][0]["text"], "Preparare il budget")
+        self.store.set_action_details("a", 1, None, priority=None)
+        self.assertEqual(self.text("a.md"), line + "\n")
+        today = d("2026-11-03")
+        self.store.add_action(today, "Nuova", None, None, "bassa")
+        self.store.add_action(today, "Scritta prio:alta", None, None, "bassa")
+        text = self.text("2026/11/2026-11-03-giornata.md")
+        self.assertIn("- [ ] Nuova prio:bassa\n- [ ] Scritta prio:alta\n", text)
+
     def test_sposta_a_domani_solo_le_azioni_in_ritardo_di_primo_livello(self):
         self.write("2026/11/a.md", "---\ntitle: A\ndate: 2026-11-01\n---\n- [ ] Vecchia #casa due:2026-11-01\n    - [ ] Figlia in ritardo due:2026-10-30\n- [ ] Futura due:2026-11-10\n- [x] Fatta due:2026-10-01 done:2026-10-02\n- [ ] Senza data\n")
         self.write("2026/11/b.md", "---\ntitle: B\ndate: 2026-11-02\n---\n- [ ] Altra in ritardo due:2026-11-02\n")
@@ -240,6 +266,88 @@ class Archivio(Base):
             self.store.save_image(note.id, b"non un'immagine")
         with self.assertRaises(NoteNotFound):
             self.store.read("assente")
+
+    def test_chiusura_mentre_si_allinea_l_indice(self):
+        import threading
+        for i in range(30):
+            self.write(f"n{i}.md", f"# Nota {i}\n- [ ] azione {i}\n")
+        errors, stop = [], threading.Event()
+
+        def watcher():
+            # Come il thread che sorveglia la cartella: allinea finché l'app non esce.
+            while not stop.is_set():
+                try:
+                    self.store.refresh_changes()
+                    self.write("n0.md", f"# Nota 0\n{time.perf_counter()}\n")
+                except Exception as e:  # noqa: BLE001
+                    errors.append(e)
+                    return
+        t = threading.Thread(target=watcher)
+        t.start()
+        time.sleep(0.05)
+        self.store.close()
+        time.sleep(0.05)
+        stop.set()
+        t.join()
+        self.assertEqual(errors, [])
+        # Dopo la chiusura: niente allineamento, il salvataggio scrive comunque il file, la lettura lo dice.
+        self.assertEqual(self.store.refresh_changes(), [])
+        note = Note(self.dir / "n1.md", "# Nota 1\n")
+        note.body = "# Nota 1\nscritta in chiusura\n"
+        self.store.save(note)
+        self.assertIn("scritta in chiusura", self.text("n1.md"))
+        with self.assertRaises(QuickNotesError):
+            self.store.list_notes()
+        self.store.close = lambda: None  # tearDown la richiamerebbe
+
+    def test_rinomina_cambia_titolo_file_e_link(self):
+        when = datetime(2026, 11, 6, 10, 30)
+        a = self.store.create_note("Meeting", "Testo\n", "meeting", when=when)
+        self.store.create_note("Riunione", "", "meeting", when=when)
+        ref = self.store.create_note("Rif", f"- [ ] vedi [[{a.id}|Meeting]] e [[{a.id}|mio]]\n```\n[[{a.id}]]\n```\n"
+                                            f"![[{a.id}]]\n", "note", when=when)
+        note, changed = self.store.rename(a.id, "  Riunione  ")
+        # Il nome è già preso da un'altra nota: si aggiunge un numero.
+        self.assertEqual((note.id, note.title), ("2026-11-06-1030-riunione-2", "Riunione"))
+        self.assertFalse(a.path.exists())
+        self.assertIn("title: Riunione\n", self.text("2026/11/2026-11-06-1030-riunione-2.md"))
+        self.assertEqual(changed, [ref.id])
+        # Il testo mostrato segue il titolo solo se era il titolo; codice e immagini restano come sono.
+        self.assertEqual(self.store.read(ref.id).body, f"- [ ] vedi [[{note.id}|Riunione]] e [[{note.id}|mio]]\n"
+                                                       f"```\n[[{a.id}]]\n```\n![[{a.id}]]\n")
+        self.assertEqual({l["note_id"] for l in self.store.backlinks(note.id)}, {ref.id})
+        self.assertEqual({n["id"] for n in self.store.list_notes()}, {note.id, ref.id, "2026-11-06-1030-riunione"})
+        self.assertEqual(self.store.refresh(), 0)
+        # Stesso nome di file: cambia solo il titolo.
+        self.assertEqual(self.store.rename(note.id, "riunione!")[0].id, note.id)
+
+    def test_rinomina_senza_frontmatter_e_per_titolo(self):
+        self.write("Libera.md", "# Titolo libero\n\ncorpo\n")
+        self.write("cita.md", "vedi [[Titolo libero]]\n")
+        self.store.refresh()
+        note, changed = self.store.rename("Libera", "Nuovo titolo")
+        self.assertEqual((note.id, changed), ("nuovo-titolo", ["cita"]))
+        self.assertEqual(self.text("nuovo-titolo.md"), "# Nuovo titolo\n\ncorpo\n")
+        self.assertEqual(self.text("cita.md"), "vedi [[Nuovo titolo]]\n")
+        with self.assertRaises(QuickNotesError):
+            self.store.rename("nuovo-titolo", "   ")
+        self.store.daily(d("2026-11-06"), True)
+        with self.assertRaises(QuickNotesError):
+            self.store.rename("2026-11-06-giornata", "Altro")
+
+    def test_eliminare_porta_nel_cestino(self):
+        a = self.store.create_note("Da buttare", "testo\n", "note")
+        self.store.create_note("Da buttare", "altro\n", "note", when=datetime.now())
+        self.assertFalse(self.store.trash(a.id, lambda p: False))
+        self.assertEqual(self.text(f".quicknotes/cestino/{a.path.name}"), a.text())
+        with self.assertRaises(NoteNotFound):
+            self.store.read(a.id)
+        self.assertNotIn(a.id, [n["id"] for n in self.store.list_notes()])
+        # Il Cestino di Windows, quando c'è, prende il file al posto della cartella.
+        b = self.store.list_notes()[0]["id"]
+        self.assertTrue(self.store.trash(b, lambda p: p.unlink() is None))
+        self.assertEqual(self.store.list_notes(), [])
+        self.assertEqual(self.store.refresh(), 0)
 
 
 class Viste(Base):

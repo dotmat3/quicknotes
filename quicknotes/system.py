@@ -22,6 +22,36 @@ def open_external(target: str) -> None:
         subprocess.Popen(["xdg-open", target])
 
 
+def to_recycle_bin(path: Path) -> bool:
+    """Sposta un file nel Cestino di Windows. False se il Cestino non c'è (altri sistemi, cartelle di rete):
+    lì Windows eliminerebbe il file per sempre senza dirlo, quindi non ci si prova nemmeno."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    full = str(path.resolve())
+    drive = os.path.splitdrive(full)[0]
+    if not drive or drive.startswith("\\\\"):
+        return False
+    kernel32 = ctypes.windll.kernel32
+    kernel32.GetDriveTypeW.argtypes = [wintypes.LPCWSTR]
+    if kernel32.GetDriveTypeW(drive + "\\") != 3:  # DRIVE_FIXED: dischi del PC, dove il Cestino esiste
+        return False
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+
+    FO_DELETE, FOF_SILENT, FOF_NOCONFIRMATION, FOF_ALLOWUNDO, FOF_NOERRORUI = 3, 0x4, 0x10, 0x40, 0x400
+    op = SHFILEOPSTRUCTW(wFunc=FO_DELETE, pFrom=full + "\0",
+                         fFlags=FOF_SILENT | FOF_NOCONFIRMATION | FOF_ALLOWUNDO | FOF_NOERRORUI)
+    shell32 = ctypes.windll.shell32
+    shell32.SHFileOperationW.argtypes = [ctypes.POINTER(SHFILEOPSTRUCTW)]
+    return shell32.SHFileOperationW(ctypes.byref(op)) == 0 and not op.fAnyOperationsAborted and not path.exists()
+
+
 def _sibling(name: str) -> str:
     exe = Path(sys.executable)
     candidate = exe.with_name(name)

@@ -571,6 +571,9 @@ class Shell:
                     kernel32.FindNextChangeNotification(ctypes.c_void_p(handle))
                     if kernel32.WaitForSingleObject(ctypes.c_void_p(handle), 200) != 0:
                         break
+            # In chiusura l'indice non serve più: i salvataggi finali sveglierebbero il thread per niente.
+            if self.quitting:
+                break
             # Anche senza avvisi, ogni 10 secondi: alcune cartelle di rete non li mandano.
             self._refresh()
         if handle is not None:

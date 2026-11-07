@@ -10,8 +10,9 @@ export const app = $state({
   side: ui.side ?? 'open',
   showPins: ui.showPins !== false,
   favs: ui.favs ?? ['view:actions'],
-  viewOrder: ui.viewOrder ?? ['calendario', 'azioni', 'persone', 'grafo'],
-  viewVis: { calendario: true, azioni: true, persone: true, grafo: true, ...(ui.viewVis ?? {}) },
+  // Le viste aggiunte dopo che l'ordine è stato salvato vanno in fondo.
+  viewOrder: [...new Set([...(ui.viewOrder ?? []), 'calendario', 'azioni', 'persone', 'grafo', 'micio'])],
+  viewVis: { calendario: true, azioni: true, persone: true, grafo: true, micio: true, ...(ui.viewVis ?? {}) },
   tagColors: ui.tagColors ?? {},
   noteW: ui.noteW ?? 'leggibile',
   viewW: ui.viewW ?? 'intera',
@@ -29,6 +30,10 @@ export const app = $state({
   graphLocal: false,
   // Riga da mostrare quando si apre una nota: { page, line }, presa dalla nota appena pronta.
   reveal: null,
+  // La vista (gruppo:pagina) il cui titolo si sta rinominando.
+  rename: null,
+  // La finestra di conferma aperta: { title, text, ok, run }.
+  confirm: null,
 });
 
 export const theme = {
@@ -72,8 +77,19 @@ export async function refreshCounts() {
   app.counts = await call('sidebar', {}, app.counts);
 }
 
+// L'avviso sparisce da solo: 4 secondi, di più se è lungo da leggere, al massimo 10. Con il mouse sopra resta.
+let toastTimer;
+const toastTime = (text) => Math.min(10000, Math.max(4000, text.length * 60));
+
 export function showToast(text) {
   app.toast = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (app.toast = ''), toastTime(text));
+}
+
+export function holdToast(hold) {
+  clearTimeout(toastTimer);
+  if (!hold && app.toast) toastTimer = setTimeout(() => (app.toast = ''), 2000);
 }
 
 // Il link [[id|Titolo]] da incollare in un'altra nota. Se gli appunti non rispondono si passa da una casella nascosta.

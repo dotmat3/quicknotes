@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { listen } from '../api.js';
   import { addAction, board, loadBoard, postponeLate } from '../state/actions.svelte.js';
-  import { dueLabel } from '../note/editor/rules.js';
+  import { PRIORITIES, dueLabel, prioRank } from '../note/editor/rules.js';
   import { app, savePrefs, tagColor } from '../state/app.svelte.js';
   import ActionItem from './ActionItem.svelte';
   import DetailPopover from './DetailPopover.svelte';
@@ -36,7 +36,12 @@
     if (filter === 'completate') return doneRecent.length ? [{ key: 'done', title: 'Completate', color: '#7CC4A8', items: doneRecent }] : [];
     const pool = filter === 'ritardo' ? openItems.filter((i) => i.group === 'late') : openItems;
     let out;
-    if (app.actGroup === 'progetto') {
+    if (app.actGroup === 'priorita') {
+      const COLORS = { alta: 'var(--late)', media: 'var(--accent)', bassa: 'var(--muted)' };
+      out = [...PRIORITIES.map(([p, label, arrow]) => ({ key: p, title: `${arrow} ${label}`, color: COLORS[p] })), { key: 'none', title: 'Senza priorità', color: 'var(--faint)' }]
+        .map((g) => ({ ...g, items: pool.filter((i) => (i.priority ?? 'none') === g.key) }))
+        .filter((g) => g.items.length || (isBoard && filter === 'aperte'));
+    } else if (app.actGroup === 'progetto') {
       const tags = [...new Set(pool.map((i) => i.tag ?? ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
       out = tags.map((t) => ({ key: t || 'none', title: t ? `#${t}` : 'Senza progetto', color: t ? tagColor(t) : 'var(--faint)', items: pool.filter((i) => (i.tag ?? '') === t) }));
     } else {
@@ -45,6 +50,8 @@
         // In bacheca le colonne restano anche vuote, tranne "Più avanti" che compare solo se serve.
         .filter((g) => g.items.length || (isBoard && filter === 'aperte' && g.key !== 'later'));
     }
+    // In ogni colonna prima le priorità alte; a pari priorità resta l'ordine di scadenza.
+    out = out.map((g) => ({ ...g, items: [...g.items].sort((a, b) => prioRank(a.priority) - prioRank(b.priority)) }));
     if (isBoard && filter === 'aperte' && app.boardDone) out.push({ key: 'done', title: 'Fatte', color: '#7CC4A8', items: doneRecent });
     return out;
   });
@@ -68,9 +75,10 @@
     draft = '';
   }
 
-  // Il "+" di una colonna dà la sua scadenza o, raggruppando per progetto, la sua etichetta.
+  // Il "+" di una colonna dà la sua scadenza o, raggruppando per progetto o priorità, la sua etichetta o priorità.
   function columnPreset(g) {
     if (g.key === 'done' || g.key === 'late') return null;
+    if (app.actGroup === 'priorita') return { due: null, tag: null, priority: g.key === 'none' ? null : g.key, byPriority: true };
     if (app.actGroup === 'progetto') return { due: null, tag: g.key === 'none' ? null : g.key };
     if (g.key === 'none') return { due: null, tag: null };
     const due = board.column_due?.[g.key];
@@ -78,6 +86,7 @@
   }
 
   function presetHint(p) {
+    if (p.byPriority) return p.priority ? `priorità ${p.priority}` : 'senza priorità';
     if (p.tag) return `#${p.tag}`;
     return p.due ? `scade ${dueLabel(p.due).label}` : 'senza scadenza';
   }
@@ -90,7 +99,7 @@
     }
     if (e.key !== 'Enter' || !colDraft.trim()) return;
     const p = columnPreset(g);
-    addAction(colDraft, p?.due, p?.tag);
+    addAction(colDraft, p?.due, p?.tag, p?.priority);
     colDraft = '';
   }
 
@@ -126,7 +135,7 @@
   <span class="grow"></span>
   <div class="seg" role="radiogroup" aria-label="Raggruppa per">
     <span class="seg-label">Raggruppa</span>
-    {#each [['scadenza', 'Scadenza'], ['progetto', 'Progetto']] as [v, label] (v)}
+    {#each [['scadenza', 'Scadenza'], ['priorita', 'Priorità'], ['progetto', 'Progetto']] as [v, label] (v)}
       <button role="radio" aria-checked={app.actGroup === v} class:on={app.actGroup === v} onclick={() => setPref('actGroup', v)}>{label}</button>
     {/each}
   </div>

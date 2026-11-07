@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from .parser import ACTION_RE, DONE_RE, DUE_RE, indent_width, is_fence, lines_of, mention_spans, tag_spans
+from .parser import ACTION_RE, DONE_RE, DUE_RE, PRIO_RE, indent_width, is_fence, lines_of, mention_spans, tag_spans
 
 _NUMBERED = re.compile(r"^\d+[.)] ")
 
@@ -39,6 +39,17 @@ def with_due(line: str, day: str | None) -> str:
     if done:
         out += f" done:{done.group(1)}"
     return out
+
+
+def with_priority(line: str, priority: str | None) -> str:
+    """La riga con la priorità indicata (alta, media, bassa): sostituita dov'è, altrimenti prima delle date.
+    None la toglie."""
+    m = PRIO_RE.search(line)
+    if m:
+        if priority:
+            return line[:m.start()] + f"prio:{priority}" + line[m.end():]
+        return _squeeze(line[:m.start()] + line[m.end():])
+    return _insert_before_dates(line, f"prio:{priority}") if priority else line
 
 
 def with_checked(line: str, done_on: str | None) -> str:

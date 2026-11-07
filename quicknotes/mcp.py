@@ -23,6 +23,7 @@ def instructions() -> str:
         "Archivio personale di note di lavoro dell'utente (meeting, diario giornaliero, appunti).\n"
         "Le note sono Markdown con convenzioni: @persona, #progetto/tag, \"- [ ]\" azione aperta,\n"
         "\"- [x]\" azione fatta, \"due:AAAA-MM-GG\" scadenza, \"done:AAAA-MM-GG\" completamento,\n"
+        "\"prio:alta\" (o media, bassa) priorità di un'azione,\n"
         "\"!decisione\" decisione presa, \"[[id|Titolo]]\" collegamento a un'altra nota.\n"
         "Strategia consigliata: usa search_notes o list_notes per trovare le note pertinenti,\n"
         "poi read_note per leggerle per intero prima di rispondere, citando titolo e data.\n"

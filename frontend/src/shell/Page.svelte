@@ -1,6 +1,6 @@
 <script>
   import { app, copyNoteLink } from '../state/app.svelte.js';
-  import { MODES, docs, modes, setMode } from '../state/documents.svelte.js';
+  import { MODES, askDelete, canDelete, canRename, docs, modes, setMode } from '../state/documents.svelte.js';
   import { pageKind, pageArg, pageTitle } from './nav.js';
   import NotePage from '../note/NotePage.svelte';
   import Icon from './Icon.svelte';
@@ -13,6 +13,7 @@
     'view:calendar': () => import('../views/CalendarView.svelte'),
     'view:people': () => import('../views/PeopleView.svelte'),
     'view:graph': () => import('../views/GraphView.svelte'),
+    'view:micio': () => import('../views/MicioView.svelte'),
     'view:help': () => import('../views/HelpView.svelte'),
     settings: () => import('../views/SettingsView.svelte'),
   };
@@ -47,6 +48,8 @@
       return [
         ...MODES.map(([m, label]) => ({ label, radio: true, checked: mode === m, run: () => setMode(viewKey, m) })),
         { label: 'Copia il link alla nota', sep: true, run: copyLink },
+        ...(canRename(pageArg(page)) ? [{ label: 'Rinomina', kbd: 'F2', run: () => (app.rename = viewKey) }] : []),
+        ...(canDelete(pageArg(page)) ? [{ label: 'Elimina la nota…', sep: true, danger: true, run: () => askDelete(pageArg(page)) }] : []),
       ];
     }
     if (kind === 'person') return [{ label: `Cerca @${pageArg(page)} nelle note`, run: () => search(`@${pageArg(page)} `) }];
@@ -82,9 +85,10 @@
         <div class="menu note-menu" role="menu" aria-label={kind === 'note' ? 'Opzioni della nota' : 'Altre opzioni'} tabindex="-1" onkeydown={menuKey}>
           {#each items as it, i (it.label)}
             {#if it.sep}<div class="menu-sep" role="separator"></div>{/if}
-            <button class="menu-item" role={it.radio ? 'menuitemradio' : 'menuitem'} aria-checked={it.radio ? it.checked : undefined} onclick={() => pick(it)} {@attach (el) => { if (it.checked || (i === 0 && !items.some((x) => x.checked))) el.focus(); }}>
+            <button class="menu-item" class:danger={it.danger} role={it.radio ? 'menuitemradio' : 'menuitem'} aria-checked={it.radio ? it.checked : undefined} onclick={() => pick(it)} {@attach (el) => { if (it.checked || (i === 0 && !items.some((x) => x.checked))) el.focus(); }}>
               {#if it.radio}<span class="check">{#if it.checked}<Icon name="check" size={14} />{/if}</span>{/if}
               <span style="flex:1">{it.label}</span>
+              {#if it.kbd}<kbd>{it.kbd}</kbd>{/if}
             </button>
           {/each}
         </div>

@@ -149,6 +149,22 @@ class Commands:
         note = self.store.create_note(title, "", note_type)
         return {"id": note.id, "title": note.title}
 
+    def cmd_rename_note(self, id: str, title: str):  # noqa: A002
+        """Nuovo titolo e nuovo nome del file. Le note con i [[link]] aggiornati si ricaricano nella pagina."""
+        note, changed = self.store.rename(id, title)
+        if changed:
+            self.shell.emit("note-changed", changed)
+        self.shell.emit("index-updated", 1 + len(changed))
+        return {"id": note.id, "title": note.title, "relinked": len(changed)}
+
+    def cmd_delete_note(self, id: str):  # noqa: A002
+        """La nota va nel Cestino. Quella di oggi resta: l'app la riaprirebbe subito, vuota."""
+        if id == f"{dates.iso(date.today())}-giornata":
+            raise QuickNotesError("La nota di oggi non si elimina")
+        recycled = self.store.trash(id, system.to_recycle_bin)
+        self.shell.emit("index-updated", 1)
+        return {"recycled": recycled}
+
     def cmd_capture_save(self, text: str, section: str, open: bool):  # noqa: A002
         """La nota rapida: va nella nota del giorno, nella sezione scelta."""
         today = date.today()
@@ -172,7 +188,7 @@ class Commands:
 
     def cmd_set_action_field(self, note_id: str, line: int, text: str, field: str, index: int | None = None,
                              value: str | None = None):
-        """Cambia un solo dettaglio. `field`: due, person, tag, description."""
+        """Cambia un solo dettaglio. `field`: due, person, tag, priority, description."""
         value = value if value and value.strip() else None
         if field == "due":
             self.store.set_action_details(note_id, line, text, due=value)
@@ -180,18 +196,29 @@ class Commands:
             self.store.set_action_details(note_id, line, text, person=(index or 0, value))
         elif field == "tag":
             self.store.set_action_details(note_id, line, text, tag=value)
+        elif field == "priority":
+            if value and parser.priority_name(value) is None:
+                raise QuickNotesError(f"Priorità sconosciuta: {value}")
+            self.store.set_action_details(note_id, line, text, priority=value)
         elif field == "description":
             self.store.set_action_details(note_id, line, text, description=value or "")
         else:
             raise QuickNotesError(f"Campo sconosciuto: {field}")
 
-    def cmd_add_action(self, text: str, due: str | None = None, tag: str | None = None):
+    def cmd_add_action(self, text: str, due: str | None = None, tag: str | None = None, priority: str | None = None):
         """Una nuova azione nella nota di oggi, sezione "Priorità". Restituisce l'id della nota."""
-        return self.store.add_action(date.today(), text, dates.parse_day(due), tag).id
+        return self.store.add_action(date.today(), text, dates.parse_day(due), tag, priority).id
 
     def cmd_postpone_late(self):
         moved, ids = self.store.postpone_late(date.today())
         return {"moved": moved, "ids": ids}
+
+    # ---- Micio
+    def cmd_pet_done(self, since: str):
+        """Le azioni completate da quando c'è Micio: ognuna vale crocchette."""
+        if dates.parse_day(since) is None:
+            raise QuickNotesError("Data non valida")
+        return self.store.done_since(since)
 
     # ---- viste
     def cmd_person_page(self, name: str):

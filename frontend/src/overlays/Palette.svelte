@@ -4,7 +4,7 @@
   import { call } from '../api.js';
   import { app, copyNoteLink, tagColor } from '../state/app.svelte.js';
   import { applyLayout, focused, layout, openAt, openBeside, openPage, reopen, splitTo, canSide } from '../state/layout.svelte.js';
-  import { MODES, setMode } from '../state/documents.svelte.js';
+  import { MODES, askDelete, canDelete, canRename, setMode } from '../state/documents.svelte.js';
   import { pageArg, pageIcon } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
 
@@ -29,6 +29,7 @@
 
   const close = () => (app.palette = false);
   const active = () => focused();
+  const activeNote = () => (active().active?.startsWith('note:') ? pageArg(active().active) : null);
   const VIEWS = [
     ['Calendario', 'view:calendar'],
     ['Azioni', 'view:actions'],
@@ -46,6 +47,8 @@
     ['Layout: due colonne', '', () => applyLayout(2, 'row')],
     ['Layout: due righe', '', () => applyLayout(2, 'col')],
     ['Riapri scheda chiusa', 'Ctrl Shift T', reopen],
+    ['Rinomina la nota', 'F2', () => activeNote() && canRename(activeNote()) && (app.rename = `${active().id}:${active().active}`)],
+    ['Elimina la nota', '', () => activeNote() && canDelete(activeNote()) && askDelete(activeNote())],
     ...MODES.map(([m, label]) => [`Modalità della nota: ${label}`, '', () => active().active?.startsWith('note:') && setMode(`${active().id}:${active().active}`, m)]),
   ];
 

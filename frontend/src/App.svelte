@@ -1,14 +1,17 @@
 <script>
   import { onMount } from 'svelte';
   import { call, listen } from './api.js';
-  import { app, refreshCounts, savePrefs, showToast } from './state/app.svelte.js';
-  import { onExternalChange, saveAll } from './state/documents.svelte.js';
+  import { app, holdToast, refreshCounts, savePrefs, showToast } from './state/app.svelte.js';
+  import { canRename, onExternalChange, saveAll } from './state/documents.svelte.js';
+  import Confirm from './overlays/Confirm.svelte';
   import { closeTabs, focused, goBack, goForward, openPage, reopen, splitTo, canSide } from './state/layout.svelte.js';
   import Sidebar from './shell/Sidebar.svelte';
   import Rail from './shell/Rail.svelte';
   import Workspace from './shell/Workspace.svelte';
   import TitleBar from './shell/TitleBar.svelte';
   import Icon from './shell/Icon.svelte';
+  import PetLayer from './pet/PetLayer.svelte';
+  import { petCheck } from './pet/store.svelte.js';
   import { VIEWS } from './shell/nav.js';
 
   let Palette = $state(null);
@@ -21,6 +24,7 @@
     refreshCounts();
     const offs = [
       listen('index-updated', refreshCounts),
+      listen('index-updated', petCheck),
       listen('note-changed', onExternalChange),
       // La finestra si nasconde: si salva subito, anche se l'app resta aperta.
       listen('flush', saveAll),
@@ -65,6 +69,13 @@
     } else if (e.key === 'F1') {
       e.preventDefault();
       openPage('view:help');
+    } else if (e.key === 'F2' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      // Rinomina la nota della scheda attiva, come F2 in Esplora risorse.
+      const g = focused();
+      if (g.active?.startsWith('note:') && canRename(g.active.slice(5)) && !app.confirm) {
+        e.preventDefault();
+        app.rename = `${g.id}:${g.active}`;
+      }
     }
   }
 
@@ -139,8 +150,12 @@
     <Palette />
   {/if}
   <button class="help" aria-label="Guida e comandi (F1)" title="Guida e comandi · F1" onclick={() => openPage('view:help')}>?</button>
+  <PetLayer />
+  {#if app.confirm}
+    <Confirm />
+  {/if}
   {#if app.toast}
-    <div class="toast" role="status">
+    <div class="toast" role="status" onmouseenter={() => holdToast(true)} onmouseleave={() => holdToast(false)}>
       <span>{app.toast}</span>
       <button class="icon-btn" aria-label="Chiudi" onclick={() => (app.toast = '')}><Icon name="close" size={13} /></button>
     </div>

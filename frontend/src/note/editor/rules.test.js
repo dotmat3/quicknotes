@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diff, dueLabel, isoToday, noteStats, withChecked } from './rules.js';
+import { PRIO, diff, dueLabel, isoToday, noteStats, prioName, prioRank, withChecked } from './rules.js';
 
 describe('withChecked', () => {
   it('spunta e riapre come il nucleo Python', () => {
@@ -36,5 +36,16 @@ describe('diff', () => {
     expect(diff('abcdef', 'abXdef')).toEqual({ from: 2, to: 3, insert: 'X' });
     expect(diff('abc', 'abc')).toEqual({ from: 3, to: 3, insert: '' });
     expect(diff('', 'x')).toEqual({ from: 0, to: 0, insert: 'x' });
+  });
+});
+
+describe('priorità', () => {
+  it('riconosce le stesse forme del nucleo Python', () => {
+    const found = (t) => [...t.matchAll(PRIO)].map((m) => prioName(m[1]));
+    expect(found('- [ ] A prio:alta #x')).toEqual(['alta']);
+    expect(found('- [ ] B Priorità: Media due:2026-01-01')).toEqual(['media']);
+    expect(found('- [ ] C priority:low')).toEqual(['bassa']);
+    expect(found('- [ ] D prio:urgente xprio:alta prio:altissima')).toEqual([]);
+    expect([null, 'bassa', 'media', 'alta'].map(prioRank)).toEqual([3, 2, 1, 0]);
   });
 });

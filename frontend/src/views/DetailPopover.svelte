@@ -4,7 +4,7 @@
   import { setField } from '../state/actions.svelte.js';
   import { tagColor } from '../state/app.svelte.js';
   import { openPage } from '../state/layout.svelte.js';
-  import { isoToday } from '../note/editor/rules.js';
+  import { PRIORITIES, isoToday } from '../note/editor/rules.js';
   import Icon from '../shell/Icon.svelte';
 
   // Popover di un dettaglio. `anchor` è il rettangolo della pillola che l'ha aperto.
@@ -69,7 +69,7 @@
     const below = anchor.bottom <= innerHeight - 330;
     return `left:${left}px;${below ? `top:${anchor.bottom + 6}px` : `bottom:${innerHeight - anchor.top + 6}px`}`;
   });
-  const titles = { due: 'Scadenza', person: 'Persona', tag: 'Etichetta', description: 'Descrizione' };
+  const titles = { due: 'Scadenza', person: 'Persona', tag: 'Etichetta', priority: 'Priorità', description: 'Descrizione' };
 </script>
 
 <button class="backdrop" aria-label="Chiudi" onclick={kind === 'description' ? saveDesc : close}></button>
@@ -79,6 +79,13 @@
   {#if kind === 'description'}
     <textarea rows="4" bind:value={desc} aria-label="Descrizione"></textarea>
     <div class="hint">Ctrl ↵ per salvare</div>
+  {:else if kind === 'priority'}
+    {#each [...PRIORITIES, [null, 'Nessuna', '']] as [value, label, arrow] (label)}
+      <button class="opt" class:on={(item.priority ?? null) === value} onclick={() => pick(value)}>
+        <span class="arrow" aria-hidden="true">{arrow}</span><span class="grow">{label}</span>
+        {#if (item.priority ?? null) === value}<Icon name="check" size={13} style="stroke-width:2.5" />{/if}
+      </button>
+    {/each}
   {:else if kind === 'due'}
     {#each dueOpts as [label, value] (label)}
       <button class="opt" class:on={item.due === value} onclick={() => pick(value)}>
@@ -118,6 +125,7 @@
   .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: 11.5px; color: var(--muted); }
   .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  .arrow { flex: none; width: 12px; color: var(--muted); text-align: center; }
   input, textarea { width: 100%; border: 1px solid var(--border3); border-radius: 6px; background: var(--sunk); color: var(--text); font: inherit; font-size: 13px; }
   .search { height: 30px; margin-bottom: 6px; padding: 0 8px; }
   textarea { display: block; padding: 8px; resize: vertical; }

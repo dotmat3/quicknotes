@@ -5,6 +5,7 @@ export const VIEWS = {
   azioni: { label: 'Azioni', page: 'view:actions', icon: 'actions' },
   persone: { label: 'Persone', page: 'view:people', icon: 'people' },
   grafo: { label: 'Grafo', page: 'view:graph', icon: 'graph' },
+  micio: { label: 'Micio', page: 'view:micio', icon: 'cat' },
 };
 
 export function pageKind(id) {
@@ -16,7 +17,7 @@ export function pageArg(id) {
   return id.slice(id.indexOf(':') + 1);
 }
 
-const VIEW_TITLES = { 'view:calendar': 'Calendario', 'view:actions': 'Azioni', 'view:people': 'Persone', 'view:graph': 'Grafo', 'view:help': 'Guida', settings: 'Impostazioni' };
+const VIEW_TITLES = { 'view:calendar': 'Calendario', 'view:actions': 'Azioni', 'view:people': 'Persone', 'view:graph': 'Grafo', 'view:micio': 'Micio', 'view:help': 'Guida', settings: 'Impostazioni' };
 
 export function pageTitle(id, titles) {
   const kind = pageKind(id);
@@ -35,6 +36,7 @@ export function pageIcon(id, isDaily) {
   if (id === 'view:actions') return 'actions';
   if (id === 'view:people') return 'person';
   if (id === 'view:graph') return 'graph';
+  if (id === 'view:micio') return 'cat';
   if (id === 'view:help') return 'help';
   return 'settings';
 }
@@ -49,5 +51,6 @@ export function favInfo(id, todayId) {
   if (id === 'view:actions') return { icon: 'kanban', type: 'vista' };
   if (id === 'view:people') return { icon: 'group', type: 'vista' };
   if (id === 'view:help') return { icon: 'help', type: 'vista' };
+  if (id === 'view:micio') return { icon: 'cat', type: 'vista' };
   return { icon: 'graph', type: 'vista' };
 }

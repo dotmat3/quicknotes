@@ -15,6 +15,8 @@ export default async function (page, { notes }) {
   const file = join(notes, String(now.getFullYear()), p(now.getMonth() + 1), `${iso(now)}-giornata.md`);
   const read = () => readFileSync(file, 'utf8');
   const options = () => page.locator('.cm-tooltip-autocomplete li').allInnerTexts();
+  // CodeMirror ignora frecce e Invio per un attimo dopo che il menu compare o si aggiorna: si aspetta come una persona.
+  const menu = async () => { await page.waitForSelector('.cm-tooltip-autocomplete'); await page.waitForTimeout(200); };
   const activeTab = () => page.locator('main.pane .tab.on .clip').first().innerText();
 
   await page.waitForSelector('.cm-content');
@@ -38,11 +40,11 @@ export default async function (page, { notes }) {
   await page.locator('.cm-content').click();
   await page.keyboard.press('Control+End');
   await page.keyboard.type('\n- [');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   assert((await options()).some((o) => o.includes('Azione da fare')), '- [ propone l\'azione');
   await page.keyboard.press('Enter');
   await page.keyboard.type('Chiamare il fornitore due:');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   const dates = await options();
   assert(dates[0].includes('Oggi') && dates[1].includes('Domani') && dates.some((o) => o.includes('Fine del mese')), `due: propone le date: ${dates.slice(0, 3).map((o) => o.replace(/\s+/g, ' ')).join(' | ')}`);
   await page.keyboard.press('ArrowDown');
@@ -66,20 +68,20 @@ export default async function (page, { notes }) {
 
   // Decisione, codice, strutture.
   await page.keyboard.type('\nScegliamo Rust !de');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   await page.keyboard.press('Enter');
   // Invio continua l'elenco: la riga nuova va svuotata, il blocco di codice parte da inizio riga.
   await page.keyboard.press('Enter');
   await page.keyboard.press('Shift+Home');
   await page.keyboard.press('Backspace');
   await page.keyboard.type('```py');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   assert((await options())[0].startsWith('python'), '``` propone le lingue');
   await page.keyboard.press('Enter');
   await page.keyboard.type('x = 1');
   await page.keyboard.press('Control+End');
   await page.keyboard.type('\n/tab');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   assert((await options())[0].includes('Tabella'), '/ a inizio riga propone le strutture');
   await page.keyboard.press('Enter');
   await page.keyboard.type('Nome');
@@ -93,7 +95,7 @@ export default async function (page, { notes }) {
   await page.keyboard.press('Control+End');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Control+Space');
-  await page.waitForSelector('.cm-tooltip-autocomplete');
+  await menu();
   assert((await options()).length >= 10, 'Ctrl Spazio su una riga vuota mostra le strutture');
   await page.keyboard.press('Escape');
 

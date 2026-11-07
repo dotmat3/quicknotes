@@ -3,6 +3,7 @@
 import { call } from '../api.js';
 import { refreshCounts, showToast } from './app.svelte.js';
 import { docs, onExternalChange, save, saveAll } from './documents.svelte.js';
+import { petCheck } from '../pet/store.svelte.js';
 
 // `version` cresce a ogni ricarica: le pagine che mostrano azioni (etichetta) si ricaricano con la bacheca.
 export const board = $state({ items: [], open: 0, late: 0, done_this_week: 0, week_number: 0, loaded: false, version: 0 });
@@ -21,6 +22,7 @@ async function mutate(noteId, fn) {
   }
   await onExternalChange([noteId]);
   await Promise.all([loadBoard(), refreshCounts()]);
+  petCheck();
 }
 
 export const setDone = (item, done) =>
@@ -32,15 +34,16 @@ export const completeAll = (item) =>
 export const setField = (item, field, value, index) =>
   mutate(item.note_id, () => call('set_action_field', { noteId: item.note_id, line: item.line, text: item.raw, field, index, value }));
 
-// Scadenza ed etichetta arrivano dal "+" di una colonna; il testo scritto ha la precedenza.
-export async function addAction(text, due = null, tag = null) {
+// Scadenza, etichetta e priorità arrivano dal "+" di una colonna; il testo scritto ha la precedenza.
+export async function addAction(text, due = null, tag = null, priority = null) {
   try {
-    const noteId = await call('add_action', { text, due, tag });
+    const noteId = await call('add_action', { text, due, tag, priority });
     await onExternalChange([noteId]);
   } catch (e) {
     showToast(String(e));
   }
   await Promise.all([loadBoard(), refreshCounts()]);
+  petCheck();
 }
 
 export async function postponeLate() {
@@ -54,4 +57,5 @@ export async function postponeLate() {
     showToast(String(e));
   }
   await Promise.all([loadBoard(), refreshCounts()]);
+  petCheck();
 }

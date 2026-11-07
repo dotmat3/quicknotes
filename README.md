@@ -87,6 +87,18 @@ sincronizzare o mettere sotto git. L'indice si riallinea da solo quando un file 
 `python -m quicknotes reindex` lo ricostruisce da zero. Se Claude scrive in una nota aperta nell'app,
 l'app la ricarica.
 
+## Micio
+
+Un gatto in pixel art che cammina o gioca in fondo alle schede, sopra le note. La vista Micio è la sua stanza:
+ci sono un negozio di oggetti, la scelta di mantello e dimensione e il minigioco «Pioggia di pesci».
+Ogni azione completata da quando c'è Micio vale 5 crocchette, che si contano dall'indice. Valgono quindi anche
+le azioni spuntate in Obsidian o da Claude. Preferenze, oggetti e crocchette spese stanno in `config.json`
+(chiave `ui.pet`).
+
+Lo sprite viene dal [Cat Pack di Glem](https://octopusinkus.itch.io/cat-pack), versione gratuita. Il gatto nero
+è diviso in tre livelli (corpo da tingere, dettagli, occhi) in `frontend/src/pet/sprite/`. Le animazioni sono in
+`frontend/src/pet/animazioni.js` e si calibrano fotogramma per fotogramma con il Banco animazioni.
+
 ## Sviluppo
 
 Serve Python 3.12 a 64 bit e Node 20 o successivo.

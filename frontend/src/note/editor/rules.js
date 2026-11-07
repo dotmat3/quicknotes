@@ -4,7 +4,25 @@ export const MENTION = new RegExp(`(?<![${W}.@])@([${W}][${W}\\-.]*[${W}]|[${W}]
 export const TAG = new RegExp(`(?<![${W}/#&])#([\\p{L}_][${W}\\-/]*)`, 'gu');
 export const DUE = /\b(?:due|entro|scadenza)\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
 export const DONE = /\bdone\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
-export const DECISION = /!(?:decisione|decision|dec)(?![\p{L}\p{N}_])/giu;
+export const PRIO = /(?<![\p{L}\p{N}_])(?:prio|priorit[àa]|priority)\s*:\s*(alta|media|bassa|high|medium|low)(?![\p{L}\p{N}_])/giu;
+// Le tre priorità, dalla più alta: nome scritto nel file, etichetta e freccia.
+export const PRIORITIES = [
+  ['alta', 'Alta', '↑'],
+  ['media', 'Media', '→'],
+  ['bassa', 'Bassa', '↓'],
+];
+const PRIO_NAMES = { high: 'alta', medium: 'media', low: 'bassa' };
+export function prioName(value) {
+  const v = String(value ?? '').toLowerCase();
+  return PRIO_NAMES[v] ?? (PRIORITIES.some(([p]) => p === v) ? v : null);
+}
+// Per ordinare: alta 0, media 1, bassa 2, nessuna 3.
+export const prioRank = (p) => {
+  const i = PRIORITIES.findIndex(([name]) => name === p);
+  return i < 0 ? PRIORITIES.length : i;
+};
+export const prioArrow = (p) => PRIORITIES.find(([name]) => name === p)?.[2] ?? '';
+export const DECISION =/!(?:decisione|decision|dec)(?![\p{L}\p{N}_])/giu;
 export const WIKI = /(!?)\[\[([^\]\n|]+)(?:\|([^\]\n]*))?\]\]/g;
 export const ACTION = /^(\s*)[-*+]\s+\[( |x|X)\]\s*(.*)$/;
 export const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Avvertenza', CAUTION: 'Attenzione' };

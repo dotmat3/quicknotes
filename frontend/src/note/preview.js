@@ -5,7 +5,7 @@ import { Marked } from 'marked';
 import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { classHighlighter, highlightCode } from '@lezer/highlight';
-import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, TAG, WIKI, alertIcon, dueLabel } from './editor/rules.js';
+import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, PRIO, TAG, WIKI, alertIcon, dueLabel, prioArrow, prioName } from './editor/rules.js';
 import { imageUrl } from './images.js';
 import './preview.css';
 
@@ -87,6 +87,7 @@ function inlineParts(text, ctx) {
   add(TAG, 'tag');
   add(DUE, 'due');
   add(DONE, 'done');
+  add(PRIO, 'prio');
   add(DECISION, 'decision');
   if (!found.length) return null;
   found.sort((a, b) => a.from - b.from);
@@ -127,6 +128,9 @@ function inlineParts(text, ctx) {
     } else if (kind === 'due') {
       const { label, level } = dueLabel(m[1]);
       frag.append(el('span', `pv-due ${level}`, label));
+    } else if (kind === 'prio') {
+      const p = prioName(m[1]);
+      frag.append(el('span', `pv-prio ${p}`, `${prioArrow(p)} ${p}`));
     } else if (kind === 'decision') {
       frag.append(el('span', 'pv-decision', '!decisione'));
     }

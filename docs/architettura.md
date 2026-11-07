@@ -93,7 +93,9 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 | Id di una nota | Il nome del file senza estensione |
 | Nota del giorno | `AAAA/MM/AAAA-MM-GG-giornata.md`, senza rinominare nulla |
 | Meeting e note | `AAAA/MM/AAAA-MM-GG-HHMM-titolo.md` |
-| Sintassi | `@persona`, `#tag`, `- [ ]`, `due:` (anche `entro:` e `scadenza:`), `done:`, `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`, `![[….excalidraw]]` |
+| Rinomina | Cambia `title` (o il primo `# Titolo`, se il frontmatter non lo ha) e il nome del file, che conserva data e ora in testa. I `[[link]]` delle altre note che la citano, per id o per titolo, vengono riscritti; quelli nei blocchi di codice no. La nota del giorno non si rinomina |
+| Elimina | Il file va nel Cestino di Windows. Dove il Cestino non c'è (cartelle di rete) va in `.quicknotes/cestino/`. Le immagini restano. La nota di oggi non si elimina |
+| Sintassi | `@persona`, `#tag`, `- [ ]`, `due:` (anche `entro:` e `scadenza:`), `done:`, `prio:alta|media|bassa` (anche `priorità:`, `priority:` e `high`, `medium`, `low`), `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`, `![[….excalidraw]]` |
 | Audio | `AAAA/MM/audio/<id>-HHMMSS.wav` e righe `🎙️ [Registrazione HH:MM (durata)](file)` |
 | Trascrizioni | `### Trascrizione HH:MM`, con paragrafi `[mm:ss]`. `parser.recordings` e `parser.transcript_lines` le leggono per Calendario e Ctrl K; una registrazione cade nel giorno della nota che la contiene |
 | Immagini | `images/` accanto alla nota, con `![](images/…)`. Incollate o trascinate: `images/AAAA-MM-GG-HHMMSS.png`. La pagina le carica dal server locale, che serve solo immagini vere dentro la cartella delle note |
@@ -110,12 +112,12 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 | `parser` | Frontmatter, persone, etichette, azioni con madre e descrizione, decisioni, link, titoli, registrazioni e righe delle trascrizioni. Funzioni pure |
 | `edit` | Modifiche su una riga o su un corpo: `with_done`, `with_due`, `with_checked`, `with_person`, `with_tag`, `with_description`, `add_to_section`. Funzioni pure |
 | `index` | Schema SQLite, indicizzazione, interrogazioni (ricerca, azioni, decisioni, persone, etichette, collegamenti, grafo) |
-| `store` | Lettura e scrittura atomica dei file, allineamento dell'indice, operazioni sulle azioni, immagini |
+| `store` | Lettura e scrittura atomica dei file, allineamento dell'indice, operazioni sulle azioni, rinomina ed eliminazione, immagini |
 | `dates` | Titolo del giorno, etichette e colonne delle scadenze |
 | `views` | Dati pronti per le viste: `action_board`, `calendar_data`, `person_page`, `people_list`, `tag_page`, `full_graph`, `search_all` |
 | `commands` | I comandi della pagina |
 | `app` | Finestre, server locale, area di notifica, nota rapida, tasti globali, istanza singola, modifiche esterne |
-| `system` | Link e cartelle, avvio con Windows (`HKCU\…\Run`), percorsi di `python.exe` e `pythonw.exe` |
+| `system` | Link e cartelle, Cestino di Windows, avvio con Windows (`HKCU\…\Run`), percorsi di `python.exe` e `pythonw.exe` |
 | `mcp` | Server MCP su stdio |
 | `check` | `python -m quicknotes verifica` |
 | `config` | Lettura e scrittura della configurazione |

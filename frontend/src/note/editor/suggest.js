@@ -1,7 +1,7 @@
 // Suggerimenti mentre si scrive, come in VS Code: aiutano a scrivere la sintassi delle note e dicono
 // subito se il formato è giusto (una data valida, il nome di una lingua, una struttura completa).
 import { syntaxTree } from '@codemirror/language';
-import { dueLabel, isoToday } from './rules.js';
+import { PRIORITIES, dueLabel, isoToday } from './rules.js';
 
 const CODE = new Set(['InlineCode', 'CodeText', 'FencedCode', 'CodeBlock']);
 const DAYS = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -58,6 +58,19 @@ export function dates(ctx) {
   return { from, filter: false, options };
 }
 
+// prio:, priorità: e priority: propongono alta, media e bassa.
+const PRIO_OPTIONS = PRIORITIES.map(([name, label, arrow], i) => ({ label: name, displayLabel: `${arrow} ${label}`, detail: 'priorità dell’azione', type: 'keyword', boost: -i }));
+
+export function priority(ctx) {
+  // Un controllo veloce prima della regola completa: questa fonte gira a ogni tasto.
+  const before = ctx.state.sliceDoc(Math.max(0, ctx.pos - 20), ctx.pos);
+  if (!before.includes(':')) return null;
+  const m = ctx.matchBefore(/(?:prio|priorit[àa]|priority)\s*:\s*[a-zà]*/i);
+  if (!m || /[\p{L}\p{N}_]/u.test(ctx.state.sliceDoc(m.from - 1, m.from)) || inCode(ctx)) return null;
+  const typed = m.text.slice(m.text.indexOf(':') + 1).trimStart();
+  return { from: m.to - typed.length, options: PRIO_OPTIONS, validFor: /^[a-zà]*$/i };
+}
+
 // ! a inizio parola propone !decisione.
 export function decision(ctx) {
   const m = ctx.matchBefore(/(?:^|\s)!\p{L}*/u);
@@ -75,7 +88,7 @@ export function task(ctx) {
     from: m.from + m.text.indexOf('['),
     filter: false,
     options: [
-      { label: '[ ] ', displayLabel: 'Azione da fare', detail: '- [ ] testo @persona #etichetta due:…', type: 'keyword' },
+      { label: '[ ] ', displayLabel: 'Azione da fare', detail: '- [ ] testo @persona #etichetta due:… prio:alta', type: 'keyword' },
       { label: '[x] ', displayLabel: 'Azione fatta oggi', detail: `- [x] testo done:${isoToday()}`, type: 'keyword', apply: snippet(`[x] $0 done:${isoToday()}`) },
     ],
   };
@@ -110,7 +123,7 @@ export function table(ctx) {
 }
 
 const STRUCTURES = [
-  ['Azione', '- [ ] testo @persona #etichetta due:…', '- [ ] $0'],
+  ['Azione', '- [ ] testo @persona #etichetta due:… prio:alta', '- [ ] $0'],
   ['Sotto-attività', 'rientrata sotto un’azione · Tab', '    - [ ] $0'],
   ['Decisione', 'testo !decisione · Ctrl D', '$0 !decisione'],
   ['Titolo di sezione', '## Titolo', '## $0'],
@@ -136,4 +149,4 @@ export function structures(ctx) {
   };
 }
 
-export const SUGGESTIONS = [dates, decision, task, fence, table, structures];
+export const SUGGESTIONS = [dates, priority, decision, task, fence, table, structures];

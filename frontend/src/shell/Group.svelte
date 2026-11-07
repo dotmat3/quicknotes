@@ -3,6 +3,7 @@
   import { activate, applyLayout, canSide, closeGroup, closeTabs, layout, moveTab, reopen, saveLayout, splitTo, weights } from '../state/layout.svelte.js';
   import { pageIcon, pageKind, pageArg, pageTitle } from './nav.js';
   import { tagColor } from '../state/app.svelte.js';
+  import { askDelete, canDelete, canRename } from '../state/documents.svelte.js';
   import Icon from './Icon.svelte';
   import Page from './Page.svelte';
 
@@ -48,6 +49,8 @@
         },
       },
       { label: 'Riapri scheda chiusa', kbd: 'Ctrl Shift T', run: reopen, disabled: !layout.closed.length, sep: true },
+      ...(pageKind(id) === 'note' && canRename(pageArg(id)) ? [{ label: 'Rinomina la nota', kbd: 'F2', sep: true, run: () => { activate(g.id, id); app.rename = `${g.id}:${id}`; } }] : []),
+      ...(pageKind(id) === 'note' && canDelete(pageArg(id)) ? [{ label: 'Elimina la nota…', danger: true, sep: !canRename(pageArg(id)), run: () => askDelete(pageArg(id)) }] : []),
     ];
   }
 
@@ -123,7 +126,7 @@
             <div class="menu tab-menu" role="menu" aria-label="Azioni per {title}">
               {#each menuItems(id) as it (it.label)}
                 {#if it.sep}<div class="menu-sep" role="separator"></div>{/if}
-                <button class="menu-item" role="menuitem" disabled={it.disabled} onclick={() => { menu = null; it.run(); }}><span style="flex:1">{it.label}</span><kbd>{it.kbd ?? ''}</kbd></button>
+                <button class="menu-item" class:danger={it.danger} role="menuitem" disabled={it.disabled} onclick={() => { menu = null; it.run(); }}><span style="flex:1">{it.label}</span><kbd>{it.kbd ?? ''}</kbd></button>
               {/each}
             </div>
           {/if}

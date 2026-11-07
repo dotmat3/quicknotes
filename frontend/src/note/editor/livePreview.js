@@ -3,7 +3,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { imageUrl, notePathFacet } from '../images.js';
-import { ALERT_LABELS, DECISION, DONE, DUE, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, dueLabel, isoToday, withChecked } from './rules.js';
+import { ALERT_LABELS, DECISION, DONE, DUE, FOOTNOTE, MENTION, PRIO, TAG, WIKI, alertIcon, dueLabel, isoToday, prioArrow, prioName, withChecked } from './rules.js';
 
 const SKIP_NODES = new Set(['InlineCode', 'URL', 'CodeText', 'FencedCode', 'CodeBlock', 'Autolink']);
 const ALERT = /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i;
@@ -323,6 +323,14 @@ function build(view, focused, tagColor) {
           const { label, level } = dueLabel(m[1]);
           replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-due ${done ? 'done' : level}`, label) }));
         }
+      }
+      for (const m of text.matchAll(PRIO)) {
+        if (skip(m.index)) continue;
+        const a = line.from + m.index;
+        const b = a + m[0].length;
+        const p = prioName(m[1]);
+        if (lineActive) decos.push(mark(`cm-prio-raw ${p}`).range(a, b));
+        else replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-prio ${done ? 'done' : p}`, `${prioArrow(p)} ${p}`) }));
       }
       for (const m of text.matchAll(DONE)) {
         if (skip(m.index)) continue;

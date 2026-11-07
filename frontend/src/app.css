@@ -51,6 +51,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: ro
 .menu-item:hover { background: var(--border2); }
 .menu-item:disabled { color: var(--faint); cursor: default; background: transparent; }
 .menu-item kbd { color: var(--subtle); }
+.menu-item.danger { color: var(--late); }
 .menu-sep { height: 1px; margin: 5px 4px; background: var(--border3); }
 .backdrop { position: fixed; inset: 0; z-index: 30; padding: 0; border: 0; background: transparent; cursor: default; }
 

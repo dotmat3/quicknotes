@@ -1,7 +1,7 @@
 """Formato delle note e convenzioni di scrittura rapida.
 
 Una nota è un file Markdown con frontmatter YAML facoltativo. Nel testo: `@persona`, `#etichetta`,
-`- [ ] azione`, `due:AAAA-MM-GG`, `done:AAAA-MM-GG`, `!decisione`, `[[id|Titolo]]`, `![[schizzo.excalidraw]]`.
+`- [ ] azione`, `due:AAAA-MM-GG`, `done:AAAA-MM-GG`, `prio:alta|media|bassa`, `!decisione`, `[[id|Titolo]]`, `![[schizzo.excalidraw]]`.
 
 `@` e `#` si riconoscono con scanner scritti a mano: le regole guardano il carattere precedente.
 Le posizioni restituite sono indici di carattere nella riga.
@@ -17,6 +17,10 @@ import yaml
 
 DUE_RE = re.compile(r"\b(?:due|entro|scadenza)\s*:\s*(\d{4}-\d{2}-\d{2})", re.I)
 DONE_RE = re.compile(r"\bdone\s*:\s*(\d{4}-\d{2}-\d{2})", re.I)
+# `prio:alta`, anche `priorità:` e `priority:`; i valori inglesi valgono come quelli italiani.
+PRIO_RE = re.compile(r"\b(?:prio|priorit[àa]|priority)\s*:\s*(alta|media|bassa|high|medium|low)\b", re.I)
+PRIORITIES = ("alta", "media", "bassa")
+_PRIO_NAMES = {"high": "alta", "medium": "media", "low": "bassa"}
 DECISION_RE = re.compile(r"!(?:decisione|decision|dec)\b", re.I)
 MD_LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
 BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
@@ -221,6 +225,7 @@ class Action:
     tags: list[str] = field(default_factory=list)
     due: str | None = None
     done_on: str | None = None
+    priority: str | None = None  # alta, media, bassa
     parent_line: int | None = None  # riga dell'azione madre; None per quelle di primo livello
     description: str = ""
 
@@ -321,12 +326,13 @@ def extract(body: str) -> Extracted:
                 parent = result.actions[top[0]].line_no if top is not None and width > top[1] else None
                 due = DUE_RE.search(text)
                 done_on = DONE_RE.search(text)
+                prio = PRIO_RE.search(text)
                 result.actions.append(Action(
                     line_no=line_no, text=text, done=m.group(2).lower() == "x",
                     owner=line_people[0] if line_people else None,
                     people=_dedupe(line_people), tags=_dedupe(line_tags),
                     due=due.group(1) if due else None, done_on=done_on.group(1) if done_on else None,
-                    parent_line=parent,
+                    parent_line=parent, priority=priority_name(prio.group(1)) if prio else None,
                 ))
                 i = len(result.actions) - 1
                 if parent is None:
@@ -368,8 +374,15 @@ def first_h1(body: str) -> str | None:
 
 
 def action_display_text(text: str) -> str:
-    """Il testo di un'azione senza `due:` e `done:`, mostrati a parte nell'interfaccia."""
-    return " ".join(DONE_RE.sub("", DUE_RE.sub("", text)).split())
+    """Il testo di un'azione senza `due:`, `done:` e `prio:`, mostrati a parte nell'interfaccia."""
+    return " ".join(PRIO_RE.sub("", DONE_RE.sub("", DUE_RE.sub("", text))).split())
+
+
+def priority_name(value: str | None) -> str | None:
+    """`alta`, `media` o `bassa`, qualunque sia la forma scritta; None se non è una priorità."""
+    v = (value or "").strip().lower()
+    v = _PRIO_NAMES.get(v, v)
+    return v if v in PRIORITIES else None
 
 
 # ------------------------------------------------------------------ registrazioni e trascrizioni
