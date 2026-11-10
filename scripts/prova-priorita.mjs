@@ -23,19 +23,23 @@ export default async function (page, { notes }) {
   await page.waitForSelector('.cm-content');
   const daily = join(notes, files(notes).find((f) => f.endsWith('-giornata.md')));
   const dailyText = () => readFileSync(daily, 'utf8');
+  // La nota Da smistare nasce con la prima azione aggiunta senza progetto.
+  const inboxText = () => { try { return readFileSync(join(notes, 'da-smistare.md'), 'utf8'); } catch { return ''; } };
 
   await page.getByRole('button', { name: 'Azioni', exact: false }).first().click();
+  await page.getByRole('radio', { name: 'Scadenza' }).click();
   const late = page.getByRole('region', { name: 'In ritardo' });
   await late.locator('.act').first().waitFor();
   const lateTexts = () => late.locator('.act .text').allInnerTexts();
   assert((await lateTexts())[0].startsWith('Aggiornare con'), 'senza priorità vale la scadenza: prima la più vecchia');
 
-  // + priorità → Alta: la riga nel file cambia e la scheda sale in cima alla colonna.
+  // Dettagli (il + della scheda) → Alta: un clic, la riga nel file cambia e la scheda sale in cima alla colonna.
   const marco = late.locator('.act', { hasText: 'Richiamare @Marco' });
   await marco.hover();
-  await marco.getByRole('button', { name: /Aggiungi una priorità/ }).click();
-  const pop = page.getByRole('dialog', { name: 'Priorità' });
-  assert((await pop.locator('.opt').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim()).join(' | ') === '↑ Alta | → Media | ↓ Bassa | Nessuna', 'il popover propone alta, media, bassa e nessuna');
+  await marco.getByRole('button', { name: /^Dettagli/ }).click();
+  const pop = page.getByRole('dialog', { name: 'Dettagli' });
+  assert((await pop.locator('.achip').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim()).join(' | ') === '↑ Alta | → Media | ↓ Bassa', 'il pannello Dettagli propone alta, media e bassa');
+  assert((await pop.locator('.abox').count()) === 5, 'e gli stati con un clic');
   await pop.getByRole('button', { name: /Alta/ }).click();
   assert(await until(() => dailyText().includes('- [ ] Richiamare @Marco per il preventivo della cucina #casa prio:alta due:')), 'nel file la priorità va prima della scadenza');
   await page.waitForFunction(() => document.querySelector('[aria-label="In ritardo"] .act .text')?.innerText.startsWith('Richiamare'));
@@ -47,18 +51,18 @@ export default async function (page, { notes }) {
   await page.getByRole('radio', { name: 'Priorità' }).click();
   assert((await page.getByRole('region', { name: '↑ Alta' }).locator('.act .text').allInnerTexts()).some((t) => t.startsWith('Richiamare')), 'raggruppando per priorità la scheda sta nella colonna Alta');
   await page.getByRole('button', { name: 'Aggiungi a → Media' }).click();
-  await page.getByRole('textbox', { name: 'Nuova azione in → Media' }).fill('Ordinare i toner');
+  await page.keyboard.type('Ordinare i toner');
   await page.keyboard.press('Enter');
-  assert(await until(() => dailyText().includes('- [ ] Ordinare i toner prio:media')), 'il + della colonna Media scrive prio:media');
+  assert(await until(() => inboxText().includes('- [ ] Ordinare i toner prio:media')), 'il + della colonna Media scrive prio:media');
+  await page.keyboard.press('Escape');
   await page.getByRole('region', { name: '→ Media' }).locator('.act', { hasText: 'Ordinare i toner' }).waitFor();
   assert(true, 'la nuova azione compare nella colonna Media');
-  await page.keyboard.press('Escape');
 
   // Nessuna: la priorità sparisce dal file.
   const toner = page.getByRole('region', { name: '→ Media' }).locator('.act', { hasText: 'Ordinare i toner' });
   await toner.getByRole('button', { name: /Priorità media/ }).click();
   await page.getByRole('dialog', { name: 'Priorità' }).getByRole('button', { name: 'Nessuna' }).click();
-  assert(await until(() => dailyText().includes('- [ ] Ordinare i toner\n')), 'Nessuna toglie prio: dal file');
+  assert(await until(() => inboxText().includes('- [ ] Ordinare i toner\n')), 'Nessuna toglie prio: dal file');
   await page.getByRole('radio', { name: 'Scadenza' }).click();
 
   // Nell'editor: prio:alta diventa un'etichetta colorata e prio: propone i valori.

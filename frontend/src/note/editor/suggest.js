@@ -28,9 +28,9 @@ function dateOption(d, name, boost = 0) {
   return { label: iso, displayLabel: name, detail: `${iso} · ${dueLabel(iso).label}`, type: 'date', boost };
 }
 
-// due:, entro:, scadenza: e done: propongono date; una data scritta a mano viene controllata.
+// due:, entro:, scadenza:, scheduled: e done: propongono date; una data scritta a mano viene controllata.
 export function dates(ctx) {
-  const m = ctx.matchBefore(/\b(?:due|entro|scadenza|done)\s*:\s*[\d-]*/i);
+  const m = ctx.matchBefore(/\b(?:due|entro|scadenza|scheduled|done)\s*:\s*[\d-]*/i);
   if (!m || inCode(ctx)) return null;
   const typed = m.text.slice(m.text.indexOf(':') + 1).trimStart();
   const from = m.to - typed.length;
@@ -80,16 +80,20 @@ export function decision(ctx) {
   return { from: m.to - word.length, options: [{ label: '!decisione', detail: 'segna la riga come decisione · Ctrl D', type: 'keyword' }] };
 }
 
-// - [ a inizio riga: azione da fare o fatta.
+// - [ a inizio riga: i sei stati dell'azione.
 export function task(ctx) {
-  const m = ctx.matchBefore(/^\s*[-*+] \[[ xX]?/);
+  const m = ctx.matchBefore(/^\s*[-*+] \[[ xX/wW?-]?/);
   if (!m || inCode(ctx)) return null;
   return {
     from: m.from + m.text.indexOf('['),
     filter: false,
     options: [
-      { label: '[ ] ', displayLabel: 'Azione da fare', detail: '- [ ] testo @persona #etichetta due:… prio:alta', type: 'keyword' },
-      { label: '[x] ', displayLabel: 'Azione fatta oggi', detail: `- [x] testo done:${isoToday()}`, type: 'keyword', apply: snippet(`[x] $0 done:${isoToday()}`) },
+      { label: '[ ] ', displayLabel: 'Azione da fare', detail: '- [ ] testo @persona #progetto/area scheduled:… due:…', type: 'keyword', boost: 6 },
+      { label: '[/] ', displayLabel: 'In corso', detail: '- [/] testo', type: 'keyword', boost: 5 },
+      { label: '[w] ', displayLabel: 'In attesa di qualcuno', detail: '- [w] testo @persona: la prima @ è chi si aspetta', type: 'keyword', boost: 4, apply: snippet('[w] $0 @') },
+      { label: '[?] ', displayLabel: 'Domanda o decisione da prendere', detail: '- [?] testo', type: 'keyword', boost: 3 },
+      { label: '[-] ', displayLabel: 'Annullata', detail: `- [-] testo done:${isoToday()} · il motivo nella descrizione`, type: 'keyword', boost: 2, apply: snippet(`[-] $0 done:${isoToday()}`) },
+      { label: '[x] ', displayLabel: 'Fatta oggi', detail: `- [x] testo done:${isoToday()}`, type: 'keyword', boost: 1, apply: snippet(`[x] $0 done:${isoToday()}`) },
     ],
   };
 }
@@ -125,6 +129,8 @@ export function table(ctx) {
 const STRUCTURES = [
   ['Azione', '- [ ] testo @persona #etichetta due:… prio:alta', '- [ ] $0'],
   ['Sotto-attività', 'rientrata sotto un’azione · Tab', '    - [ ] $0'],
+  ['In attesa', '- [w] testo @persona', '- [w] $0 @'],
+  ['Domanda', '- [?] domanda aperta o decisione da prendere', '- [?] $0'],
   ['Decisione', 'testo !decisione · Ctrl D', '$0 !decisione'],
   ['Titolo di sezione', '## Titolo', '## $0'],
   ['Avviso', '> [!NOTE] e gli altri tipi di GitHub', '> [!NOTE]\n> $0'],

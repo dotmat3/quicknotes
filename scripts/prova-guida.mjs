@@ -100,9 +100,9 @@ export default async function (page, { notes }) {
   await page.keyboard.press('Escape');
 
   // Indietro e Avanti.
-  await page.keyboard.press('Control+2');
-  await page.waitForSelector('.grid');
   await page.keyboard.press('Control+3');
+  await page.waitForSelector('.grid');
+  await page.keyboard.press('Control+4');
   await page.waitForSelector('.column');
   assert((await activeTab()) === 'Azioni', 'aperte Calendario e poi Azioni');
   await page.keyboard.press('Alt+ArrowLeft');

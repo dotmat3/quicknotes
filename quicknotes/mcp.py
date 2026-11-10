@@ -10,7 +10,7 @@ import json
 import sys
 from datetime import date, datetime, timedelta
 
-from . import __version__
+from . import __version__, parser, views
 from .config import Config
 from .index import Filter
 from .store import NoteStore, QuickNotesError
@@ -21,13 +21,18 @@ SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 def instructions() -> str:
     return (
         "Archivio personale di note di lavoro dell'utente (meeting, diario giornaliero, appunti).\n"
-        "Le note sono Markdown con convenzioni: @persona, #progetto/tag, \"- [ ]\" azione aperta,\n"
-        "\"- [x]\" azione fatta, \"due:AAAA-MM-GG\" scadenza, \"done:AAAA-MM-GG\" completamento,\n"
-        "\"prio:alta\" (o media, bassa) priorità di un'azione,\n"
-        "\"!decisione\" decisione presa, \"[[id|Titolo]]\" collegamento a un'altra nota.\n"
+        "Le note sono Markdown con convenzioni: @persona, #etichetta o #progetto/area, \"[[id|Titolo]]\" link.\n"
+        "Azioni: \"- [ ]\" da fare, \"- [/]\" in corso, \"- [w] … @persona\" in attesa di qualcuno,\n"
+        "\"- [?]\" domanda aperta, \"- [-]\" annullata (il motivo nella descrizione), \"- [x]\" fatta;\n"
+        "\"scheduled:AAAA-MM-GG\" giorno in cui farla, \"due:AAAA-MM-GG\" scadenza, \"done:AAAA-MM-GG\" chiusura,\n"
+        "\"prio:alta\" (o media, bassa) priorità, \"!decisione\" decisione presa.\n"
+        "Progetti: note con type: project in progetti/ (status attivo, pausa o chiuso; aliases; areas). Un'azione\n"
+        "appartiene al progetto del tag gerarchico, del tag che è un progetto, dell'intestazione sopra la riga,\n"
+        "dell'azione madre o del frontmatter della nota. Il daily cattura; le azioni vivono nella nota di progetto.\n"
         "Strategia consigliata: usa search_notes o list_notes per trovare le note pertinenti,\n"
         "poi read_note per leggerle per intero prima di rispondere, citando titolo e data.\n"
-        "Per azioni e decisioni usa list_action_items e list_decisions. Le date sono ISO.\n"
+        "Per azioni e decisioni usa list_action_items e list_decisions; per cosa fare oggi agenda; per la\n"
+        "pulizia del venerdì weekly_review; per i progetti list_projects. Le date sono ISO.\n"
         f"Oggi: {date.today().isoformat()}. Scrivi nelle note solo se l'utente lo chiede."
     )
 
@@ -70,12 +75,16 @@ TOOLS = [
      "description": "Note che citano questa nota con un [[link]], con la riga in cui lo fanno.",
      "inputSchema": _schema({"note_id": _text("Id della nota")}, ["note_id"])},
     {"name": "list_action_items",
-     "description": "Elenca le azioni (righe \"- [ ]\") di tutte le note: prima quelle con scadenza più vicina. parent_line indica l'azione madre di una sotto-attività.",
+     "description": "Elenca le azioni di tutte le note: prima quelle con scadenza più vicina. Ognuna ha status, project e area risolti, scheduled (scheduled:). parent_line indica l'azione madre di una sotto-attività. Le azioni dei progetti in pausa o chiusi restano fuori, a meno di include_paused.",
      "inputSchema": _schema({
-         "status": {"type": "string", "enum": ["open", "done", "all"], "default": "open"},
+         "status": {"type": "string", "enum": ["open", "closed", "done", "all", *parser.STATUSES], "default": "open",
+                    "description": "open = non chiuse; closed = fatte o annullate; oppure uno stato preciso"},
          "owner": _text("Persona assegnata: prima @menzione della riga"),
-         "project": _text("Progetto o etichetta, senza #"),
+         "project": _text("Progetto (comprese le sue aree) o etichetta, senza #"),
+         "topic": _text("Area o etichetta in tutti i progetti, senza #"),
          "due_before": _text("Scadenza entro questa data, AAAA-MM-GG"),
+         "scheduled_before": _text("Pianificata (scheduled:) entro questa data, AAAA-MM-GG"),
+         "include_paused": {"type": "boolean", "default": False},
          "date_from": _text("Data iniziale della nota, AAAA-MM-GG"),
          "date_to": _text("Data finale della nota, AAAA-MM-GG"),
      })},
@@ -102,9 +111,23 @@ TOOLS = [
      "description": "Aggiunge una voce con orario alla nota del giorno, creandola se manca.",
      "inputSchema": _schema({"text": _text("Testo")}, ["text"])},
     {"name": "set_action_status",
-     "description": "Segna come fatta o riapre un'azione. action_text è il testo o una sua parte. Scrive o toglie anche la data done:.",
+     "description": "Cambia lo stato di un'azione, oppure la segna come fatta o la riapre con done. action_text è il testo o una sua parte. Scrive o toglie anche la data done: (fatta e annullata la scrivono). scheduled imposta scheduled: (stringa vuota per toglierlo).",
      "inputSchema": _schema({"note_id": _text("Id della nota"), "action_text": _text("Testo dell'azione"),
-                             "done": {"type": "boolean", "default": True}}, ["note_id", "action_text"])},
+                             "done": {"type": "boolean", "default": True},
+                             "status": {"type": "string", "enum": list(parser.STATUSES)},
+                             "scheduled": _text("Giorno in cui farla, AAAA-MM-GG; vuoto per toglierlo")},
+                            ["note_id", "action_text"])},
+    {"name": "list_projects",
+     "description": "I progetti (note con type: project): chiave, titolo, stato, alias, aree, id della nota e azioni aperte per area.",
+     "inputSchema": _schema({})},
+    {"name": "agenda",
+     "description": "Cosa fare adesso: azioni in ritardo, di oggi (scadenza o scheduled:), in corso, in attesa per persona, domande, prossimi 7 giorni, da smistare. Senza i progetti in pausa, a meno di include_paused o di un progetto scelto.",
+     "inputSchema": _schema({"date": _text("Giorno, AAAA-MM-GG; di default oggi"),
+                             "project": _text("Solo questo progetto"),
+                             "include_paused": {"type": "boolean", "default": False}})},
+    {"name": "weekly_review",
+     "description": "I passi della Revisione settimanale: da smistare, madri con le figlie chiuse, ferme senza data, attese lunghe, possibili duplicati, progetti senza prossima azione, progetti in pausa con task aperti, riepilogo della settimana.",
+     "inputSchema": _schema({"date": _text("Giorno, AAAA-MM-GG; di default oggi")})},
 ]
 
 PROMPTS = [
@@ -170,9 +193,10 @@ def get_prompt(name: str, args: dict) -> str:
         start = start or today - timedelta(days=today.weekday())
         end = start + timedelta(days=6)
         return (f"Prepara un riepilogo della mia settimana dal {start} al {end} usando le mie note. "
-                "Leggi tutte le note del periodo, poi elenca: meeting principali con l'esito, "
-                "decisioni prese, azioni aperte (con responsabile e scadenza) e punti che "
-                "sembrano rimasti in sospeso. Cita titolo e data di ogni nota usata.")
+                "Leggi tutte le note del periodo e chiama weekly_review, poi elenca per progetto: meeting "
+                "principali con l'esito, decisioni prese, azioni fatte e annullate, azioni aperte (con "
+                "responsabile, scadenza e scheduled:), attese da sollecitare e punti rimasti in sospeso, comprese "
+                "le azioni da smistare e i progetti senza prossima azione. Cita titolo e data di ogni nota usata.")
     if name == "briefing_meeting":
         topic = _opt(args, "persona_o_progetto")
         if topic is None:
@@ -210,11 +234,13 @@ def call_tool(store: NoteStore, name: str, args: dict):
         return store.backlinks(_req(args, "note_id"))
     if name == "list_action_items":
         status = _opt(args, "status") or "open"
-        if status not in ("open", "done", "all"):
+        if status not in ("open", "closed", "done", "all", *parser.STATUSES):
             raise ToolError(f"Stato non valido: {status}")
         return store.actions(status=status, owner=_opt(args, "owner"), project=_opt(args, "project"),
-                             due_before=_opt(args, "due_before"), date_from=_opt(args, "date_from"),
-                             date_to=_opt(args, "date_to"), limit=200)
+                             topic=_opt(args, "topic"), due_before=_opt(args, "due_before"),
+                             scheduled_before=_opt(args, "scheduled_before"),
+                             include_paused=args.get("include_paused") is True or bool(_opt(args, "project")),
+                             date_from=_opt(args, "date_from"), date_to=_opt(args, "date_to"), limit=200)
     if name == "list_decisions":
         return store.decisions(_filter(args), _opt(args, "query") or "", 100)
     if name == "list_people_and_projects":
@@ -235,8 +261,27 @@ def call_tool(store: NoteStore, name: str, args: dict):
     if name == "set_action_status":
         done = args.get("done")
         done = done if isinstance(done, bool) else True
+        status = _opt(args, "status")
+        if status is not None and status not in parser.STATUSES:
+            raise ToolError(f"Stato non valido: {status}")
+        extra = {}
+        if isinstance(args.get("scheduled"), str):
+            sched = args["scheduled"].strip()
+            if sched:
+                _parse_day(sched)
+            extra["scheduled"] = sched or None
         return store.set_action_status(_req(args, "note_id"), _req(args, "action_text"),
-                                       date.today() if done else None)
+                                       date.today() if done or status else None, status=status, **extra)
+    if name == "list_projects":
+        return store.project_rows()
+    if name == "agenda":
+        given = _opt(args, "date")
+        return views.agenda(store, _parse_day(given) if given else date.today(), _opt(args, "project"),
+                            args.get("include_paused") is True)
+    if name == "weekly_review":
+        given = _opt(args, "date")
+        return views.weekly_review(store, _parse_day(given) if given else date.today(),
+                                   Config.load().ui().get("lastReview"))
     raise ToolError(f"Strumento sconosciuto: {name}")
 
 

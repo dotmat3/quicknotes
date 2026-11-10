@@ -31,8 +31,11 @@
   const active = () => focused();
   const activeNote = () => (active().active?.startsWith('note:') ? pageArg(active().active) : null);
   const VIEWS = [
+    ['Agenda', 'view:agenda'],
     ['Calendario', 'view:calendar'],
     ['Azioni', 'view:actions'],
+    ['Revisione settimanale', 'view:review'],
+    ['Migra le note (progetti e stati)', 'view:migration'],
     ['Persone', 'view:people'],
     ['Grafo', 'view:graph'],
     ['Impostazioni', 'settings'],
@@ -41,6 +44,7 @@
   const COMMANDS = [
     ['Nuova nota', 'Ctrl Shift N', () => createNote('', 'note')],
     ['Nuovo meeting', 'Ctrl N', () => createNote('', 'meeting')],
+    ['Nuovo progetto', '', () => Object.assign(app, { side: 'open', newProject: true })],
     ['Dividi a destra', 'Ctrl Alt \\', () => active().active && splitTo(active().id, active().active, active().id, canSide('right') ? 'right' : 'bottom', true)],
     ['Dividi in basso', '', () => active().active && splitTo(active().id, active().active, active().id, canSide('bottom') ? 'bottom' : 'right', true)],
     ['Unisci tutti i gruppi', '', () => applyLayout(1, layout.dir)],

@@ -26,15 +26,15 @@ export default async function (page, { notes }) {
   assert(text.includes('- [ ] Chiamare @Marco per la cucina #casa due:2030-01-02'), 'il testo scritto arriva nel file');
   assert(text.startsWith('---\n'), 'il frontmatter resta');
 
-  await page.locator('.cm-task-box').first().click();
+  await page.locator('.cm-line', { hasText: 'Chiamare @Marco per la cucina' }).locator('.cm-task-box').click();
   await page.waitForTimeout(800);
   text = readFileSync(file, 'utf8');
   assert(text.includes(`- [x] Chiamare @Marco per la cucina #casa due:2030-01-02 done:${iso}`), 'la spunta scrive [x] e done:');
-  assert((await page.locator('.pill', { hasText: 'di 1 azioni' }).count()) === 1, 'l\'intestazione conta le azioni');
+  assert((await page.locator('.pill', { hasText: /\d+ di \d+ azioni/ }).count()) === 1, 'l\'intestazione conta le azioni');
 
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(800);
-  assert(!readFileSync(file, 'utf8').includes('done:'), 'annulla toglie anche done:');
+  assert(readFileSync(file, 'utf8').includes('- [ ] Chiamare @Marco per la cucina #casa due:2030-01-02\n'), 'annulla toglie anche done:');
 
   appendFileSync(file, 'Riga scritta fuori dall\'app\n');
   await page.waitForTimeout(1200);

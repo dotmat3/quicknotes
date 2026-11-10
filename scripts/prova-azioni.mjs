@@ -18,6 +18,8 @@ export default async function (page, { notes }) {
   await page.waitForSelector('.cm-content');
   await page.getByRole('button', { name: 'Azioni', exact: false }).first().click();
   await page.waitForSelector('.column');
+  // Azioni parte raggruppata per progetto; qui servono le colonne per scadenza.
+  await page.locator('button[role=radio]', { hasText: 'Scadenza' }).click();
   await page.waitForTimeout(300);
   const titles = await page.locator('.col-title').allInnerTexts();
   assert(titles.includes('In ritardo') && titles.includes('Oggi e domani') && titles.includes('Senza scadenza'), `colonne presenti: ${titles.join(', ')}`);
@@ -31,7 +33,9 @@ export default async function (page, { notes }) {
 
   const moved = page.locator('.act', { hasText: 'Provare il modello' }).first();
   await moved.hover();
-  await moved.getByRole('button', { name: /^Aggiungi una scadenza/ }).click();
+  assert((await moved.locator('.pills button', { hasText: /^\+/ }).count()) === 0, 'sulla scheda non ci sono più i + per ogni campo');
+  await moved.getByRole('button', { name: /^Dettagli/ }).click();
+  await page.locator('.pop .opt', { hasText: 'Scadenza' }).click();
   await page.locator('.pop .opt', { hasText: 'Domani' }).click();
   await page.waitForTimeout(500);
   assert(/Whisper sulle registrazioni lunghe #quicknotes due:\d{4}-\d{2}-\d{2}/.test(read()), 'la scadenza va nel file, dopo l\'etichetta');
@@ -40,7 +44,8 @@ export default async function (page, { notes }) {
 
   const withDesc = page.locator('.act', { hasText: 'Provare il modello' }).first();
   await withDesc.hover();
-  await withDesc.getByRole('button', { name: /^Aggiungi una descrizione/ }).click();
+  await withDesc.getByRole('button', { name: /^Dettagli/ }).click();
+  await page.locator('.pop .opt', { hasText: 'Descrizione' }).click();
   await page.locator('.pop textarea').fill('Usare la riunione del budget');
   await page.keyboard.press('Control+Enter');
   await page.waitForTimeout(500);
@@ -56,10 +61,54 @@ export default async function (page, { notes }) {
   const text = read();
   assert(text.includes(`- [x] Mandare a @Giulia la bozza del budget Q4 #lavoro-q4`) && text.includes(`- [x] Confrontare con @Elena le voci del terzo trimestre done:${iso}`), 'Completa tutte chiude madre e figlie con una data');
 
-  await page.locator('.new input').fill('Nuova azione di prova @Marco');
+  // Aggiunta rapida: mai nella nota di oggi. Senza progetto va in "Da smistare"; Invio lascia aperto per la successiva.
+  const inbox = join(notes, 'da-smistare.md');
+  const readInbox = () => readFileSync(inbox, 'utf8');
+  assert((await page.locator('.new input').count()) === 0, 'non c\'è più la barra che scrive nella nota di oggi');
+  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.getByRole('button', { name: /^Nuova azione/ }).click();
+  const qa = page.getByRole('dialog', { name: 'Nuova azione' });
+  await qa.getByRole('combobox', { name: 'Testo della nuova azione' }).fill('Nuova azione di prova @Marco !alta entro:domani');
+  assert((await qa.locator('.foot').innerText()).includes('Da smistare'), 'il piede dice dove finisce');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(500);
-  assert(read().includes('## Priorità\n- [ ] Nuova azione di prova @Marco'), 'la nuova azione finisce nella nota di oggi, sezione Priorità');
+  await page.waitForTimeout(600);
+  const tmr = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const isoTmr = `${tmr.getFullYear()}-${p(tmr.getMonth() + 1)}-${p(tmr.getDate())}`;
+  assert(readInbox().includes(`## Azioni\n- [ ] Nuova azione di prova @Marco prio:alta due:${isoTmr}\n`), 'la nuova azione va in Da smistare con priorità e scadenza');
+  assert(!read().includes('Nuova azione di prova'), 'e non nella nota di oggi');
+  assert((await qa.getByRole('combobox', { name: 'Testo della nuova azione' }).inputValue()) === '' && (await qa.locator('.added li').count()) === 1, 'il campo si svuota e resta aperto');
+  await page.keyboard.press('Escape');
+  assert((await qa.count()) === 0, 'Esc chiude l\'aggiunta rapida');
+  await page.keyboard.press('n');
+  assert((await qa.count()) === 1, 'il tasto N la riapre');
+  await page.keyboard.press('Escape');
+
+  // Filtri: il testo di Filtra con #, @, ! e i filtri a scelta multipla del pannello.
+  await page.locator('.filterbar input').fill('@Elena');
+  await page.waitForTimeout(150);
+  const shown = await page.locator('.columns .act').allInnerTexts();
+  assert(shown.length > 0 && shown.every((t) => t.includes('Elena')), `@Elena lascia solo le azioni di Elena (${shown.length})`);
+  await page.locator('.filterbar input').fill('-@Elena richiamare');
+  await page.waitForTimeout(150);
+  assert((await page.locator('.columns .act', { hasText: 'Richiamare' }).count()) === 0, 'il - esclude');
+  await page.locator('.filterbar input').fill('');
+  await page.getByRole('button', { name: /^Filtri/ }).click();
+  await page.locator('.fpanel .fchip', { hasText: 'Senza scadenza' }).click();
+  await page.waitForTimeout(150);
+  const cols = await page.locator('.column').evaluateAll((els) => els.map((c) => [c.getAttribute('aria-label'), c.querySelectorAll('.act').length]));
+  assert(cols.every(([name, n]) => name === 'Senza scadenza' || name === 'Fatte' || n === 0), `Scadenza: Senza scadenza svuota le altre colonne (${JSON.stringify(cols)})`);
+  assert((await page.locator('.fbtn .badge').innerText()) === '1', 'il pulsante Filtri conta i filtri attivi');
+  await page.getByRole('button', { name: 'Salva vista' }).click();
+  await page.keyboard.type('Senza data');
+  await page.keyboard.press('Enter');
+  assert((await page.locator('.view.on', { hasText: 'Senza data' }).count()) === 1, 'la vista salvata compare ed è attiva');
+  await page.getByRole('button', { name: 'Togli i filtri' }).click();
+  assert((await page.locator('.fbtn .badge').count()) === 0 && (await page.locator('.view.on').count()) === 0, 'Togli i filtri li azzera');
+  await page.locator('.view-go', { hasText: 'Senza data' }).click();
+  assert((await page.locator('.fbtn .badge').innerText()) === '1', 'la vista salvata rimette i suoi filtri');
+  await page.locator('.view-go', { hasText: 'Senza data' }).click();
+  await page.getByRole('button', { name: 'Elimina la vista Senza data' }).click();
+  await page.getByRole('button', { name: /^Filtri/ }).click();
 
   // L'editor della nota aperta riceve le modifiche fatte dalla bacheca.
   await page.getByRole('tab', { name: /Oggi/ }).click();
@@ -82,21 +131,21 @@ export default async function (page, { notes }) {
   await page.locator('button[role=radio]', { hasText: 'Bacheca' }).click();
   await page.waitForSelector('.columns');
 
-  // Il "+" di una colonna dà la sua scadenza; raggruppando per progetto, la sua etichetta.
+  // Il "+" di una colonna apre l'aggiunta rapida con la sua scadenza; raggruppando per progetto, la sua etichetta.
   await page.getByRole('button', { name: 'Aggiungi a Oggi e domani' }).click();
-  await page.locator('.col-new').fill('Dalla colonna @Marco');
+  await page.keyboard.type('Dalla colonna @Marco');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(600);
-  assert(read().includes(`- [ ] Dalla colonna @Marco due:${iso}\n`), 'il + di Oggi e domani scrive la scadenza di oggi');
-  assert((await page.locator('.column[aria-label="Oggi e domani"] .act', { hasText: 'Dalla colonna' }).count()) === 1, 'la nuova azione compare nella sua colonna');
+  assert(readInbox().includes(`- [ ] Dalla colonna @Marco due:${iso}\n`), 'il + di Oggi e domani scrive la scadenza di oggi');
   await page.keyboard.press('Escape');
+  assert((await page.locator('.column[aria-label="Oggi e domani"] .act', { hasText: 'Dalla colonna' }).count()) === 1, 'la nuova azione compare nella sua colonna');
   assert((await page.getByRole('button', { name: 'Aggiungi a In ritardo' }).count()) === 0, 'In ritardo non ha il +');
   await page.locator('button[role=radio]', { hasText: 'Progetto' }).click();
   await page.getByRole('button', { name: 'Aggiungi a #casa' }).click();
-  await page.locator('.col-new').fill('Dal progetto');
+  await page.keyboard.type('Dal progetto');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(600);
-  assert(read().includes('- [ ] Dal progetto #casa\n'), 'il + di un progetto scrive la sua etichetta');
+  assert(readInbox().includes('- [ ] Dal progetto #casa\n'), 'il + di un\'etichetta la scrive nel testo');
   await page.keyboard.press('Escape');
   await page.locator('button[role=radio]', { hasText: 'Scadenza' }).click();
 
@@ -122,13 +171,14 @@ export default async function (page, { notes }) {
   const tagAct = page.locator('.act', { hasText: 'Dal progetto' });
   assert((await tagAct.count()) === 1, 'la pagina etichetta mostra le azioni come schede');
   await tagAct.hover();
-  await tagAct.getByRole('button', { name: /^Aggiungi una scadenza/ }).click();
+  await tagAct.getByRole('button', { name: /^Dettagli/ }).click();
+  await page.locator('.pop .opt', { hasText: 'Scadenza' }).click();
   await page.locator('.pop .opt', { hasText: 'Domani' }).click();
   await page.waitForTimeout(600);
-  assert(read().includes(`- [ ] Dal progetto #casa due:${isoTomorrow}`), 'una pillola nella pagina etichetta scrive nel file');
+  assert(readInbox().includes(`- [ ] Dal progetto #casa due:${isoTomorrow}`), 'una pillola nella pagina etichetta scrive nel file');
   assert((await page.locator('.act', { hasText: 'Dal progetto' }).getByRole('button', { name: /^Scadenza domani/ }).count()) === 1, 'e la pagina si aggiorna');
   await page.locator('.act', { hasText: 'Dal progetto' }).getByRole('checkbox').click();
   await page.waitForTimeout(600);
-  assert(read().includes(`- [x] Dal progetto #casa due:${isoTomorrow} done:${iso}`), 'la spunta nella pagina etichetta scrive done:');
+  assert(readInbox().includes(`- [x] Dal progetto #casa due:${isoTomorrow} done:${iso}`), 'la spunta nella pagina etichetta scrive done:');
   assert((await page.locator('.act', { hasText: 'Dal progetto' }).count()) === 0, 'l\'azione fatta esce dalle aperte');
 }

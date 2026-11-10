@@ -45,7 +45,8 @@ class Client:
 
 class Mcp(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        # Windows può tenere il file dell'indice ancora un attimo dopo la fine del server.
+        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.c = Client(Path(self.tmp.name))
 
     def tearDown(self):
@@ -59,7 +60,7 @@ class Mcp(unittest.TestCase):
         self.assertEqual(init["result"]["serverInfo"]["name"], "quicknotes")
         c.write({"jsonrpc": "2.0", "method": "notifications/initialized"})
         self.assertEqual(c.send("ping", {})["result"], {})
-        self.assertEqual(len(c.send("tools/list", {})["result"]["tools"]), 12)
+        self.assertEqual(len(c.send("tools/list", {})["result"]["tools"]), 15)
 
         created = c.call("create_note", {"title": "Riepilogo budget",
                                          "content": "- [ ] @Marco manda il foglio due:2026-11-06\n- Tre tranche !decisione\n",
@@ -88,6 +89,37 @@ class Mcp(unittest.TestCase):
         self.assertTrue(missing["result"]["isError"])
         self.assertEqual(c.send("tools/call", {"name": "boh"})["error"]["code"], -32602)
         self.assertEqual(c.send("metodo/assente", {})["error"]["code"], -32601)
+
+    def test_progetti_stati_agenda(self):
+        c = self.c
+        notes = Path(self.tmp.name) / "notes"
+        (notes / "progetti").mkdir(parents=True)
+        (notes / "progetti" / "ekm.md").write_text("---\ntype: project\ntitle: EKM\nstatus: pausa\nareas: [parser]\n---\n"
+                                                    "- [ ] Rivedere #parser\n", encoding="utf-8")
+        hub = c.call("create_note", {"title": "Appunti", "content": "# EKM\n- [?] Serve il parser nuovo?\n"
+                                                                   "# Varie\n- [ ] Comprare il caffè #casa\n"})
+        projects = c.call("list_projects", {})
+        self.assertEqual([(p["key"], p["status"], p["open"]) for p in projects], [("ekm", "pausa", 2)])
+        self.assertEqual([a["text"] for a in c.call("list_action_items", {})], ["Comprare il caffè #casa"],
+                         "senza i progetti in pausa")
+        self.assertEqual(len(c.call("list_action_items", {"include_paused": True})), 3)
+        self.assertEqual(len(c.call("list_action_items", {"project": "ekm"})), 2, "un progetto scelto vale anche in pausa")
+        self.assertEqual(c.call("list_action_items", {"status": "question", "include_paused": True})[0]["project"], "ekm")
+        self.assertEqual(c.call("list_action_items", {"topic": "parser", "include_paused": True})[0]["area"], "parser")
+        r = c.call("set_action_status", {"note_id": hub["id"], "action_text": "caffè", "status": "cancelled"})
+        self.assertEqual(r["status"], "cancelled")
+        self.assertIn("[-] Comprare il caffè #casa done:", r["text"])
+        r = c.call("set_action_status", {"note_id": hub["id"], "action_text": "caffè", "status": "todo",
+                                         "scheduled": "2026-11-12"})
+        self.assertEqual(r["text"], "- [ ] Comprare il caffè #casa scheduled:2026-11-12")
+        self.assertEqual(c.call("list_action_items", {"scheduled_before": "2026-11-12"})[0]["scheduled"], "2026-11-12")
+        agenda = c.call("agenda", {"date": "2026-11-12"})
+        today = next(s for s in agenda["sections"] if s["key"] == "today")
+        self.assertEqual([i["text"] for g in today["groups"] for i in g["items"]], ["Comprare il caffè"])
+        review = c.call("weekly_review", {"date": "2026-11-12"})
+        self.assertEqual([p["key"] for p in next(s for s in review["steps"] if s["key"] == "paused")["projects"]], ["ekm"])
+        bad = c.send("tools/call", {"name": "set_action_status", "arguments": {"note_id": hub["id"], "action_text": "caffè", "status": "boh"}})
+        self.assertTrue(bad["result"]["isError"])
 
     def test_prompt(self):
         c = self.c

@@ -1,5 +1,7 @@
 <script>
-  import { app, tagColor } from '../state/app.svelte.js';
+  import { app, savePrefs, tagColor } from '../state/app.svelte.js';
+  import { createProject } from '../state/actions.svelte.js';
+  import { emptyFilters } from '../state/actionQuery.js';
   import { focused, openPage } from '../state/layout.svelte.js';
   import { VIEWS, favInfo, pageArg, pageKind, pageTitle } from './nav.js';
   import Icon from './Icon.svelte';
@@ -16,9 +18,45 @@
         key: k,
         ...VIEWS[k],
         meta: k === 'azioni' ? String(app.counts.open) : k === 'persone' ? String(app.counts.people) : '',
-        dot: k === 'azioni' && app.counts.late > 0,
+        dot: (k === 'azioni' && app.counts.late > 0) || (k === 'revisione' && app.counts.reviewDue),
+        dotTitle: k === 'revisione' && app.counts.reviewDue ? 'Sono passati più di 7 giorni dall’ultima revisione' : undefined,
       })),
   ]);
+
+  // Progetti: prima gli attivi, poi quelli in pausa o chiusi, compressi in fondo.
+  const projects = $derived(app.counts.projects ?? []);
+  const live = $derived(projects.filter((p) => p.status === 'attivo'));
+  const resting = $derived(projects.filter((p) => p.status !== 'attivo'));
+  let showResting = $state(false);
+  let draft = $state('');
+
+  function toggleProject(key) {
+    app.projOpen = { ...app.projOpen, [key]: !app.projOpen[key] };
+    savePrefs();
+  }
+
+  function openArea(p, area) {
+    app.actF = { ...emptyFilters(), projects: [p.key], areas: area ? [area] : [] };
+    Object.assign(app, { actQ: '', actFilter: 'aperte' });
+    savePrefs();
+    openPage('view:actions');
+  }
+
+  async function addProject(e) {
+    if (e.key === 'Escape') {
+      app.newProject = false;
+      draft = '';
+      return;
+    }
+    if (e.key !== 'Enter' || !draft.trim()) return;
+    const created = await createProject(draft.trim());
+    if (created) openPage(`project:${created.key}`, created.title);
+    app.newProject = false;
+    draft = '';
+  }
+
+  // Le aree con azioni aperte e quelle dichiarate, nell'ordine della nota di progetto.
+  const areasOf = (p) => [...new Set([...p.areas, ...Object.keys(p.open_by_area ?? {}).filter(Boolean)])];
 
   const isCurrent = (page) => active === page || (page === 'view:people' && active && pageKind(active) === 'person');
 
@@ -51,11 +89,56 @@
     {#each nav as n (n.key)}
       <button class="row" class:on={isCurrent(n.page)} aria-current={isCurrent(n.page) ? 'page' : undefined} onclick={() => openPage(n.page)}>
         <Icon name={n.icon} /><span class="grow">{n.label}</span>
-        {#if n.dot}<span class="dot" aria-hidden="true"></span>{/if}
+        {#if n.dot}<span class="dot" title={n.dotTitle} aria-label={n.dotTitle} role={n.dotTitle ? 'img' : undefined} aria-hidden={n.dotTitle ? undefined : 'true'}></span>{/if}
         <span class="meta mono">{n.meta}</span>
       </button>
     {/each}
   </nav>
+
+  <div class="pins-title">
+    <Icon name="folder" size={13} /><span class="grow">Progetti</span>
+    <button class="icon-btn mini-add" aria-label="Nuovo progetto" title="Nuovo progetto" aria-expanded={app.newProject} onclick={() => (app.newProject = !app.newProject)}><Icon name="plus" size={13} /></button>
+  </div>
+  <div class="projects">
+    {#if app.newProject}
+      <!-- svelte-ignore a11y_autofocus -->
+      <input class="new-project" type="text" aria-label="Nome del nuovo progetto" placeholder="Nome del progetto ↵" bind:value={draft} onkeydown={addProject} onblur={() => { if (!draft.trim()) app.newProject = false; }} autofocus />
+    {/if}
+    {#each live as p (p.key)}
+      {@const areas = areasOf(p)}
+      <div class="proj">
+        {#if areas.length}
+          <button class="twist" aria-label={app.projOpen[p.key] ? `Chiudi le aree di ${p.title}` : `Mostra le aree di ${p.title}`} aria-expanded={!!app.projOpen[p.key]} onclick={() => toggleProject(p.key)}>
+            <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({app.projOpen[p.key] ? 90 : 0}deg)" />
+          </button>
+        {:else}<span class="twist" aria-hidden="true"></span>{/if}
+        <button class="row proj-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
+          <span class="grow clip">{p.title}</span><span class="meta mono">{p.open || ''}</span>
+        </button>
+      </div>
+      {#if app.projOpen[p.key]}
+        {#each areas as a (a)}
+          <button class="row area-row" onclick={() => openArea(p, a)}>
+            <span class="grow clip">{a}</span><span class="meta mono">{p.open_by_area?.[a] || ''}</span>
+          </button>
+        {/each}
+      {/if}
+    {:else}
+      {#if !app.newProject}<div class="empty">Nessun progetto</div>{/if}
+    {/each}
+    {#if resting.length}
+      <button class="row resting" aria-expanded={showResting} onclick={() => (showResting = !showResting)}>
+        <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({showResting ? 90 : 0}deg)" /><span class="grow">In pausa o chiusi</span><span class="meta mono">{resting.length}</span>
+      </button>
+      {#if showResting}
+        {#each resting as p (p.key)}
+          <button class="row area-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
+            <span class="grow clip">{p.title}</span><span class="meta">{p.status}</span>
+          </button>
+        {/each}
+      {/if}
+    {/if}
+  </div>
 
   {#if app.showPins}
     <div class="pins-title"><Icon name="star" size={13} />Preferiti</div>
@@ -102,6 +185,14 @@
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--late); }
   .pins-title { display: flex; align-items: center; gap: 6px; flex: none; padding: 22px 10px 6px; font-size: 12px; color: var(--subtle); }
   .pins { min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .projects { flex: 0 1 auto; min-height: 60px; max-height: 40%; overflow-y: auto; scrollbar-width: none; }
+  .mini-add { width: 22px; height: 22px; margin-right: 4px; }
+  .proj { display: flex; align-items: center; }
+  .twist { flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--subtle); }
+  .proj-row { flex: 1; width: auto; min-width: 0; height: 30px; padding-left: 4px; }
+  .area-row { height: 28px; padding-left: 32px; font-size: 12.5px; }
+  .resting { height: 28px; gap: 6px; font-size: 12px; color: var(--subtle); }
+  .new-project { width: 100%; height: 30px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; outline: none; }
   .tile { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 7px; }
   .type { flex: none; font-size: 11px; color: var(--faint); }
   .empty { padding: 4px 10px; font-size: 12.5px; line-height: 1.45; color: var(--subtle); }

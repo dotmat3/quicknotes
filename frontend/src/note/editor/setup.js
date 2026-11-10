@@ -8,7 +8,7 @@ import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/sea
 import { Annotation, Compartment, EditorSelection, EditorState, Facet, Prec, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, drawSelection, dropCursor, EditorView, keymap, lineNumbers, placeholder, ViewPlugin } from '@codemirror/view';
 import { classHighlighter, tags as t } from '@lezer/highlight';
-import { livePreview, toggleTaskAt } from './livePreview.js';
+import { livePreview, statusMenuAtCursor, toggleTaskAt } from './livePreview.js';
 import { ACTION, ALERT_DESCRIPTIONS, ALERT_LABELS, FOOTNOTE, MENTION, TAG, WIKI, alertIcon, diff } from './rules.js';
 import { imagesIn, notePathFacet } from '../images.js';
 import { SUGGESTIONS } from './suggest.js';
@@ -296,6 +296,7 @@ export function createState(doc, { onChange, onOpen, tagColor, suggest, path = '
         keymap.of([
           { key: 'Mod-t', run: toggleAction, preventDefault: true },
           { key: 'Mod-d', run: toggleDecision, preventDefault: true },
+          { key: 'Alt-s', run: statusMenuAtCursor, preventDefault: true },
           { key: 'Mod-Shift-h', run: insertTime, preventDefault: true },
           { key: 'Tab', run: indentMore },
           { key: 'Shift-Tab', run: indentLess },

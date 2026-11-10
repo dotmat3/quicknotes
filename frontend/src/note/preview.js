@@ -5,7 +5,7 @@ import { Marked } from 'marked';
 import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { classHighlighter, highlightCode } from '@lezer/highlight';
-import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, PRIO, TAG, WIKI, alertIcon, dueLabel, prioArrow, prioName } from './editor/rules.js';
+import { ALERT_LABELS, DECISION, DONE, DUE, MENTION, PRIO, SCHEDULED, TAG, WIKI, alertIcon, dueLabel, prioArrow, prioName, statusLabel, statusOfMark } from './editor/rules.js';
 import { imageUrl } from './images.js';
 import './preview.css';
 
@@ -86,6 +86,7 @@ function inlineParts(text, ctx) {
   add(MENTION, 'person');
   add(TAG, 'tag');
   add(DUE, 'due');
+  add(SCHEDULED, 'sched');
   add(DONE, 'done');
   add(PRIO, 'prio');
   add(DECISION, 'decision');
@@ -128,6 +129,11 @@ function inlineParts(text, ctx) {
     } else if (kind === 'due') {
       const { label, level } = dueLabel(m[1]);
       frag.append(el('span', `pv-due ${level}`, label));
+    } else if (kind === 'sched') {
+      const { label, level } = dueLabel(m[1]);
+      const s = el('span', `pv-due pv-sched ${level}`, `◷ ${label}`);
+      s.title = `Da fare ${label}`;
+      frag.append(s);
     } else if (kind === 'prio') {
       const p = prioName(m[1]);
       frag.append(el('span', `pv-prio ${p}`, `${prioArrow(p)} ${p}`));
@@ -169,6 +175,22 @@ function decorate(root, ctx) {
     input.setAttribute('aria-label', input.checked ? 'Fatta' : 'Da fare');
     const li = input.closest('li');
     if (li) li.classList.add('pv-task', ...(input.checked ? ['pv-task-done'] : []));
+  }
+
+  // [/] [w] [?] [-]: marked li lascia come testo. Diventano un segno come le caselle.
+  for (const li of root.querySelectorAll('li')) {
+    const p = li.firstElementChild?.tagName === 'P' && li.firstChild === li.firstElementChild ? li.firstElementChild : li;
+    const first = p.firstChild;
+    const m = first?.nodeType === Node.TEXT_NODE ? /^\[([/wW?-])\]\s+/.exec(first.data) : null;
+    if (!m) continue;
+    const status = statusOfMark(m[1]);
+    first.data = first.data.slice(m[0].length);
+    const mark = el('span', `pv-status pv-status-${status}`, { doing: '◐', waiting: '◷', question: '?', cancelled: '–' }[status]);
+    mark.setAttribute('role', 'img');
+    mark.setAttribute('aria-label', statusLabel(status));
+    mark.title = statusLabel(status);
+    p.prepend(mark);
+    li.classList.add('pv-task', `pv-task-${status}`, ...(status === 'cancelled' ? ['pv-task-done'] : []));
   }
 
   for (const a of root.querySelectorAll('a[href]')) {

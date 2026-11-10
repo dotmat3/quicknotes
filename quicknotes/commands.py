@@ -62,6 +62,10 @@ class Commands:
 
     def cmd_save_ui(self, ui: dict):
         with self.shell.config_lock:
+            # La data dell'ultima revisione la scrive anche `review_done`: una pagina aperta prima non la cancella.
+            old = self.config.ui().get("lastReview")
+            if isinstance(old, str) and old > str(ui.get("lastReview") or ""):
+                ui = {**ui, "lastReview": old}
             self.config.set_ui(ui)
             self.config.save()
 
@@ -69,16 +73,20 @@ class Commands:
     def cmd_sidebar(self):
         today = date.today()
         today_iso = dates.iso(today)
-        top = [a for a in self.store.actions() if a["parent_line"] is None]
+        # Come la vista Azioni: senza i progetti in pausa o chiusi.
+        top = [a for a in self.store.actions(include_paused=False) if a["parent_line"] is None]
         done = total = 0
         daily = self.store.daily(today, False)
         if daily:
             for a in parser.extract(daily.body).actions:
-                if a.parent_line is None:
+                if a.parent_line is None and a.status != "cancelled":
                     total += 1
                     done += a.done
+        last = dates.parse_day(self.config.ui().get("lastReview"))
         return {"todayDone": done, "todayTotal": total, "open": len(top),
-                "late": sum(1 for a in top if a["due"] and a["due"] < today_iso), "people": len(self.store.people())}
+                "late": sum(1 for a in top if a["due"] and a["due"] < today_iso), "people": len(self.store.people()),
+                "reviewDue": last is None or (today - last).days > views.REVIEW_DAYS,
+                "projects": self.store.project_rows()}
 
     def cmd_recent_notes(self, limit: int):
         return self.store.list_notes(None, limit)
@@ -87,7 +95,12 @@ class Commands:
         return self.store.people()[:limit]
 
     def cmd_all_tags(self):
-        return [f["name"] for f in self.store.projects()]
+        """Le etichette usate, più `progetto` e `progetto/area` di ogni nota di progetto: l'editor le propone
+        dopo `#`."""
+        names = [f["name"] for f in self.store.projects()]
+        for p in self.store.project_rows():
+            names += [p["key"], *(f"{p['key']}/{a}" for a in p["areas"])]
+        return list(dict.fromkeys(names))
 
     def cmd_search_titles(self, query: str, limit: int):
         return self.store.search(query, None, limit)
@@ -115,16 +128,28 @@ class Commands:
         for p in ex.people:
             if not any(x.lower() == p.lower() for x in people):
                 people.append(p)
-        top = [a for a in ex.actions if a.parent_line is None]
+        top = [a for a in ex.actions if a.parent_line is None and a.status != "cancelled"]
         parsed = dates.parse_day(note.date)
         return {
             "id": note.id, "title": title, "tab_title": tab_title, "is_daily": is_daily, "date": note.date,
             "date_label": dates.short_day(parsed) if parsed else "", "path": self.store.rel(note.path),
             "body": note.body, "people": people, "actions_done": sum(a.done for a in top), "actions_total": len(top),
+            "project": self._project_of(note),
             "links_in": self.store.backlinks(note.id),
             # Note citate con `[[link]]` che esistono davvero.
             "links_out": [l for l in self.store.outgoing_links(note.id) if l["note_id"] and l["note_id"] != note.id],
         }
+
+    def _project_of(self, note) -> dict | None:
+        """Il progetto di una nota di progetto (o del suo archivio), per i pulsanti in testa alla nota."""
+        key = parser.meta_str(note.meta, "project") if note.note_type in ("project", "archivio") else None
+        if note.note_type == "project" or key:
+            try:
+                p = self.store.project(key or note.title)
+            except QuickNotesError:
+                return None
+            return {"key": p.key, "title": p.title, "status": p.status}
+        return None
 
     def cmd_save_note(self, id: str, base: str, body: str):  # noqa: A002
         return self.store.save_if_unchanged(id, base, body)
@@ -202,6 +227,12 @@ class Commands:
             self.store.set_action_details(note_id, line, text, priority=value)
         elif field == "description":
             self.store.set_action_details(note_id, line, text, description=value or "")
+        elif field == "scheduled":
+            if value and dates.parse_day(value) is None:
+                raise QuickNotesError(f"Data non valida: {value}")
+            self.store.set_action_details(note_id, line, text, scheduled=value)
+        elif field == "status":
+            self.cmd_set_action_status(note_id, line, text, value or "todo")
         else:
             raise QuickNotesError(f"Campo sconosciuto: {field}")
 
@@ -209,9 +240,112 @@ class Commands:
         """Una nuova azione nella nota di oggi, sezione "Priorità". Restituisce l'id della nota."""
         return self.store.add_action(date.today(), text, dates.parse_day(due), tag, priority).id
 
+    def cmd_quick_action(self, text: str, project: str | None = None, area: str | None = None, due: str | None = None,
+                         priority: str | None = None, scheduled: str | None = None):
+        """Aggiunta rapida dalla vista Azioni: nella nota del progetto (anche da `#progetto/area` nel testo),
+        altrimenti nella nota "Da smistare". Restituisce dove è finita."""
+        return self.store.quick_action(text, project or None, area or None, dates.parse_day(due), priority or None,
+                                       dates.parse_day(scheduled))
+
     def cmd_postpone_late(self):
         moved, ids = self.store.postpone_late(date.today())
         return {"moved": moved, "ids": ids}
+
+    def cmd_set_action_status(self, note_id: str, line: int, text: str, status: str):
+        return self.store.set_action_state(note_id, line, text, status, date.today())
+
+    def cmd_set_scheduled(self, note_id: str, line: int, text: str, value: str | None = None):
+        """`scheduled:` di un'azione: una data AAAA-MM-GG, `oggi`, `domani`, oppure niente per toglierlo."""
+        today = date.today()
+        names = {"oggi": today, "domani": today + timedelta(days=1)}
+        day = names.get((value or "").strip().lower()) or dates.parse_day(value)
+        if value and day is None:
+            raise QuickNotesError(f"Data non valida: {value}")
+        self.store.set_action_details(note_id, line, text, scheduled=dates.iso(day) if day else None)
+
+    def cmd_move_action(self, note_id: str, line: int, text: str, target: str, section: str | None = None):
+        """Sposta un'azione nella nota di un progetto (`target` è il progetto o l'id di una nota)."""
+        try:
+            target_id = self.store.project(target).note_id
+        except QuickNotesError:
+            target_id = target
+        moved = self.store.move_action(note_id, line, text, target_id, section or None)
+        ids = [moved["from"], moved["note_id"]]
+        self.shell.emit("index-updated", 2)
+        return {**moved, "ids": ids}
+
+    def cmd_archive_done(self, project: str):
+        r = self.store.archive_done(project, date.today())
+        if r["archived"]:
+            self.shell.emit("index-updated", 2)
+        return {**r, "ids": [self.store.project(project).note_id] + ([r["archive_id"]] if r["archive_id"] else [])}
+
+    def cmd_projects(self):
+        return self.store.project_rows()
+
+    def cmd_create_project(self, name: str, aliases: list[str] | None = None, areas: list[str] | None = None):
+        note = self.store.create_project(name, aliases or [], areas or [])
+        self.shell.emit("index-updated", 1)
+        return {"id": note.id, "title": note.title, "key": parser.meta_str(note.meta, "project")}
+
+    def cmd_set_project_status(self, project: str, status: str):
+        note = self.store.set_project_status(project, status)
+        self.shell.emit("index-updated", 1)
+        return {"id": note.id}
+
+    def cmd_add_project_action(self, project: str, text: str, area: str | None = None):
+        note = self.store.add_project_action(project, text, area or None)
+        return note.id
+
+    # ---- migrazione delle note al formato con progetti
+    def cmd_migration_plan(self):
+        from . import migrate
+        return migrate.plan(self.store.root, date.today())
+
+    def cmd_migration_apply(self, choices: dict):
+        """Applica le scelte della vista Migrazione: prima la copia della cartella, poi progetti e righe."""
+        from . import migrate
+        done = migrate.apply(self.store, choices if isinstance(choices, dict) else {})
+        self._last_backup = done["backup"]
+        if done["changed"]:
+            self.shell.emit("note-changed", done["changed"])
+        self.shell.emit("index-updated", len(done["changed"]))
+        return done
+
+    def cmd_open_backup(self):
+        """Apre la copia fatta dall'ultima migrazione, e solo quella."""
+        path = getattr(self, "_last_backup", None)
+        if not path:
+            raise QuickNotesError("Nessuna copia da aprire")
+        system.open_external(path)
+
+    def cmd_agenda(self, project: str | None = None, include_paused: bool = False):
+        return views.agenda(self.store, date.today(), project or None, include_paused)
+
+    def cmd_project_page(self, slug: str):
+        return views.project_page(self.store, slug, date.today())
+
+    def cmd_weekly_review(self):
+        return views.weekly_review(self.store, date.today(), self.config.ui().get("lastReview"))
+
+    def cmd_review_done(self):
+        """Fine revisione: la data va in `config.ui.lastReview`. La pagina la salva anche fra le sue preferenze."""
+        today = dates.iso(date.today())
+        with self.shell.config_lock:
+            ui = dict(self.config.ui())
+            ui["lastReview"] = today
+            self.config.set_ui(ui)
+            self.config.save()
+        return today
+
+    def cmd_create_review_note(self):
+        """La nota "Revisione settimana NN" con il riepilogo della Revisione."""
+        today = date.today()
+        review = views.weekly_review(self.store, today, self.config.ui().get("lastReview"))
+        note = self.store.create_note(f"Revisione settimana {review['week_number']}", views.review_note_body(review),
+                                      "note", tags=["revisione"])
+        self.shell.emit("index-updated", 1)
+        return {"id": note.id, "title": note.title}
 
     # ---- Micio
     def cmd_pet_done(self, since: str):
@@ -232,7 +366,7 @@ class Commands:
 
     def cmd_calendar_data(self, **kw):
         # `from` è una parola riservata in Python.
-        return views.calendar_data(self.store, kw["from"], kw["to"], date.today())
+        return views.calendar_data(self.store, kw["from"], kw["to"], date.today(), kw.get("project") or None)
 
     def cmd_full_graph(self):
         return views.full_graph(self.store)

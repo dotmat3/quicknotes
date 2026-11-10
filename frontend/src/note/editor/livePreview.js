@@ -3,39 +3,122 @@
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { imageUrl, notePathFacet } from '../images.js';
-import { ALERT_LABELS, DECISION, DONE, DUE, FOOTNOTE, MENTION, PRIO, TAG, WIKI, alertIcon, dueLabel, isoToday, prioArrow, prioName, withChecked } from './rules.js';
+import { ACTION, ALERT_LABELS, CLOSED, DECISION, DONE, DUE, FOOTNOTE, MENTION, PRIO, SCHEDULED, STATUSES, TAG, WIKI, alertIcon, dueLabel, isoToday, prioArrow, prioName, statusLabel, statusOfMark, withStatus } from './rules.js';
 
 const SKIP_NODES = new Set(['InlineCode', 'URL', 'CodeText', 'FencedCode', 'CodeBlock', 'Autolink']);
 const ALERT = /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i;
 
+// Il disegno dentro la casella per ogni stato.
+const STATUS_ICON = {
+  todo: '',
+  done: '<path d="m5 12 5 5 9-10"/>',
+  doing: '<path d="M12 5v14" style="stroke-width:0"/><rect x="5" y="5" width="7" height="14" rx="1.5" style="stroke:none;fill:currentColor"/>',
+  waiting: '<circle cx="12" cy="12" r="6"/><path d="M12 9v3.5l2 1.5"/>',
+  question: '<path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8M12 17h.01"/>',
+  cancelled: '<path d="M7 12h10"/>',
+};
+
 class CheckboxWidget extends WidgetType {
-  constructor(checked) {
+  constructor(status) {
     super();
-    this.checked = checked;
+    this.status = status;
   }
   eq(other) {
-    return other.checked === this.checked;
+    return other.status === this.status;
   }
   toDOM(view) {
     const box = document.createElement('span');
     box.className = 'cm-task-box';
     box.setAttribute('role', 'checkbox');
-    box.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>';
     this.updateDOM(box);
     box.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      if (e.button === 2) return;
       toggleTaskAt(view, view.posAtDOM(box));
+    });
+    // Tasto destro: si sceglie lo stato.
+    box.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      statusMenu(view, view.posAtDOM(box), e.clientX, e.clientY);
     });
     return box;
   }
   updateDOM(dom) {
-    dom.classList.toggle('checked', this.checked);
-    dom.setAttribute('aria-checked', String(this.checked));
+    dom.className = `cm-task-box st-${this.status}${this.status === 'done' ? ' checked' : ''}`;
+    dom.innerHTML = `<svg viewBox="0 0 24 24">${STATUS_ICON[this.status] ?? ''}</svg>`;
+    dom.setAttribute('aria-checked', this.status === 'done' ? 'true' : this.status === 'todo' ? 'false' : 'mixed');
+    dom.setAttribute('aria-label', statusLabel(this.status));
+    dom.title = `${statusLabel(this.status)} · clic: fatta o riaperta · tasto destro: stato`;
     return true;
   }
   ignoreEvent() {
     return true;
   }
+}
+
+// Il menu degli stati, sopra l'editor. Si chiude con Esc, con un clic fuori o scegliendo.
+let openMenu = null;
+export function statusMenu(view, pos, x, y) {
+  openMenu?.remove();
+  const line = view.state.doc.lineAt(pos);
+  const m = ACTION.exec(line.text);
+  if (!m) return;
+  const current = statusOfMark(m[2]);
+  const menu = document.createElement('div');
+  menu.className = 'cm-status-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'Stato dell’azione');
+  const close = () => {
+    menu.remove();
+    openMenu = null;
+    document.removeEventListener('mousedown', outside, true);
+    view.focus();
+  };
+  const outside = (e) => {
+    if (!menu.contains(e.target)) close();
+  };
+  for (const [status, mark, label] of STATUSES) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'cm-status-item' + (status === current ? ' on' : '');
+    item.setAttribute('role', 'menuitemradio');
+    item.setAttribute('aria-checked', String(status === current));
+    item.innerHTML = `<span class="cm-task-box st-${status}${status === 'done' ? ' checked' : ''}"><svg viewBox="0 0 24 24">${STATUS_ICON[status]}</svg></span><span></span><kbd>[${mark}]</kbd>`;
+    item.children[1].textContent = label;
+    item.addEventListener('click', () => {
+      const now = view.state.doc.lineAt(pos);
+      const next = withStatus(now.text, status, isoToday());
+      if (next !== now.text) view.dispatch({ changes: { from: now.from, to: now.to, insert: next }, userEvent: 'input.toggle' });
+      close();
+    });
+    menu.append(item);
+  }
+  menu.addEventListener('keydown', (e) => {
+    const items = [...menu.querySelectorAll('button')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    }
+  });
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
+  menu.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+  (menu.querySelector('.on') ?? menu.firstChild).focus();
+  document.addEventListener('mousedown', outside, true);
+  openMenu = menu;
+}
+
+// Ctrl+Shift+T sull'azione sotto il cursore: il menu degli stati accanto alla riga.
+export function statusMenuAtCursor(view) {
+  const pos = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(pos);
+  if (!ACTION.test(line.text)) return false;
+  const c = view.coordsAtPos(line.from + line.text.indexOf('[')) ?? view.coordsAtPos(pos);
+  statusMenu(view, line.from, c ? c.left : 100, c ? c.bottom + 4 : 100);
+  return true;
 }
 
 class BulletWidget extends WidgetType {
@@ -123,10 +206,13 @@ const hide = Decoration.replace({});
 const lineDeco = (cls) => Decoration.line({ class: cls });
 const mark = (cls) => Decoration.mark({ class: cls });
 
+// Un clic sulla casella: un'azione aperta (in qualsiasi stato) diventa fatta, una chiusa si riapre.
 export function toggleTaskAt(view, pos) {
   const line = view.state.doc.lineAt(pos);
-  const done = /^\s*[-*+]\s+\[[xX]\]/.test(line.text);
-  const next = withChecked(line.text, done ? null : isoToday());
+  const m = ACTION.exec(line.text);
+  if (!m) return false;
+  const closed = CLOSED.includes(statusOfMark(m[2]));
+  const next = withStatus(line.text, closed ? 'todo' : 'done', isoToday());
   if (next === line.text) return false;
   view.dispatch({ changes: { from: line.from, to: line.to, insert: next }, userEvent: 'input.toggle' });
   return true;
@@ -191,10 +277,13 @@ function build(view, focused, tagColor) {
           const line = doc.lineAt(node.from);
           const task = node.node.nextSibling;
           const taskMark = task?.name === 'Task' ? task.getChild('TaskMarker') : null;
-          if (taskMark) {
-            const checked = /x/i.test(doc.sliceString(taskMark.from, taskMark.to));
-            decos.push(lineDeco(checked ? 'cm-task cm-task-done' : 'cm-task').range(line.from));
-            replace(node.from, spaceAfter(taskMark.to), Decoration.replace({ widget: new CheckboxWidget(checked) }), true);
+          // Gli stati [/] [w] [?] [-] il parser Markdown non li conosce: si riconoscono dal testo.
+          const other = taskMark ? null : /^\[([/wW?-])\]/.exec(doc.sliceString(node.to + 1, node.to + 4));
+          if (taskMark || (other && doc.sliceString(node.to, node.to + 1) === ' ')) {
+            const status = taskMark ? (/x/i.test(doc.sliceString(taskMark.from, taskMark.to)) ? 'done' : 'todo') : statusOfMark(other[1]);
+            const end = taskMark ? taskMark.to : node.to + 4;
+            decos.push(lineDeco(`cm-task cm-task-${status}${CLOSED.includes(status) ? ' cm-task-done' : ''}`).range(line.from));
+            replace(node.from, spaceAfter(end), Decoration.replace({ widget: new CheckboxWidget(status) }), true);
           } else if (/^[-*+]$/.test(doc.sliceString(node.from, node.to)) && doc.sliceString(node.to, node.to + 1) === ' ') {
             decos.push(lineDeco('cm-li').range(line.from));
             replace(node.from, node.to + 1, bullet, true);
@@ -267,7 +356,7 @@ function build(view, focused, tagColor) {
         return false;
       };
       const lineActive = active.has(line.number);
-      const done = /^\s*[-*+]\s+\[[xX]\]/.test(text);
+      const done = /^\s*[-*+]\s+\[[xX-]\]/.test(text);
 
       // Il rientro diventa margine: non viene barrato con la riga e allinea figlie e descrizioni.
       const indent = /^[ 	]+/.exec(text)?.[0];
@@ -322,6 +411,16 @@ function build(view, focused, tagColor) {
         else {
           const { label, level } = dueLabel(m[1]);
           replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-due ${done ? 'done' : level}`, label) }));
+        }
+      }
+      for (const m of text.matchAll(SCHEDULED)) {
+        if (skip(m.index)) continue;
+        const a = line.from + m.index;
+        const b = a + m[0].length;
+        if (lineActive) decos.push(mark('cm-date-raw').range(a, b));
+        else {
+          const { label, level } = dueLabel(m[1]);
+          replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-sched ${done ? 'done' : level}`, `◷ ${label}`) }));
         }
       }
       for (const m of text.matchAll(PRIO)) {

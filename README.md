@@ -46,20 +46,25 @@ Esempi di domande:
 | `list_notes` | elenco cronologico con gli stessi filtri |
 | `read_note`, `read_daily_note` | una nota o la nota di un giorno, con i collegamenti in uscita e in entrata |
 | `get_backlinks` | note che citano una nota con `[[link]]`, con la riga in cui lo fanno |
-| `list_action_items` | azioni aperte o fatte, per responsabile, progetto, scadenza |
+| `list_action_items` | azioni per stato, responsabile, progetto, area, scadenza o `scheduled:` (senza i progetti in pausa, se non richiesto) |
 | `list_decisions` | decisioni registrate con `!decisione` |
 | `list_people_and_projects` | persone e progetti citati, con conteggi |
 | `create_note`, `append_to_note`, `append_to_daily_note` | scrittura, solo se glielo chiedi |
-| `set_action_status` | spunta o riapre un'azione |
+| `set_action_status` | spunta, riapre o cambia lo stato di un'azione, e ne imposta `scheduled:` |
+| `list_projects` | progetti con stato, alias, aree e azioni aperte |
+| `agenda` | cosa fare adesso: in ritardo, oggi, in corso, in attesa, domande, prossimi 7 giorni, da smistare |
+| `weekly_review` | i passi della Revisione settimanale e il riepilogo della settimana |
 
 ## Come si scrive
 
 | Scrivi | Significa |
 |---|---|
 | `- [ ] @Marco invia preventivo due:2026-10-31` | azione con responsabile e scadenza (anche `entro:`, `scadenza:`) |
+| `- [/]` · `- [w] … @Laura` · `- [?]` · `- [-]` | in corso · in attesa di Laura · domanda aperta · annullata (il motivo nella descrizione) |
+| `scheduled:2026-11-12` | il giorno in cui farla: compare in Agenda; la scadenza resta `due:` |
 | `    - [ ] testo` | sotto-attività, rientrata sotto un'azione |
 | `- [x] … done:2026-11-03` | azione fatta: la data la scrive la spunta |
-| `@Marco`, `#clientex` | persona, etichetta o progetto |
+| `@Marco`, `#clientex`, `#llm-training/dedup` | persona, etichetta o progetto, progetto con area |
 | `… !decisione` | decisione presa (anche `!dec`) |
 | `[[Titolo]]`, `[[id\|Testo]]` | link a un'altra nota: dopo `[[` l'editor propone le note |
 
@@ -67,6 +72,13 @@ Nell'editor: **Ctrl+T** trasforma la riga in azione (di nuovo: la spunta), **Ctr
 decisione, **Ctrl+Shift+H** inserisce l'ora, **Ctrl+V** o il trascinamento salvano un'immagine in `images/`
 accanto alla nota. Nella ricerca **Ctrl+K** si combinano filtri e parole: `@laura #clientex budget`,
 `!budget` cerca solo tra le decisioni. Tutte le scorciatoie sono nella Guida dell'app (**F1**).
+
+Nella vista **Azioni**, **N** apre l'aggiunta rapida: `Valutare MinHash #llm-training/dedup @Marco entro:venerdì
+!alta` finisce nella nota del progetto, sotto `### dedup`; senza progetto va nella nota `da-smistare.md`, che
+Agenda e Revisione mostrano tra le azioni da smistare. Nella vista non si aggiunge più nulla alla nota di oggi.
+**/** porta al campo Filtra (`#progetto/area @persona !alta stato:attesa entro:settimana nota:titolo`, un `-`
+davanti esclude); **Filtri** apre le scelte multiple per progetto, area, stato, priorità, scadenza, persona e
+tipo di nota, e una combinazione si può salvare come vista.
 
 Tasti globali, anche con l'app nascosta: **Ctrl+Alt+N** nota rapida, **Ctrl+Alt+D** nota del giorno. Si
 cambiano in `config.json`, sotto `"hotkeys"`.
@@ -81,6 +93,18 @@ cambiano in `config.json`, sotto `"hotkeys"`.
     images\2026-11-03-101530.png
   .quicknotes\index-v4.db        indice di ricerca, si ricostruisce dai file
 ```
+
+### Progetti, Agenda e Revisione
+
+Il daily resta il posto dove catturi e scrivi il log; le azioni vivono in una nota corta per progetto
+(`progetti/llm-training.md`, con `type: project`, `status`, `aliases`, `areas` e `## Prossime azioni`
+divise per `### area`). Sotto `# LLM Training` in un daily le azioni appartengono già al progetto. La vista
+**Progetto** raccoglie da tutte le note azioni per area, attese, domande, decisioni, note collegate e log dei
+daily; **Agenda** dice cosa fare adesso; **Revisione** guida la pulizia del venerdì. "Sposta nel progetto"
+porta un'azione dal daily alla nota del progetto, "Archivia fatte" toglie dalla nota del progetto le azioni
+chiuse. Le note scritte prima della 0.6.0 si migrano dall'app (Ctrl K › Migra le note, o Impostazioni › Note):
+la vista propone le note di progetto e le righe da cambiare regola per regola, si sceglie cosa applicare e prima
+di scrivere si copia la cartella. Lo stesso da riga di comando: `scripts/migra_note.py --dry-run`.
 
 I file sono la fonte di verità: si possono modificare con qualsiasi editor (anche Obsidian o VS Code),
 sincronizzare o mettere sotto git. L'indice si riallinea da solo quando un file cambia;
@@ -120,6 +144,10 @@ cd frontend && npx vitest run && cd ..                        # regole dell'edit
 node scripts/prova-python.mjs                                 # l'app vera, su note di prova
 node scripts/demo-note.mjs <cartella>                         # note di esempio per le prove sotto
 node scripts/cdp.mjs <cartella> foto.png scripts/prova-viste.mjs
+node scripts/demo-progetti.mjs <cartella>                     # progetti e stati, per prova-agenda.mjs
+node scripts/cdp.mjs <cartella> foto.png scripts/prova-agenda.mjs
+node scripts/demo-migrazione.mjs <cartella>                   # note nel formato di prima, per prova-migrazione.mjs
+node scripts/cdp.mjs <cartella> foto.png scripts/prova-migrazione.mjs
 ```
 
 Le prove `scripts/prova-*.mjs` guidano l'app vera tramite CDP. `prova-sistema.mjs` e l'ultimo passaggio

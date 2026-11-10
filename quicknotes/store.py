@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from . import dates, edit, index, parser
+from . import projects as prj
 from .index import Filter
 
 
@@ -113,6 +114,44 @@ def _change_line(note: Note, line_no: int, change) -> str:
     return lines[line_no - 1]
 
 
+_UNSET_ARG = object()
+
+
+def project_template(name: str, aliases: list[str] | None = None, areas: list[str] | None = None,
+                     status: str = "attivo") -> tuple[dict, str]:
+    """Frontmatter e corpo di una nota di progetto nuova: obiettivo, prossime azioni per area, note collegate."""
+    name = " ".join(name.split())
+    areas = [a for a in dict.fromkeys(prj.key_of(a) for a in (areas or [])) if a]
+    meta = {"type": "project", "title": name, "project": prj.key_of(name), "status": prj.project_status(status),
+            "aliases": [a.strip() for a in (aliases or []) if a.strip()], "areas": areas}
+    body = "## Obiettivo\n\n\n## Prossime azioni\n" + "".join(f"\n### {a}\n" for a in areas) + "\n## Note collegate\n"
+    return meta, body
+
+
+# La nota delle azioni scritte senza progetto dalla vista Azioni: in cima alla cartella, come i progetti fuori dai mesi.
+INBOX_ID = "da-smistare"
+INBOX_BODY = ("Le azioni aggiunte dalla vista Azioni senza un progetto. Spostale nel progetto giusto, pianificale o "
+              "chiudile.\n\n## Azioni\n")
+
+
+def _with_presets(line: str, due: date | None = None, tag: str | None = None, priority: str | None = None,
+                  scheduled: date | None = None) -> str:
+    """La riga di un'azione nuova con scadenza, etichetta, priorità e `scheduled:` scelti fuori dal testo; ciascuno
+    solo se il testo non ne ha già uno, perché vale quello che l'utente ha scritto."""
+    written = parser.extract(line).actions
+    written = written[0] if written else None
+    if due and (written is None or written.due is None):
+        line = edit.with_due(line, dates.iso(due))
+    if tag and (written is None or not written.tags):
+        line = edit.with_tag(line, tag)
+    priority = parser.priority_name(priority)
+    if priority and (written is None or written.priority is None):
+        line = edit.with_priority(line, priority)
+    if scheduled and (written is None or written.scheduled is None):
+        line = edit.with_scheduled(line, dates.iso(scheduled))
+    return line
+
+
 class NoteStore:
     def __init__(self, root: Path):
         root.mkdir(parents=True, exist_ok=True)
@@ -190,22 +229,50 @@ class NoteStore:
             ids = [Path(p).stem for p in removed]
             db.execute("BEGIN")
             try:
+                before = index.registry(db).signature()
+                old_projects = index.project_paths(db)
                 for rel in removed:
                     index.delete_rows(db, rel)
+                notes = []
                 for rel, (mtime, size) in changed:
                     path = self.root / rel
                     try:
                         text = read_text(path)
                     except (OSError, UnicodeDecodeError):
                         continue  # un file illeggibile non deve fermare gli altri
-                    note = Note(path, text, mtime)
-                    index.index_note(db, rel, note, mtime, size, known=rel in known)
-                    ids.append(note.id)
+                    notes.append((rel, Note(path, text, mtime), mtime, size))
+                # Prima le note di progetto: le altre le usano per sapere a che progetto appartengono.
+                done = set()
+                for rel, note, mtime, size in notes:
+                    if note.note_type == "project" or rel in old_projects:
+                        index.index_note(db, rel, note, mtime, size, known=rel in known)
+                        done.add(rel)
+                reg = index.registry(db)
+                if reg.signature() != before:
+                    self._resolve_all(db, reg, on_disk, done)
+                else:
+                    for rel, note, mtime, size in notes:
+                        if rel not in done:
+                            index.index_note(db, rel, note, mtime, size, known=rel in known, reg=reg)
+                ids.extend(note.id for _, note, _, _ in notes)
                 db.execute("COMMIT")
             except BaseException:
                 db.execute("ROLLBACK")
                 raise
             return ids
+
+    def _resolve_all(self, db, reg: prj.Registry, on_disk: dict[str, tuple[int, int]], skip: set[str]) -> None:
+        """Rilegge tutte le note: è cambiato un progetto, quindi può cambiare il progetto di ogni azione. Con
+        mille note ci vuole meno di un secondo."""
+        for rel, (mtime, size) in on_disk.items():
+            if rel in skip:
+                continue
+            path = self.root / rel
+            try:
+                note = Note(path, read_text(path), mtime)
+            except (OSError, UnicodeDecodeError):
+                continue
+            index.index_note(db, rel, note, mtime, size, reg=reg)
 
     def refresh(self) -> int:
         return len(self.refresh_changes())
@@ -253,10 +320,18 @@ class NoteStore:
         with self._write_lock:
             if self._closed:
                 return
-            self._writer.execute("BEGIN")
+            db = self._writer
+            db.execute("BEGIN")
             try:
-                index.index_note(self._writer, rel, note, _mtime_ms(st), st.st_size)
-                self._writer.execute("COMMIT")
+                was_project = rel in index.project_paths(db)
+                is_project = was_project or note.note_type == "project"
+                before = index.registry(db).signature() if is_project else None
+                index.index_note(db, rel, note, _mtime_ms(st), st.st_size)
+                if is_project:
+                    reg = index.registry(db)
+                    if reg.signature() != before:
+                        self._resolve_all(db, reg, self._scan(), {rel})
+                db.execute("COMMIT")
             except BaseException:
                 self._writer.execute("ROLLBACK")
                 raise
@@ -396,7 +471,11 @@ class NoteStore:
                 return
             self._writer.execute("BEGIN")
             try:
-                index.delete_rows(self._writer, self.rel(path))
+                rel = self.rel(path)
+                was_project = rel in index.project_paths(self._writer)
+                index.delete_rows(self._writer, rel)
+                if was_project:
+                    self._resolve_all(self._writer, index.registry(self._writer), self._scan(), {rel})
                 self._writer.execute("COMMIT")
             except BaseException:
                 self._writer.execute("ROLLBACK")
@@ -493,23 +572,65 @@ class NoteStore:
         """Una nuova azione nella nota del giorno, sezione "Priorità". Scadenza, etichetta e priorità si
         aggiungono solo se il testo non ne ha già una: vale quello che l'utente ha scritto."""
         daily = self.daily(today, True)
-        line = f"- [ ] {text.strip()}"
-        written = parser.extract(line).actions
-        written = written[0] if written else None
-        if due and (written is None or written.due is None):
-            line = edit.with_due(line, dates.iso(due))
-        if tag and (written is None or not written.tags):
-            line = edit.with_tag(line, tag)
-        priority = parser.priority_name(priority)
-        if priority and (written is None or written.priority is None):
-            line = edit.with_priority(line, priority)
+        line = _with_presets(f"- [ ] {text.strip()}", due, tag, priority)
         return self.add_to_section(daily.id, "Priorità", line)
 
+    def inbox(self, create: bool) -> Note | None:
+        """La nota "Da smistare": raccoglie le azioni scritte senza un progetto, finché non trovano posto."""
+        try:
+            return self.read(INBOX_ID)
+        except NoteNotFound:
+            if not create:
+                return None
+        with self.edit_lock:
+            path = self.root / f"{INBOX_ID}.md"
+            if path.exists():
+                return self._read_path(path)
+            note = Note.new(path, {"type": "inbox", "title": "Da smistare"}, INBOX_BODY)
+            self.save(note)
+            return note
+
+    def quick_action(self, text: str, project: str | None = None, area: str | None = None, due: date | None = None,
+                     priority: str | None = None, scheduled: date | None = None) -> dict:
+        """Una nuova azione dove deve stare: nella nota del progetto, sotto l'area, oppure in "Da smistare".
+        Il progetto è quello indicato o la prima etichetta della riga che è un progetto (`#progetto/area`); quella
+        etichetta sparisce, perché il posto dice già il progetto. Scadenza, priorità e `scheduled:` scritti nel
+        testo hanno la precedenza."""
+        text = text.strip()
+        if not text:
+            raise QuickNotesError("L'azione è vuota")
+        line = text if parser.ACTION_RE.match(text) else f"- [ ] {text}"
+        reg = self.registry()
+        key = reg.match(project) if project else None
+        if project and key is None:
+            raise QuickNotesError(f"Progetto sconosciuto: {project}")
+        for start, end in parser.tag_spans(line):
+            head, _, rest = line[start + 1:end].partition("/")
+            found = reg.match(head)
+            if found and (key is None or found == key):
+                key = found
+                area = area or rest.strip("/") or None
+                line = edit._squeeze(line[:start] + line[end:])
+                break
+        line = _with_presets(line, due, None, priority, scheduled)
+        if key is None:
+            note = self.inbox(True)
+            self.add_to_section(note.id, "Azioni", line)
+            return {"id": note.id, "title": note.title, "project": None, "area": None}
+        hub_id = reg.projects[key].note_id
+        area = prj.key_of(area) if area else None
+        with self.edit_lock:
+            hub = self.read(hub_id)
+            self._hub_insert(hub, area, line)
+            self.save(hub)
+        return {"id": hub.id, "title": hub.title, "project": key, "area": area}
+
     def postpone_late(self, today: date) -> tuple[int, list[str]]:
-        """Sposta a domani le azioni di primo livello in ritardo. Una riga cambiata nel frattempo resta com'è."""
+        """Sposta a domani le azioni di primo livello in ritardo, tranne quelle dei progetti in pausa o chiusi (la
+        vista Azioni non le mostra). Una riga cambiata nel frattempo resta com'è."""
         tomorrow = dates.iso(today + timedelta(days=1))
         moved, ids = 0, []
-        for row in self.actions():
+        for row in self.actions(include_paused=False):
             if row["parent_line"] is not None:
                 continue
             if dates.due_group(dates.parse_day(row["due"]), today) != "late":
@@ -534,8 +655,22 @@ class NoteStore:
             self.save(note)
             return {"note_id": note.id, "line": line_no, "text": text.strip(), "done": done_on is not None}
 
-    def set_action_status(self, note_id: str, action_text: str, done_on: date | None) -> dict:
-        """Spunta o riapre un'azione cercandola per testo dentro la nota. Lo usa il server MCP."""
+    def set_action_state(self, note_id: str, line_no: int, expected: str | None, status: str, today: date) -> dict:
+        """Cambia lo stato dell'azione alla riga indicata: todo, doing, waiting, question, cancelled, done."""
+        if status not in parser.STATUSES:
+            raise QuickNotesError(f"Stato sconosciuto: {status}")
+        with self.edit_lock:
+            note = self.read(note_id)
+            _check_line(note, line_no, expected)
+            text = _change_line(note, line_no, lambda l: edit.with_status(l, status, dates.iso(today)))
+            self.save(note)
+            return {"note_id": note.id, "line": line_no, "text": text.strip(), "status": status,
+                    "done": status == "done"}
+
+    def set_action_status(self, note_id: str, action_text: str, done_on: date | None, status: str | None = None,
+                          scheduled=_UNSET_ARG, today: date | None = None) -> dict:
+        """Cambia lo stato di un'azione cercandola per testo dentro la nota. Lo usa il server MCP. Senza
+        `status`, `done_on` la spunta (con una data) o la riapre (None), come prima."""
         note = self.read(note_id)
         wanted = action_text.strip().lower()
         best = None
@@ -549,6 +684,16 @@ class NoteStore:
                 best = (score, i + 1)
         if best is None:
             raise QuickNotesError(f"Nota non trovata: nessuna azione che contenga '{action_text}' in {note_id}")
+        today = today or date.today()
+        if scheduled is not _UNSET_ARG:
+            self.set_action_details(note_id, best[1], None, scheduled=scheduled)
+        if status is not None:
+            return self.set_action_state(note_id, best[1], None, status, done_on or today)
+        if scheduled is not _UNSET_ARG:
+            line = parser.lines_of(self.read(note_id).body)[best[1] - 1]
+            m = parser.ACTION_RE.match(line)
+            st = parser.STATUS_OF_MARK[m.group(2).lower()] if m else "todo"
+            return {"note_id": note.id, "line": best[1], "text": line.strip(), "status": st, "done": st == "done"}
         return self.set_action_done(note_id, best[1], None, done_on)
 
     def complete_with_children(self, note_id: str, line_no: int, expected: str | None, today: date) -> int:
@@ -559,7 +704,7 @@ class NoteStore:
             _check_line(note, line_no, expected)
             day = dates.iso(today)
             targets = [a.line_no for a in parser.extract(note.body).actions
-                       if not a.done and (a.line_no == line_no or a.parent_line == line_no)]
+                       if not a.closed and (a.line_no == line_no or a.parent_line == line_no)]
             for line in targets:
                 _change_line(note, line, lambda l: edit.with_checked(l, day))
             self.save(note)
@@ -569,7 +714,7 @@ class NoteStore:
 
     def set_action_details(self, note_id: str, line_no: int, expected: str | None, *, due=_UNSET,
                            person: tuple[int, str | None] | None = None, tag=_UNSET, priority=_UNSET,
-                           description: str | None = None) -> Note:
+                           description: str | None = None, scheduled=_UNSET) -> Note:
         """Modifica i dettagli di un'azione. Un dettaglio non passato resta com'è; None lo toglie.
         Se la riga è cambiata nel frattempo non scrive."""
         with self.edit_lock:
@@ -585,12 +730,152 @@ class NoteStore:
                     line = edit.with_tag(line, tag)
                 if priority is not self._UNSET:
                     line = edit.with_priority(line, parser.priority_name(priority))
+                if scheduled is not self._UNSET:
+                    line = edit.with_scheduled(line, scheduled)
                 return line
             _change_line(note, line_no, change)
             if description is not None:
                 note.body = edit.with_description(note.body, line_no, description)
             self.save(note)
             return note
+
+    # ---- progetti
+    def registry(self) -> prj.Registry:
+        return self._read(index.registry)
+
+    def project(self, key: str) -> prj.Project:
+        reg = self.registry()
+        found = reg.match(key)
+        if found is None:
+            raise QuickNotesError(f"Progetto sconosciuto: {key}")
+        return reg.projects[found]
+
+    def project_rows(self) -> list[dict]:
+        return self._read(index.project_rows)
+
+    def logs(self, project: str, date_from: str | None = None) -> list[dict]:
+        return self._read(index.logs, project, date_from)
+
+    def create_project(self, name: str, aliases: list[str] | None = None, areas: list[str] | None = None,
+                       status: str = "attivo") -> Note:
+        """La nota di un progetto nuovo, in `progetti/`: frontmatter, obiettivo, prossime azioni per area."""
+        name = " ".join(name.split())
+        key = prj.key_of(name)
+        if not key:
+            raise QuickNotesError("Il nome del progetto non può essere vuoto")
+        if self.registry().match(name) or self.registry().match(key):
+            raise QuickNotesError(f"Il progetto {name} esiste già")
+        meta, body = project_template(name, aliases, areas, status)
+        with self.edit_lock:
+            path = self._unique_path(key, self.root / "progetti")
+            note = Note.new(path, meta, body)
+            self.save(note)
+        return note
+
+    def set_project_status(self, key: str, status: str) -> Note:
+        if status not in prj.PROJECT_STATUSES:
+            raise QuickNotesError(f"Stato del progetto sconosciuto: {status}")
+        project = self.project(key)
+        with self.edit_lock:
+            note = self.read(project.note_id)
+            note.meta["status"] = status
+            note.meta_dirty = True
+            self.save(note)
+            return note
+
+    def _hub_insert(self, hub: Note, area: str | None, block: str) -> None:
+        """Mette un blocco nella nota di progetto, sotto l'area; un'area nuova entra anche nel frontmatter."""
+        area = prj.key_of(area) if area else None
+        hub.body = edit.add_to_area(hub.body, area, block)
+        if area:
+            declared = parser.meta_list(hub.meta, "areas")
+            if area not in [prj.key_of(a) for a in declared]:
+                hub.meta["areas"] = [*declared, area]
+                hub.meta_dirty = True
+
+    def add_project_action(self, key: str, text: str, area: str | None = None) -> Note:
+        """Una nuova azione nella nota di progetto, sotto l'area scelta."""
+        project = self.project(key)
+        text = text.strip()
+        if not text:
+            raise QuickNotesError("L'azione è vuota")
+        line = text if parser.ACTION_RE.match(text) else f"- [ ] {text}"
+        with self.edit_lock:
+            hub = self.read(project.note_id)
+            self._hub_insert(hub, area, line)
+            self.save(hub)
+            return hub
+
+    def move_action(self, note_id: str, line_no: int, expected: str | None, target_id: str,
+                    section: str | None = None) -> dict:
+        """Sposta un'azione, con figlie e descrizione, in un'altra nota. In una nota di progetto va sotto
+        `### <section>` in "Prossime azioni"; altrove in fondo alla sezione indicata. Nella nota di partenza resta
+        `- ↗ testo → [[nota]]`. Si scrive prima la destinazione: se qualcosa va storto l'azione c'è due volte,
+        non zero."""
+        with self.edit_lock:
+            src = self.read(note_id)
+            _check_line(src, line_no, expected)
+            target = self.read(target_id)
+            if target.path == src.path:
+                raise QuickNotesError("L'azione è già in questa nota")
+            lines = parser.lines_of(src.body)
+            start = line_no - 1
+            m = parser.ACTION_RE.match(lines[start]) if 0 <= start < len(lines) else None
+            if m is None:
+                raise QuickNotesError(f"Alla riga {line_no} non c'è un'azione")
+            end = edit.block_end(lines, start)
+            block = "\n".join(edit.dedent_block(lines[start:end]))
+            if target.note_type == "project":
+                self._hub_insert(target, section, block)
+            else:
+                target.body = edit.add_to_section(target.body, section, block)
+            self.save(target)
+            indent = lines[start][:len(lines[start]) - len(lines[start].lstrip())]
+            shown = parser.action_display_text(m.group(3).strip())
+            lines[start:end] = [f"{indent}- \u2197 {shown} \u2192 [[{target.id}|{target.title}]]"]
+            src.body = "\n".join(lines) + ("\n" if src.body.endswith("\n") else "")
+            self.save(src)
+            return {"note_id": target.id, "title": target.title, "from": src.id}
+
+    def archive_done(self, key: str, today: date) -> dict:
+        """Sposta dalla nota di progetto all'archivio (`<progetto>.archivio.md`, accanto) le azioni chiuse di primo
+        livello che hanno anche tutte le figlie chiuse, raggruppate per mese di completamento."""
+        project = self.project(key)
+        with self.edit_lock:
+            hub = self.read(project.note_id)
+            ex = parser.extract(hub.body)
+            lines = parser.lines_of(hub.body)
+            children: dict[int, list] = {}
+            for a in ex.actions:
+                if a.parent_line is not None:
+                    children.setdefault(a.parent_line, []).append(a)
+            picked = []
+            for a in ex.actions:
+                if a.parent_line is None and a.closed and all(c.closed for c in children.get(a.line_no, [])):
+                    start = a.line_no - 1
+                    picked.append((start, edit.block_end(lines, start), (a.done_on or dates.iso(today))[:7]))
+            if not picked:
+                return {"archived": 0, "archive_id": None}
+            by_month: dict[str, list[str]] = {}
+            for start, end, month in picked:
+                by_month.setdefault(month, []).extend(edit.dedent_block(lines[start:end]))
+            path = hub.path.with_name(f"{hub.id}.archivio.md")
+            if path.exists():
+                archive = self._read_path(path)
+            else:
+                archive = Note.new(path, {"type": "archivio", "title": f"{hub.title} · archivio",
+                                          "project": project.key}, "")
+            for month in sorted(by_month):
+                archive.body = edit.add_to_section(archive.body, month, "\n".join(by_month[month]))
+            self.save(archive)
+            for start, end, _ in sorted(picked, reverse=True):
+                del lines[start:end]
+                # Niente righe vuote doppie dove c'era il blocco.
+                if 0 < start < len(lines) and not lines[start].strip() and not lines[start - 1].strip():
+                    del lines[start]
+            hub.body = "\n".join(lines) + ("\n" if hub.body.endswith("\n") else "")
+            self.save(hub)
+            return {"archived": len(picked), "archive_id": archive.id}
 
     # ---- interrogazioni
     def search(self, text: str, flt: Filter | None = None, limit: int = 20) -> list[dict]:
@@ -600,7 +885,10 @@ class NoteStore:
         return self._read(index.list_notes, flt or Filter(), limit)
 
     def actions(self, **query) -> list[dict]:
-        return self._read(lambda db: index.actions(db, **query))
+        try:
+            return self._read(lambda db: index.actions(db, **query))
+        except ValueError as e:
+            raise QuickNotesError(str(e)) from None
 
     def done_since(self, day: str) -> int:
         return self._read(index.done_since, day)

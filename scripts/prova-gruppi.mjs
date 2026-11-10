@@ -1,4 +1,4 @@
-// Prova i gruppi nell'app vera: divisore, ingrandimento, menu delle schede, chiusura di un gruppo, Ctrl 1…6 e Ctrl W.
+// Prova i gruppi nell'app vera: divisore, ingrandimento, menu delle schede, chiusura di un gruppo, Ctrl 1…9 e Ctrl W.
 // Va usata con le note di demo-note.mjs.
 const assert = (cond, msg) => {
   if (!cond) throw new Error(`FALLITO: ${msg}`);
@@ -11,13 +11,13 @@ export default async function (page) {
   const tabsOf = (i) => groups.nth(i).locator('.tab .clip').allInnerTexts();
   const box = async (i) => (await groups.nth(i).boundingBox()) ?? { width: 0 };
 
-  // Ctrl 1…6 apre Oggi e le viste nell'ordine della barra.
-  await page.keyboard.press('Control+2');
+  // Ctrl 1…9 apre Oggi e le viste nell'ordine della barra.
+  await page.keyboard.press('Control+3');
   await page.waitForSelector('.grid');
-  await page.keyboard.press('Control+4');
+  await page.keyboard.press('Control+6');
   await page.waitForTimeout(200);
   const opened = await tabsOf(0);
-  assert(opened.slice(1).join(',') === 'Calendario,Persone', `Ctrl 2 e Ctrl 4 aprono Calendario e Persone: ${opened.join(', ')}`);
+  assert(opened.slice(1).join(',') === 'Calendario,Persone', `Ctrl 3 e Ctrl 6 aprono Calendario e Persone: ${opened.join(', ')}`);
   await page.keyboard.press('Control+1');
   await page.waitForTimeout(150);
   assert((await groups.nth(0).locator('.tab.on .clip').innerText()).startsWith('Oggi'), 'Ctrl 1 torna alla nota di oggi');
@@ -85,7 +85,7 @@ export default async function (page) {
   assert((await tabsOf(0)).length === n - 1, 'Ctrl W chiude la scheda attiva');
 
   // Il tasto centrale chiude la scheda sotto il puntatore, anche se non è attiva.
-  await page.keyboard.press('Control+3');
+  await page.keyboard.press('Control+4');
   await page.waitForTimeout(200);
   const before3 = await tabsOf(0);
   await groups.nth(0).locator('.tab', { hasText: before3.find((t) => t !== 'Azioni') }).click({ button: 'middle' });
@@ -95,7 +95,7 @@ export default async function (page) {
 
   // Il menu ⋯ compare solo dove ha voci utili.
   assert((await page.getByRole('button', { name: 'Altre opzioni' }).count()) === 0, 'nelle viste senza opzioni il pulsante ⋯ non c\'è');
-  await page.keyboard.press('Control+4');
+  await page.keyboard.press('Control+6');
   await page.waitForSelector('main.pane .row');
   await page.locator('main.pane .row').first().click();
   await page.waitForSelector('.stats');

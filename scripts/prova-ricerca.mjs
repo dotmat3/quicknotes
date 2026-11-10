@@ -76,7 +76,7 @@ export default async function (page, { cfg }) {
   await page.keyboard.press('Escape');
 
   // Calendario: la registrazione nel giorno della riunione.
-  await page.keyboard.press('Control+2');
+  await page.keyboard.press('Control+3');
   await page.waitForSelector('.grid');
   const chip = page.locator('.cell .chip', { hasText: 'Registrazione 15:02 (18:40)' });
   if (!(await chip.count())) {

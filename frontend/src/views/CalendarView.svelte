@@ -12,13 +12,14 @@
   const KINDS = {
     note: ['Nota', 'var(--muted)', 'color-mix(in srgb, var(--muted) 12%, transparent)'],
     due: ['Scadenza', 'var(--text)', 'color-mix(in srgb, var(--text) 8%, transparent)'],
+    plan: ['Pianificata', 'var(--accent)', 'color-mix(in srgb, var(--accent) 14%, transparent)'],
     late: ['In ritardo', 'var(--late)', 'color-mix(in srgb, var(--late) 14%, transparent)'],
     done: ['Fatta', 'var(--faint)', 'transparent'],
     dec: ['Decisione', 'var(--dec)', 'color-mix(in srgb, var(--dec) 13%, transparent)'],
     rec: ['Registrazione', 'var(--muted)', 'color-mix(in srgb, var(--muted) 12%, transparent)'],
   };
   // Nella legenda note e registrazioni hanno lo stesso colore, come nella tavola Home.
-  const LEGEND = [['due', 'Scadenza'], ['late', 'In ritardo'], ['dec', 'Decisione'], ['note', 'Nota o registrazione'], ['done', 'Fatta']];
+  const LEGEND = [['due', 'Scadenza'], ['plan', 'Pianificata'], ['late', 'In ritardo'], ['dec', 'Decisione'], ['note', 'Nota o registrazione'], ['done', 'Fatta']];
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   const today = isoToday();
@@ -28,6 +29,8 @@
   let month = $state(now.getMonth());
   let sel = $state(today);
   let days = $state({});
+  // Solo le note, le decisioni e le azioni di un progetto.
+  let project = $state('');
 
   const parse = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
   const selDate = $derived(parse(sel));
@@ -44,10 +47,11 @@
   });
 
   async function load() {
-    days = await call('calendar_data', { from: isoToday(cells[0]), to: isoToday(cells[cells.length - 1]) }, {});
+    days = await call('calendar_data', { from: isoToday(cells[0]), to: isoToday(cells[cells.length - 1]), project: project || null }, {});
   }
   $effect(() => {
     cells;
+    project;
     load();
   });
   const off = listen('index-updated', load);
@@ -99,6 +103,12 @@
     <button class="step" aria-label={mode === 'settimana' ? 'Settimana successiva' : 'Mese successivo'} onclick={() => shift(1)}>{nextName}<Icon name="right" size={14} /></button>
   </div>
   {#if !todayInView}<button class="btn" onclick={goToday}>Torna a oggi</button>{/if}
+  {#if app.counts.projects?.length}
+    <select class="proj" aria-label="Progetto" bind:value={project}>
+      <option value="">Tutti i progetti</option>
+      {#each app.counts.projects as p (p.key)}<option value={p.key}>{p.title}</option>{/each}
+    </select>
+  {/if}
   <div class="seg" role="radiogroup" aria-label="Periodo">
     {#each [['mese', 'Mese'], ['settimana', 'Settimana']] as [v, label] (v)}
       <button role="radio" aria-checked={mode === v} class:on={mode === v} onclick={() => (mode = v)}>{label}</button>
@@ -173,6 +183,7 @@
   .step:hover { background: var(--hover); }
   h1 { margin: 0 8px; font-size: 26px !important; white-space: nowrap; }
   .year { font-weight: 400; color: var(--subtle); }
+  .proj { height: 32px; max-width: 200px; padding: 0 8px; border: 1px solid var(--border2); border-radius: 8px; background: var(--raised); color: var(--text); font: inherit; font-size: 12.5px; }
   .seg { display: flex; padding: 2px; border-radius: 9px; background: var(--raised); border: 1px solid var(--border); }
   .seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 12.5px; }
   .seg button.on { background: var(--border2); color: var(--text); }

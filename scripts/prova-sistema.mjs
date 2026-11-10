@@ -118,7 +118,7 @@ export default async function (page, { notes, pid }) {
 
     // Una scheda trascinata con il mouse vero davanti alla prima.
     m = await main();
-    await page.keyboard.press('Control+3');
+    await page.keyboard.press('Control+4');
     await page.waitForSelector('.column');
     const tabs = () => page.locator('main.pane .tab .clip').allInnerTexts();
     const first = (await tabs())[0];

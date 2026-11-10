@@ -8,7 +8,7 @@
 
   // Le sezioni comuni a persona ed etichetta: azioni, note, decisioni.
   // Con `items` (schede della bacheca) le azioni si modificano con spunta e pillole; `actions` è in sola lettura.
-  let { actions = [], items = null, notes = [], decisions = [], notesCount = 0 } = $props();
+  let { actions = [], items = null, groups = null, notes = [], decisions = [], notesCount = 0 } = $props();
   const dateLabel = (d) => d?.slice(0, 10) ?? '';
 
   let popover = $state(null);
@@ -22,11 +22,17 @@
 
 <h2>Azioni aperte <span class="mono n">{(items ?? actions).length}</span></h2>
 {#if items?.length}
-  <div class="rows">
-    {#each items as item (`${item.note_id}:${item.line}`)}
-      <ActionItem {item} pop={openPopover} popKey={popover?.key} />
-    {/each}
-  </div>
+  <!-- Con più progetti (un'area usata in tutti), le azioni sono divise per progetto. -->
+  {#each groups && groups.length > 1 ? groups : [{ project: null, items }] as g (g.project ?? '')}
+    {#if groups && groups.length > 1}
+      <button class="grp" onclick={() => g.project && openPage(`project:${g.project}`)}>{g.project ?? 'Senza progetto'}<span class="mono n">{g.items.length}</span></button>
+    {/if}
+    <div class="rows">
+      {#each g.items as item (`${item.note_id}:${item.line}`)}
+        <ActionItem {item} pop={openPopover} popKey={popover?.key} />
+      {/each}
+    </div>
+  {/each}
   {#if popover}
     {#key popover.key}
       <DetailPopover item={popover.item} kind={popover.kind} index={popover.index} anchor={popover.anchor} close={() => (popover = null)} />
@@ -65,6 +71,7 @@
 
 <style>
   h2 { margin: 28px 0 10px; font-size: 16px; font-weight: 600; }
+  .grp { display: flex; align-items: center; gap: 8px; margin: 14px 2px 6px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; }
   .n { font-size: 12.5px; font-weight: 400; color: var(--subtle); }
   .rows { border-radius: 12px; border: 1px solid var(--border); background: var(--card); }
   .row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; }

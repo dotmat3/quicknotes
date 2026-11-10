@@ -216,6 +216,7 @@
       <SettingRow label="Cartella delle note" desc={notes.notesDir}><button class="btn" onclick={() => call('open_notes_folder')}>Apri la cartella</button></SettingRow>
       <SettingRow label="Note del giorno" desc="Una per giorno, creata quando serve."><span class="mono value">AAAA/MM/AAAA-MM-GG-giornata.md</span></SettingRow>
       <SettingRow label="Sezioni" desc="Nota rapida e nuove azioni scrivono nella loro sezione, creata solo quando serve."><span class="value">Priorità · Note · Trascrizioni</span></SettingRow>
+      <SettingRow label="Migrazione a progetti e stati" desc="Per le note scritte prima della 0.6: propone note di progetto e stati, li rivedi e li applichi. Prima si copia la cartella."><button class="btn" onclick={() => openPage('view:migration')}>Apri</button></SettingRow>
     </div>
   </section>
   <section>

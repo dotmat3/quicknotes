@@ -42,6 +42,25 @@
 .cm-task-box.checked { background: var(--accent); border-color: var(--accent); }
 .cm-task-box.checked svg { visibility: visible; }
 .cm-task-done, .cm-task-done .cm-line { color: var(--subtle); text-decoration: line-through; }
+/* Gli altri stati: in corso mezza piena, in attesa con l'orologio, domanda con il ?, annullata con il trattino. */
+.cm-task-box.st-doing { border-color: var(--accent); color: var(--accent); }
+.cm-task-box.st-waiting { border-color: var(--person); }
+.cm-task-box.st-question { border-color: var(--dec); }
+.cm-task-box.st-cancelled { border-color: var(--faint); }
+.cm-task-box.st-doing svg, .cm-task-box.st-waiting svg, .cm-task-box.st-question svg, .cm-task-box.st-cancelled svg { visibility: visible; stroke-width: 2.4; }
+.cm-task-box.st-waiting svg { stroke: var(--person); }
+.cm-task-box.st-question svg { stroke: var(--dec); }
+.cm-task-box.st-cancelled svg { stroke: var(--faint); }
+.cm-task-cancelled, .cm-task-cancelled .cm-line { color: var(--faint); }
+.cm-sched { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 0.86em; line-height: 1.5; text-indent: 0; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text); }
+.cm-sched.late { background: color-mix(in srgb, var(--late) 14%, transparent); color: var(--late); }
+.cm-sched.done { background: transparent; color: var(--faint); }
+.cm-status-menu { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 190px; padding: 6px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); }
+.cm-status-item { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
+.cm-status-item span:nth-child(2) { flex: 1; }
+.cm-status-item:hover, .cm-status-item:focus, .cm-status-item.on { background: var(--border2); outline: none; }
+.cm-status-item .cm-task-box { margin-right: 0; cursor: inherit; }
+.cm-status-item kbd { font-size: 11px; color: var(--subtle); }
 .cm-task-done .cm-mention, .cm-task-done .cm-tag { color: inherit; }
 
 .cm-desc { color: var(--muted); font-size: 13.5px; }

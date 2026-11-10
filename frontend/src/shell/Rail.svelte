@@ -45,8 +45,10 @@
     ...app.viewOrder
       .filter((k) => app.viewVis[k])
       .map((k, i) => ({
-        key: k, label: VIEWS[k].label, icon: VIEWS[k].icon, kbd: `Ctrl ${i + 2}`, page: VIEWS[k].page, go: () => openPage(VIEWS[k].page), dot: k === 'azioni' && app.counts.late > 0,
+        key: k, label: VIEWS[k].label, icon: VIEWS[k].icon, kbd: `Ctrl ${i + 2}`, page: VIEWS[k].page, go: () => openPage(VIEWS[k].page), dot: (k === 'azioni' && app.counts.late > 0) || (k === 'revisione' && app.counts.reviewDue),
         fly: {
+          agenda: [{ label: 'Cosa fare oggi', hint: '', go: () => openPage('view:agenda') }, ...(app.counts.projects ?? []).filter((p) => p.status === 'attivo').slice(0, 5).map((p) => ({ label: p.title, hint: String(p.open), go: () => openPage(`project:${p.key}`, p.title) }))],
+          revisione: [{ label: app.counts.reviewDue ? 'Revisione da fare' : 'Apri la revisione', hint: '', go: () => openPage('view:review') }],
           calendario: [{ label: 'Apri il calendario', hint: '', go: () => openPage('view:calendar') }],
           azioni: [
             { label: 'In ritardo', hint: String(app.counts.late), go: actionsFilter('ritardo') },

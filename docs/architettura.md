@@ -109,12 +109,14 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 
 | Modulo | Compito |
 |---|---|
-| `parser` | Frontmatter, persone, etichette, azioni con madre e descrizione, decisioni, link, titoli, registrazioni e righe delle trascrizioni. Funzioni pure |
-| `edit` | Modifiche su una riga o su un corpo: `with_done`, `with_due`, `with_checked`, `with_person`, `with_tag`, `with_description`, `add_to_section`. Funzioni pure |
-| `index` | Schema SQLite, indicizzazione, interrogazioni (ricerca, azioni, decisioni, persone, etichette, collegamenti, grafo) |
-| `store` | Lettura e scrittura atomica dei file, allineamento dell'indice, operazioni sulle azioni, rinomina ed eliminazione, immagini |
+| `parser` | Frontmatter, persone, etichette, azioni con stato, madre, descrizione e intestazioni sopra la riga, decisioni, righe di log, link, titoli, registrazioni e righe delle trascrizioni. Funzioni pure |
+| `migrate` | Migrazione delle note di prima della 0.6.0: `plan` propone progetti (dalle intestazioni dei daily e dalle etichette fuori da un progetto) e righe da cambiare per regola, `apply` copia la cartella e applica le scelte. Usata dalla vista Migrazione e da `scripts/migra_note.py` |
+| `projects` | Note di progetto (`type: project`) e regole che assegnano progetto e area a un'azione, una decisione o una riga di log |
+| `edit` | Modifiche su una riga o su un corpo: `with_done`, `with_due`, `with_status`, `with_scheduled`, `with_checked`, `with_person`, `with_tag`, `with_description`, `add_to_section`, `add_to_area`. Funzioni pure |
+| `index` | Schema SQLite, indicizzazione, interrogazioni (ricerca, azioni con filtri per progetto, area e stato, decisioni, progetti, log, persone, etichette, collegamenti, grafo) |
+| `store` | Lettura e scrittura atomica dei file, allineamento dell'indice, operazioni sulle azioni (stato, `scheduled:`, sposta nel progetto), progetti (crea, stato, archivia fatte), rinomina ed eliminazione, immagini |
 | `dates` | Titolo del giorno, etichette e colonne delle scadenze |
-| `views` | Dati pronti per le viste: `action_board`, `calendar_data`, `person_page`, `people_list`, `tag_page`, `full_graph`, `search_all` |
+| `views` | Dati pronti per le viste: `agenda`, `project_page`, `weekly_review`, `action_board`, `calendar_data`, `person_page`, `people_list`, `tag_page`, `full_graph`, `search_all` |
 | `commands` | I comandi della pagina |
 | `app` | Finestre, server locale, area di notifica, nota rapida, tasti globali, istanza singola, modifiche esterne |
 | `system` | Link e cartelle, Cestino di Windows, avvio con Windows (`HKCU\…\Run`), percorsi di `python.exe` e `pythonw.exe` |
@@ -127,6 +129,12 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 Il riconoscimento di `@` e `#` è scritto a mano: le regole guardano il carattere precedente, e saltando da un `@` o `#` al successivo è anche veloce. Le prove in `tests/` sono le stesse della versione Rust, con gli stessi risultati attesi.
 
 **Indice:** le righe di `notes_fts` hanno lo stesso `rowid` della nota in `notes`, così si cancellano senza scorrere la tabella a testo pieno, dove il percorso non ha un indice.
+
+**Progetti e aree (schema 7):** un'azione prende il progetto dalla prima di queste fonti: etichetta gerarchica sulla riga (`#progetto/area`), etichetta che è un progetto o un suo alias, intestazione sopra la riga, azione madre, campo `project` della nota (o la nota di progetto stessa). Le aree sono le altre etichette della riga e della madre, più le intestazioni che sono aree dichiarate del progetto; la prima è quella dichiarata. `actions` ha le colonne `status`, `scheduled`, `project`, `topics`; `projects` elenca le note di progetto; `logs` le righe puntate dei daily che hanno un progetto. Quando cambia una nota di progetto (chiave, titolo, alias o aree) l'assegnazione può cambiare ovunque, quindi si rileggono tutte le note: con mille note circa un secondo.
+
+**`action_seen`:** fuori dalle tabelle che si ricostruiscono, ricorda per ogni testo d'azione da quando esiste e da quando ha il suo stato. Serve ad Agenda e Revisione per i task fermi e le attese lunghe; la chiave è il testo, così un'azione spostata nel progetto conserva l'età. Se si cancella l'indice riparte dalla data della nota.
+
+**Agenda e Revisione:** ogni azione compare nella prima sezione (o passo) in cui rientra. Le soglie sono in `views.py`: 2 giorni per "da smistare", 7 per le attese, 14 per i task fermi, 7 per ricordare la Revisione; la data dell'ultima sta in `config.ui.lastReview`.
 
 ### Concorrenza
 

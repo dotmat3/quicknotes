@@ -1,7 +1,9 @@
 """Formato delle note e convenzioni di scrittura rapida.
 
-Una nota è un file Markdown con frontmatter YAML facoltativo. Nel testo: `@persona`, `#etichetta`,
-`- [ ] azione`, `due:AAAA-MM-GG`, `done:AAAA-MM-GG`, `prio:alta|media|bassa`, `!decisione`, `[[id|Titolo]]`, `![[schizzo.excalidraw]]`.
+Una nota è un file Markdown con frontmatter YAML facoltativo. Nel testo: `@persona`, `#etichetta` (anche
+gerarchica, `#progetto/area`), `- [ ] azione` con gli stati `[/]` in corso, `[w]` in attesa, `[?]` domanda,
+`[-]` annullata, `[x]` fatta, `due:AAAA-MM-GG`, `scheduled:AAAA-MM-GG`, `done:AAAA-MM-GG`, `prio:alta|media|bassa`,
+`!decisione`, `[[id|Titolo]]`, `![[schizzo.excalidraw]]`.
 
 `@` e `#` si riconoscono con scanner scritti a mano: le regole guardano il carattere precedente.
 Le posizioni restituite sono indici di carattere nella riga.
@@ -17,6 +19,8 @@ import yaml
 
 DUE_RE = re.compile(r"\b(?:due|entro|scadenza)\s*:\s*(\d{4}-\d{2}-\d{2})", re.I)
 DONE_RE = re.compile(r"\bdone\s*:\s*(\d{4}-\d{2}-\d{2})", re.I)
+# `scheduled:` è il giorno in cui si pensa di farla; `due:` resta la scadenza.
+SCHEDULED_RE = re.compile(r"\bscheduled\s*:\s*(\d{4}-\d{2}-\d{2})", re.I)
 # `prio:alta`, anche `priorità:` e `priority:`; i valori inglesi valgono come quelli italiani.
 PRIO_RE = re.compile(r"\b(?:prio|priorit[àa]|priority)\s*:\s*(alta|media|bassa|high|medium|low)\b", re.I)
 PRIORITIES = ("alta", "media", "bassa")
@@ -24,7 +28,12 @@ _PRIO_NAMES = {"high": "alta", "medium": "media", "low": "bassa"}
 DECISION_RE = re.compile(r"!(?:decisione|decision|dec)\b", re.I)
 MD_LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
 BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
-ACTION_RE = re.compile(r"^(\s*)[-*+]\s+\[( |x|X)\]\s*(.*)$")
+ACTION_RE = re.compile(r"^(\s*)[-*+]\s+\[( |x|X|/|w|W|\?|-)\]\s*(.*)$")
+# Il segno nella casella e lo stato che indica. `done` resta vero solo per `[x]`.
+STATUS_OF_MARK = {" ": "todo", "/": "doing", "w": "waiting", "?": "question", "-": "cancelled", "x": "done"}
+MARK_OF_STATUS = {v: k for k, v in STATUS_OF_MARK.items()}
+STATUSES = ("todo", "doing", "waiting", "question", "cancelled", "done")
+CLOSED = ("done", "cancelled")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 # `🎙️ [Registrazione 15:02 (12:30)](audio/nota-150200.wav)`, la riga scritta alla fine di una registrazione.
 RECORDING_RE = re.compile(r"\[Registrazione (\d{1,2}:\d{2})(?: \((\d{1,2}(?::\d{2}){1,2})\))?\]\(([^)]*)\)")
@@ -228,12 +237,31 @@ class Action:
     priority: str | None = None  # alta, media, bassa
     parent_line: int | None = None  # riga dell'azione madre; None per quelle di primo livello
     description: str = ""
+    status: str = "todo"  # todo, doing, waiting, question, cancelled, done
+    scheduled: str | None = None  # `scheduled:`
+    headings: list[str] = field(default_factory=list)  # le intestazioni sopra la riga, dalla più esterna
+    inherited_tags: list[str] = field(default_factory=list)  # le etichette dell'azione madre
+
+    @property
+    def closed(self) -> bool:
+        return self.status in CLOSED
 
 
 @dataclass
 class Decision:
     line_no: int
     text: str
+    tags: list[str] = field(default_factory=list)
+    headings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class LogLine:
+    """Una riga puntata che non è un'azione: nei daily diventa il log di un progetto."""
+    line_no: int
+    text: str
+    tags: list[str] = field(default_factory=list)
+    headings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -266,6 +294,7 @@ class Extracted:
     links: list[WikiLink] = field(default_factory=list)
     embeds: list[Embed] = field(default_factory=list)
     headings: list[Heading] = field(default_factory=list)
+    logs: list[LogLine] = field(default_factory=list)
 
 
 def _scan_wiki(line: str, line_no: int, out: Extracted) -> None:
@@ -297,6 +326,7 @@ def extract(body: str) -> Extracted:
     in_fence = False
     top: tuple[int, int] | None = None  # indice e rientro dell'ultima azione di primo livello
     describing: int | None = None  # indice dell'azione che può ancora ricevere righe di descrizione
+    stack: list[tuple[int, str]] = []  # intestazioni aperte: (livello, testo)
 
     for idx, line in enumerate(lines):
         line_no = idx + 1
@@ -308,7 +338,12 @@ def extract(body: str) -> Extracted:
             continue
         h = HEADING_RE.match(line)
         if h:
-            result.headings.append(Heading(line_no, len(h.group(1)), h.group(2)))
+            level = len(h.group(1))
+            result.headings.append(Heading(line_no, level, h.group(2)))
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            stack.append((level, h.group(2)))
+        context = [t for _, t in stack]
         # Le destinazioni dei link Markdown non devono generare etichette (`file#ancora`).
         scan = MD_LINK_TARGET_RE.sub("]", line)
         line_people = mentions(scan)
@@ -323,16 +358,22 @@ def extract(body: str) -> Extracted:
         if m:
             text = m.group(3).strip()
             if text:
-                parent = result.actions[top[0]].line_no if top is not None and width > top[1] else None
+                mother = result.actions[top[0]] if top is not None and width > top[1] else None
+                parent = mother.line_no if mother else None
                 due = DUE_RE.search(text)
                 done_on = DONE_RE.search(text)
                 prio = PRIO_RE.search(text)
+                scheduled = SCHEDULED_RE.search(text)
+                status = STATUS_OF_MARK[m.group(2).lower()]
                 result.actions.append(Action(
-                    line_no=line_no, text=text, done=m.group(2).lower() == "x",
+                    line_no=line_no, text=text, done=status == "done", status=status,
                     owner=line_people[0] if line_people else None,
                     people=_dedupe(line_people), tags=_dedupe(line_tags),
                     due=due.group(1) if due else None, done_on=done_on.group(1) if done_on else None,
+                    scheduled=scheduled.group(1) if scheduled else None,
                     parent_line=parent, priority=priority_name(prio.group(1)) if prio else None,
+                    headings=context,
+                    inherited_tags=_dedupe(mother.tags + mother.inherited_tags) if mother else [],
                 ))
                 i = len(result.actions) - 1
                 if parent is None:
@@ -349,6 +390,10 @@ def extract(body: str) -> Extracted:
             # Una riga non rientrata chiude l'azione madre corrente.
             if width == 0:
                 top = None
+            if not described and BULLET_RE.match(line) and not DECISION_RE.search(line):
+                bare = BULLET_RE.sub("", line, count=1).strip()
+                if bare and not bare.startswith("↗"):
+                    result.logs.append(LogLine(line_no, bare, _dedupe(line_tags), context))
         if not described:
             describing = None
 
@@ -356,7 +401,7 @@ def extract(body: str) -> Extracted:
             cleaned = BULLET_RE.sub("", line, count=1)
             text = DECISION_RE.sub("", cleaned.strip()).strip(" -–:")
             if text:
-                result.decisions.append(Decision(line_no, text))
+                result.decisions.append(Decision(line_no, text, _dedupe(line_tags), context))
     result.people = _dedupe(result.people)
     result.tags = _dedupe(result.tags)
     return result
@@ -374,8 +419,8 @@ def first_h1(body: str) -> str | None:
 
 
 def action_display_text(text: str) -> str:
-    """Il testo di un'azione senza `due:`, `done:` e `prio:`, mostrati a parte nell'interfaccia."""
-    return " ".join(PRIO_RE.sub("", DONE_RE.sub("", DUE_RE.sub("", text))).split())
+    """Il testo di un'azione senza `due:`, `scheduled:`, `done:` e `prio:`, mostrati a parte nell'interfaccia."""
+    return " ".join(PRIO_RE.sub("", DONE_RE.sub("", SCHEDULED_RE.sub("", DUE_RE.sub("", text)))).split())
 
 
 def priority_name(value: str | None) -> str | None:

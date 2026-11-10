@@ -9,6 +9,9 @@
 
   // Ogni vista è un blocco a sé: la prima schermata non le carica.
   const LOADERS = {
+    'view:agenda': () => import('../views/AgendaView.svelte'),
+    'view:review': () => import('../views/ReviewView.svelte'),
+    'view:migration': () => import('../views/MigrationView.svelte'),
     'view:actions': () => import('../views/ActionsView.svelte'),
     'view:calendar': () => import('../views/CalendarView.svelte'),
     'view:people': () => import('../views/PeopleView.svelte'),
@@ -19,11 +22,11 @@
   };
 
   const kind = $derived(pageKind(page));
-  const crumb = $derived(kind === 'note' ? (app.paths?.[page] ?? '') : kind === 'settings' ? 'Impostazioni' : kind === 'person' ? `Persona · ${pageArg(page)}` : kind === 'tag' ? `Etichetta · #${pageArg(page)}` : `Vista · ${pageTitle(page, app.titles)}`);
+  const crumb = $derived(kind === 'note' ? (app.paths?.[page] ?? '') : kind === 'settings' ? 'Impostazioni' : kind === 'person' ? `Persona · ${pageArg(page)}` : kind === 'tag' ? `Etichetta · #${pageArg(page)}` : kind === 'project' ? `Progetto · ${pageArg(page)}` : `Vista · ${pageTitle(page, app.titles)}`);
   const WIDTH = { leggibile: 'narrow', ampia: 'wide', intera: '' };
   const viewKey = $derived(`${groupId}:${page}`);
   const mode = $derived(modes[viewKey] ?? 'live');
-  const widthClass = $derived(kind === 'settings' || page === 'view:help' ? 'settings' : kind === 'view' ? WIDTH[app.viewW] : mode === 'split' ? '' : WIDTH[app.noteW]);
+  const widthClass = $derived(kind === 'settings' || page === 'view:help' ? 'settings' : kind === 'view' || kind === 'project' ? WIDTH[app.viewW] : mode === 'split' ? '' : WIDTH[app.noteW]);
 
   let menu = $state(false);
   let menuBtn = $state();
@@ -54,6 +57,7 @@
     }
     if (kind === 'person') return [{ label: `Cerca @${pageArg(page)} nelle note`, run: () => search(`@${pageArg(page)} `) }];
     if (kind === 'tag') return [{ label: `Cerca #${pageArg(page)} nelle note`, run: () => search(`#${pageArg(page)} `) }];
+    if (kind === 'project') return [{ label: `Cerca #${pageArg(page)} nelle note`, run: () => search(`#${pageArg(page)} `) }];
     return [];
   });
 
@@ -108,6 +112,10 @@
     {:else if kind === 'person'}
       {#await import('../views/PersonView.svelte') then { default: PersonView }}
         <PersonView name={pageArg(page)} />
+      {/await}
+    {:else if kind === 'project'}
+      {#await import('../views/ProjectView.svelte') then { default: ProjectView }}
+        <ProjectView slug={pageArg(page)} />
       {/await}
     {:else if kind === 'tag'}
       {#await import('../views/TagView.svelte') then { default: TagView }}

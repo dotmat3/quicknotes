@@ -4,6 +4,8 @@ export const MENTION = new RegExp(`(?<![${W}.@])@([${W}][${W}\\-.]*[${W}]|[${W}]
 export const TAG = new RegExp(`(?<![${W}/#&])#([\\p{L}_][${W}\\-/]*)`, 'gu');
 export const DUE = /\b(?:due|entro|scadenza)\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
 export const DONE = /\bdone\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
+// `scheduled:` è il giorno in cui farla; `due:` resta la scadenza.
+export const SCHEDULED = /\bscheduled\s*:\s*(\d{4}-\d{2}-\d{2})/giu;
 export const PRIO = /(?<![\p{L}\p{N}_])(?:prio|priorit[àa]|priority)\s*:\s*(alta|media|bassa|high|medium|low)(?![\p{L}\p{N}_])/giu;
 // Le tre priorità, dalla più alta: nome scritto nel file, etichetta e freccia.
 export const PRIORITIES = [
@@ -24,7 +26,20 @@ export const prioRank = (p) => {
 export const prioArrow = (p) => PRIORITIES.find(([name]) => name === p)?.[2] ?? '';
 export const DECISION =/!(?:decisione|decision|dec)(?![\p{L}\p{N}_])/giu;
 export const WIKI = /(!?)\[\[([^\]\n|]+)(?:\|([^\]\n]*))?\]\]/g;
-export const ACTION = /^(\s*)[-*+]\s+\[( |x|X)\]\s*(.*)$/;
+export const ACTION = /^(\s*)[-*+]\s+\[( |x|X|\/|w|W|\?|-)\]\s*(.*)$/;
+// I sei stati: nome scritto nel modello, segno nella casella, etichetta, colore.
+export const STATUSES = [
+  ['todo', ' ', 'Da fare', 'var(--faint)'],
+  ['doing', '/', 'In corso', 'var(--accent)'],
+  ['waiting', 'w', 'In attesa', 'var(--person)'],
+  ['question', '?', 'Domanda', 'var(--dec)'],
+  ['cancelled', '-', 'Annullata', 'var(--faint)'],
+  ['done', 'x', 'Fatta', 'var(--accent)'],
+];
+export const CLOSED = ['done', 'cancelled'];
+export const statusOfMark = (mark) => STATUSES.find(([, m]) => m === String(mark).toLowerCase())?.[0] ?? 'todo';
+export const markOfStatus = (status) => STATUSES.find(([s]) => s === status)?.[1] ?? ' ';
+export const statusLabel = (status) => STATUSES.find(([s]) => s === status)?.[2] ?? status;
 export const ALERT_LABELS = { NOTE: 'Nota', TIP: 'Suggerimento', IMPORTANT: 'Importante', WARNING: 'Avvertenza', CAUTION: 'Attenzione' };
 export const ALERT_DESCRIPTIONS = {
   NOTE: 'Informazioni utili anche a una lettura veloce',
@@ -64,15 +79,20 @@ export function dueLabel(iso, now = new Date()) {
   return { label: `${DAYS[due.getDay()]} ${d} ${MONTHS[m - 1]}`, level: 'normal' };
 }
 
-// Come edit.rs, with_checked: casella e data di completamento cambiano insieme.
+// Come edit.py, with_checked: casella e data di completamento cambiano insieme.
 export function withChecked(line, doneOn) {
+  return withStatus(line, doneOn ? 'done' : 'todo', doneOn);
+}
+
+// Come edit.py, with_status: fatta e annullata prendono `done:` con il giorno, gli altri stati lo tolgono.
+export function withStatus(line, status, day) {
   const m = ACTION.exec(line);
   if (!m) return line;
   const at = line.indexOf('[', m[1].length);
-  let out = line.slice(0, at) + (doneOn ? '[x]' : '[ ]') + line.slice(at + 3);
+  let out = line.slice(0, at) + `[${markOfStatus(status)}]` + line.slice(at + 3);
   const indent = out.slice(0, out.length - out.trimStart().length);
   out = indent + out.replace(DONE, '').trim().replace(/[ \t]{2,}/g, ' ');
-  return doneOn ? `${out} done:${doneOn}` : out;
+  return CLOSED.includes(status) && day ? `${out} done:${day}` : out;
 }
 
 // Numeri per l'intestazione, a ogni modifica. Contano solo le azioni di primo livello.
@@ -94,8 +114,10 @@ export function noteStats(text) {
       const w = a[1].replace(/\t/g, '    ').length;
       if (topIndent !== null && w > topIndent) continue;
       topIndent = w;
+      // Le annullate non contano: come nel nucleo, fatte sono solo le [x].
+      if (a[2] === '-') continue;
       total += 1;
-      if (a[2] !== ' ') done += 1;
+      if (a[2].toLowerCase() === 'x') done += 1;
     } else if (line.trim() && !/^\s/.test(line)) {
       topIndent = null;
     }

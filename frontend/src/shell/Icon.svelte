@@ -38,6 +38,12 @@
     board: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
     cat: '<path d="M5 20V10L4 4l4.5 3h7L20 4l-1 6v10z"/><path d="M9.5 13.5h.01M14.5 13.5h.01M10.5 17h3"/>',
+    agenda: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m8.5 14.5 2.5 2.5 4.5-5"/>',
+    review: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    move: '<path d="M4 12h11M11 7l5 5-5 5M20 4v16"/>',
+    archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+    down: '<path d="m6 9 6 6 6-6"/>',
   };
 </script>
 

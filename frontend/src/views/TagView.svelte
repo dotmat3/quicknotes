@@ -2,7 +2,7 @@
   import { call } from '../api.js';
   import { board } from '../state/actions.svelte.js';
   import { app, savePrefs, tagColor, theme } from '../state/app.svelte.js';
-  import { openPage } from '../state/layout.svelte.js';
+  import { openPage, replacePage } from '../state/layout.svelte.js';
   import { TAG_PALETTE, tagColorId } from '../theme/themes.js';
   import NoteLinks from './NoteLinks.svelte';
   import Icon from '../shell/Icon.svelte';
@@ -14,7 +14,11 @@
   // Si ricarica anche dopo ogni modifica dalle pillole, che ricarica la bacheca.
   $effect(() => {
     board.version;
-    call('tag_page', { tag }).then((r) => (t = r));
+    call('tag_page', { tag }).then((r) => {
+      // Un'etichetta che è un progetto apre la vista Progetto al posto della scheda.
+      if (r?.project) replacePage(`tag:${tag}`, `project:${r.project}`);
+      else t = r;
+    });
   });
 
   const current = $derived(tagColorId(tag, app.tagColors));
@@ -53,7 +57,7 @@
       {/each}
     </div>
   {/if}
-  <NoteLinks items={t.actions} notes={t.notes} decisions={t.decisions} notesCount={t.notes_count} />
+  <NoteLinks items={t.actions} groups={t.groups} notes={t.notes} decisions={t.decisions} notesCount={t.notes_count} />
   {#if t.people.length}
     <h2>Persone coinvolte</h2>
     <div class="people">

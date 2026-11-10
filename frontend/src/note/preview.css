@@ -76,3 +76,10 @@
 
 /* Immagini della nota, servite dalla cartella delle note. */
 .pv img.pv-img { display: block; max-width: 100%; height: auto; margin: 6px 0; border-radius: 8px; border: 1px solid var(--border); }
+.pv .pv-status { position: absolute; left: -26px; top: 0.15em; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--faint); border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1; text-decoration: none; }
+.pv .pv-status-doing { border-color: var(--accent); color: var(--accent); }
+.pv .pv-status-waiting { border-color: var(--person); color: var(--person); }
+.pv .pv-status-question { border-color: var(--dec); color: var(--dec); }
+.pv .pv-status-cancelled { color: var(--faint); }
+.pv li.pv-task-cancelled { color: var(--faint); }
+.pv .pv-sched { color: var(--text); }

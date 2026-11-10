@@ -114,7 +114,7 @@
       newNote(e.shiftKey ? 'note' : 'meeting');
     } else if (k === ',') {
       openPage('settings', 'Impostazioni');
-    } else if (/^[1-6]$/.test(k) && !e.altKey) {
+    } else if (/^[1-9]$/.test(k) && !e.altKey) {
       const pages = [`note:${app.today?.id}`, ...app.viewOrder.filter((v) => app.viewVis[v]).map((v) => VIEWS[v].page)];
       const page = pages[Number(k) - 1];
       if (page) openPage(page);
