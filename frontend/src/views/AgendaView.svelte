@@ -1,7 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import { call, listen } from '../api.js';
-  import { addAction, board } from '../state/actions.svelte.js';
+  import { board } from '../state/actions.svelte.js';
   import { app, savePrefs } from '../state/app.svelte.js';
   import { AGENDA_FILTERS, emptyFilters } from '../state/actionQuery.js';
   import { openPage } from '../state/layout.svelte.js';
@@ -12,7 +12,6 @@
   // Cosa fare adesso. Ogni azione compare nella prima sezione in cui rientra; i progetti in pausa restano fuori.
   let data = $state(null);
   let project = $state('');
-  let draft = $state('');
   let popover = $state(null);
   let closedSections = $state({ next: false, inbox: false });
 
@@ -39,15 +38,6 @@
   };
   const sections = $derived(data?.sections ?? []);
   const empty = $derived(data && !sections.some((s) => s.count));
-
-  // La cattura scrive un'azione nella nota di oggi; con un progetto scelto prende la sua etichetta.
-  async function capture(e) {
-    if (e.key !== 'Enter' || !draft.trim()) return;
-    const text = draft.trim();
-    draft = '';
-    await addAction(text, null, project || null);
-    load();
-  }
 
   // Agenda mostra ogni azione una volta sola, nella prima sezione in cui rientra; Azioni, con il filtro della
   // sezione, le mostra tutte, con raggruppamenti e filtri. Il progetto scelto qui resta scelto.
@@ -82,11 +72,6 @@
   </div>
   <button class="btn" onclick={() => openPage('view:review')}><Icon name="review" size={14} />Revisione{#if app.counts.reviewDue}<span class="dot" aria-label="da fare"></span>{/if}</button>
 </div>
-
-<label class="new">
-  <Icon name="plus" /><span class="sr">Cattura veloce</span>
-  <input type="text" bind:value={draft} onkeydown={capture} placeholder={project ? `Nuova azione #${project}… finisce nella nota di oggi` : 'Cattura un’azione… finisce nella nota di oggi'} /><kbd>↵</kbd>
-</label>
 
 {#if data?.projects.length}
   <div class="chips" role="radiogroup" aria-label="Progetto">
@@ -139,8 +124,6 @@
   .kicker { font-size: 12.5px; color: var(--subtle); }
   .sum { margin-top: 4px; font-size: 13.5px; color: var(--subtle); }
   .btn .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--late); }
-  .new { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; margin-bottom: 12px; border: 1px solid var(--border2); border-radius: 10px; background: var(--chrome); color: var(--subtle); }
-  .new input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .chip { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 1px solid var(--border2); border-radius: 999px; background: transparent; color: var(--muted); font-size: 12.5px; }
   .chip.on { background: var(--border2); color: var(--text); }
