@@ -58,6 +58,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 ### Da decidere con l'utente
 
+- **Branch `progetti-riepilogo`, non unito:** pagina con tutti i progetti, sezione `## Stato` scritta nelle note hub, panoramica dei progetti via MCP. Cosa contiene, le scelte da rivalutare e come provarlo in [branch-progetti-riepilogo.md](branch-progetti-riepilogo.md).
 - **Pulsanti `+` delle pillole:** nascosti lasciano a volte una riga vuota nelle schede; mostrandoli al passaggio del mouse senza riservare spazio, le schede si sposterebbero sotto il puntatore.
 - **Proposte ancora non confermate** in [piano-implementazione-design.md](piano-implementazione-design.md#proposte-non-ancora-confermate), tra cui figlia in ritardo e figlie in Calendario.
 - **Note del giorno vuote:** l'app le crea a ogni avvio e con le frecce, e il Calendario con "Crea la nota del giorno".
