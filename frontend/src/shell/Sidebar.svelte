@@ -66,6 +66,50 @@
     return pageKind(id) === 'tag' ? pageArg(id) : t;
   }
 
+  // Larghezza: si trascina il bordo destro (o si usano le frecce sulla maniglia); doppio clic la riporta a 240.
+  const SIDE_MIN = 200;
+  const SIDE_MAX = 480;
+  const SIDE_DEFAULT = 240;
+  let dragging = $state(false);
+  let aside;
+
+  function setWidth(w) {
+    app.sideW = Math.round(Math.max(SIDE_MIN, Math.min(SIDE_MAX, w)));
+  }
+
+  function startResize(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragging = true;
+  }
+
+  function onResize(e) {
+    if (dragging) setWidth(e.clientX - aside.getBoundingClientRect().left);
+  }
+
+  function endResize() {
+    if (!dragging) return;
+    dragging = false;
+    savePrefs();
+  }
+
+  function resetWidth() {
+    setWidth(SIDE_DEFAULT);
+    savePrefs();
+  }
+
+  function resizeKey(e) {
+    const step = e.shiftKey ? 40 : 10;
+    if (e.key === 'ArrowLeft') setWidth(app.sideW - step);
+    else if (e.key === 'ArrowRight') setWidth(app.sideW + step);
+    else if (e.key === 'Home') setWidth(SIDE_MIN);
+    else if (e.key === 'End') setWidth(SIDE_MAX);
+    else return;
+    e.preventDefault();
+    savePrefs();
+  }
+
   function pinColor(id) {
     const kind = pageKind(id);
     if (kind === 'tag') return tagColor(pageArg(id));
@@ -74,7 +118,26 @@
   }
 </script>
 
-<aside aria-label="Navigazione">
+<aside aria-label="Navigazione" style="flex-basis:{app.sideW}px" class:resizing={dragging} bind:this={aside}>
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+  <div
+    class="resizer"
+    class:active={dragging}
+    role="separator"
+    tabindex="0"
+    aria-orientation="vertical"
+    aria-label="Ridimensiona la barra laterale"
+    aria-valuenow={app.sideW}
+    aria-valuemin={SIDE_MIN}
+    aria-valuemax={SIDE_MAX}
+    title="Trascina per ridimensionare · doppio clic per la larghezza iniziale"
+    onpointerdown={startResize}
+    onpointermove={onResize}
+    onpointerup={endResize}
+    onpointercancel={endResize}
+    ondblclick={resetWidth}
+    onkeydown={resizeKey}
+  ><span></span></div>
   <div class="head">
     <span class="logo" aria-hidden="true">q</span>
     <span class="name">QuickNotes</span>
@@ -164,7 +227,13 @@
 </aside>
 
 <style>
-  aside { flex: 0 0 240px; display: flex; flex-direction: column; min-height: 0; padding: 2px 10px 10px; font-size: 13.5px; }
+  aside { position: relative; flex: 0 0 240px; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 2px 10px 10px; font-size: 13.5px; }
+  aside.resizing { user-select: none; cursor: col-resize; }
+  /* La maniglia sta nel margine destro della barra, come i divisori tra i gruppi di schede. */
+  .resizer { position: absolute; top: 40px; bottom: 40px; right: 0; z-index: 2; width: 8px; display: flex; justify-content: center; cursor: col-resize; touch-action: none; outline: none; }
+  .resizer span { display: block; width: 2px; height: 100%; border-radius: 2px; background: transparent; }
+  .resizer:hover span, .resizer:focus-visible span { background: var(--border3); }
+  .resizer.active span { background: var(--accent); }
   .head { display: flex; align-items: center; gap: 8px; padding: 0 2px 12px 6px; }
   .logo { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 13px; }
   .name { flex: 1; font-weight: 600; }

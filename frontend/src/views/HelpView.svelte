@@ -47,6 +47,7 @@
         ['Alt → · tasto laterale avanti', 'Vai alla pagina successiva'],
         ['Ctrl Alt \\', 'Dividi a destra'],
         ['Ctrl \\', 'Comprimi o apri la barra laterale'],
+        ['Trascina il bordo della barra laterale', 'Allargala o stringila · doppio clic per la larghezza iniziale'],
         ['Ctrl ,', 'Impostazioni'],
         ['F1 · ?', 'Questa guida'],
         ['Trascina una scheda', 'Riordina, spostala in un altro gruppo o sul bordo per dividere'],

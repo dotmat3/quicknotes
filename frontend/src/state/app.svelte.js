@@ -28,6 +28,8 @@ export const app = $state({
   themeId: ui.theme ?? boot.theme ?? 'auto',
   custom: ui.custom ?? null,
   side: ui.side ?? 'open',
+  // Larghezza della barra laterale aperta, in pixel: si cambia trascinandone il bordo destro.
+  sideW: ui.sideW ?? 240,
   showPins: ui.showPins !== false,
   favs: ui.favs ?? ['view:actions'],
   viewOrder: initialOrder(ui.viewOrder),
@@ -100,10 +102,10 @@ export function savePrefs(more) {
   Object.assign(extra, more);
   clearTimeout(timer);
   timer = setTimeout(() => {
-    const { themeId: theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, titles } = app;
+    const { themeId: theme, custom, side, sideW, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, boardDone, titles } = app;
     const { actF, actPaused, actViews, projOpen, lastReview } = app;
     const { actProject, actWithAreas, actArea, actStatus, ...rest } = ui;
-    call('save_ui', { ui: $state.snapshot({ ...rest, theme, custom, side, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, actGroupV: 2, boardDone, titles, actF, actPaused, actViews, projOpen, lastReview, ...extra }) });
+    call('save_ui', { ui: $state.snapshot({ ...rest, theme, custom, side, sideW, showPins, favs, viewOrder, viewVis, tagColors, noteW, viewW, actView, actGroup, actGroupV: 2, boardDone, titles, actF, actPaused, actViews, projOpen, lastReview, ...extra }) });
   }, 400);
 }
 
