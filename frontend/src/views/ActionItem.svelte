@@ -105,19 +105,6 @@
             <button class="pl" style="background:var(--border2);color:var(--muted)" aria-label={aria('Modifica la descrizione')} aria-haspopup="dialog" aria-expanded={popKey === key('description')} onclick={(e) => pop(e, item, 'description', 0)}>Descrizione</button>
           {/if}
         </div>
-        {#if quick}
-          <div class="quick" role="group" aria-label={aria('Azioni rapide')}>
-            <button class="q" onclick={() => setScheduled(item, 'oggi')}>Oggi</button>
-            <button class="q" onclick={() => setScheduled(item, 'domani')}>Domani</button>
-            <button class="q" aria-haspopup="dialog" aria-expanded={popKey === key('status')} onclick={(e) => pop(e, item, 'status', 0)}>Stato</button>
-            {#if quick === 'review'}
-              <button class="q" onclick={() => setStatus(item, 'cancelled')}>Annulla</button>
-              <button class="q" onclick={() => (left ? completeAll(item) : setDone(item, true))}>Chiudi</button>
-            {/if}
-            <button class="q" aria-haspopup="dialog" aria-expanded={popKey === key('move')} onclick={(e) => pop(e, item, 'move', 0)}><Icon name="move" size={12} />Sposta nel progetto</button>
-            <button class="q" onclick={openNote}><Icon name="note" size={12} />Apri nota</button>
-          </div>
-        {/if}
       {/if}
 
       {#if item.subs.length}
@@ -165,7 +152,25 @@
           {/if}
         </div>
       {:else}
-        <div class="src static-src"><Icon name="note" size={12} />{item.note_title + (item.age_days > 1 ? ` · da ${item.age_days} gg` : '')}</div>
+        <!-- Agenda e Revisione: la nota a sinistra (cliccandola si apre), le azioni rapide a destra sulla stessa
+             riga, visibili al passaggio del mouse o con la tastiera. -->
+        <div class="foot">
+          <button class="src" title="Apri la nota" onclick={openNote}>
+            <Icon name="note" size={12} /><span class="clip">{item.note_title + (item.age_days > 1 ? ` · da ${item.age_days} gg` : '')}</span>
+          </button>
+          {#if !closed}
+            <div class="quick" role="group" aria-label={aria('Azioni rapide')}>
+              <button class="q" onclick={() => setScheduled(item, 'oggi')}>Oggi</button>
+              <button class="q" onclick={() => setScheduled(item, 'domani')}>Domani</button>
+              <button class="q" aria-haspopup="dialog" aria-expanded={popKey === key('status')} onclick={(e) => pop(e, item, 'status', 0)}>Stato</button>
+              {#if quick === 'review'}
+                <button class="q" onclick={() => setStatus(item, 'cancelled')}>Annulla</button>
+                <button class="q" onclick={() => (left ? completeAll(item) : setDone(item, true))}>Chiudi</button>
+              {/if}
+              <button class="q icon" aria-label="Sposta nel progetto" title="Sposta nel progetto" aria-haspopup="dialog" aria-expanded={popKey === key('move')} onclick={(e) => pop(e, item, 'move', 0)}><Icon name="move" size={12} /></button>
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>
@@ -195,8 +200,11 @@
   /* Il + compare al passaggio del mouse o con la tastiera; sugli schermi a tocco resta sempre. */
   .act:hover .more, .act:focus-within .more, .more[aria-expanded='true'] { opacity: 1; }
   @media (hover: none) { .more { opacity: 1; } }
-  .quick { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  .q { display: flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px; border: 1px solid var(--border2); border-radius: 7px; background: transparent; color: var(--muted); font-size: 12px; }
+  .quick { flex: none; display: flex; gap: 2px; opacity: 0; }
+  .act:hover .quick, .act:focus-within .quick, .quick:has([aria-expanded='true']) { opacity: 1; }
+  @media (hover: none) { .quick { opacity: 1; } }
+  .q { display: flex; align-items: center; height: 22px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11.5px; }
+  .q.icon { width: 22px; padding: 0; justify-content: center; }
   .q:hover, .q[aria-expanded='true'] { background: var(--hover); color: var(--text); }
   .static { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 3px; font-size: 12px; color: var(--subtle); }
   .subs { margin-top: 8px; }
@@ -216,5 +224,4 @@
   .card .mini.all { width: 100%; }
   .src { display: flex; align-items: center; gap: 4px; margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--subtle); font-size: 12px; text-align: left; }
   .src:hover { color: var(--muted); }
-  .static-src:hover { color: var(--subtle); }
 </style>
