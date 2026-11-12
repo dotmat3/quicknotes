@@ -143,7 +143,7 @@
       intro: 'Il gatto vive in fondo alle schede o nella sua stanza. Ogni azione completata vale 5 crocchette, da spendere nel negozio.',
       rows: [
         ['Clic su Micio', 'Ti saluta e dice com’è messa la giornata'],
-        ['Vista Micio', 'La stanza, il negozio, mantello, dimensione e cosa fa fuori dalla stanza'],
+        ['Vista Micio', 'La stanza, il negozio, il nome, mantello, dimensione e cosa fa fuori dalla stanza'],
         ['Passeggia · Gioca · Nascosto', 'In fondo alle schede gira, gioca col gomitolo o non compare'],
         ['Pioggia di pesci', 'Minigioco di 30 secondi: mouse o frecce, Esc per uscire'],
       ],

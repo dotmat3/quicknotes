@@ -13,6 +13,7 @@ const today = () => {
 const saved = boot.ui?.pet ?? {};
 
 export const pet = $state({
+  name: saved.name ?? '', // vuoto: si chiama Micio
   since: saved.since ?? today(),
   bonus: saved.bonus ?? 0,
   spent: saved.spent ?? 0,
@@ -27,11 +28,14 @@ export const pet = $state({
 });
 
 export const PER_ACTION = 5;
+export const NAME_MAX = 24;
+// Il nome scelto, o Micio finché non gliene si dà uno.
+export const petName = () => pet.name.trim() || 'Micio';
 export const coins = () => Math.max(0, PER_ACTION * (pet.done ?? 0) + pet.bonus - pet.spent);
 
 export function savePet() {
-  const { since, bonus, spent, owned, placed, coat, scale, out, best } = $state.snapshot(pet);
-  savePrefs({ pet: { since, bonus, spent, owned, placed, coat, scale, out, best } });
+  const { name, since, bonus, spent, owned, placed, coat, scale, out, best } = $state.snapshot(pet);
+  savePrefs({ pet: { name, since, bonus, spent, owned, placed, coat, scale, out, best } });
 }
 // Il primo giorno va ricordato subito: altrimenti a ogni avvio Micio ricomincerebbe da oggi.
 if (!saved.since) savePet();

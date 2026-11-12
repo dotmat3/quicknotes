@@ -5,7 +5,7 @@
   import { onMount } from 'svelte';
   import { HEAD, injectCss } from './animazioni.js';
   import { brain } from './brain.svelte.js';
-  import { eyeFor, pet } from './store.svelte.js';
+  import { eyeFor, pet, petName } from './store.svelte.js';
   import { sheetFor } from './tinta.js';
 
   let { bottom = '0px', onpoke } = $props();
@@ -47,7 +47,7 @@
     {#if brain.anim === 'sleep'}
       <svg class="z px" viewBox="0 0 4 4" aria-hidden="true" style="left:{brain.dir > 0 ? 24 : 6}em; bottom:12em; width:4em; height:4em"><path d="M0 0h4v1H0zM2 1h1v1H2zM1 2h1v1H1zM0 3h4v1H0z" fill="#8DB4F0" /></svg>
     {/if}
-    <button class="cat-btn" type="button" aria-label="Micio {brain.act}. Clicca per salutarlo" onclick={onpoke}>
+    <button class="cat-btn" type="button" aria-label="{petName()} {brain.act}. Clicca per salutarlo" onclick={onpoke}>
       <span class="shadow" aria-hidden="true"></span>
       <span class="arc {brain.arc}">
         <span class="flip" style="transform:scaleX({brain.dir}); transform-origin:{HEAD}em 50%">

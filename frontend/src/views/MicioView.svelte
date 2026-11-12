@@ -3,7 +3,7 @@
   // guadagnare. Mentre questa vista è aperta Micio vive qui e non in fondo alle schede.
   import { onDestroy, onMount } from 'svelte';
   import { brain } from '../pet/brain.svelte.js';
-  import { COATS, ITEMS, PER_ACTION, coins, pet, petCheck, savePet } from '../pet/store.svelte.js';
+  import { COATS, ITEMS, NAME_MAX, PER_ACTION, coins, pet, petCheck, petName, savePet } from '../pet/store.svelte.js';
   import Cat from '../pet/Cat.svelte';
   import Oggetto from '../pet/Oggetto.svelte';
   import Icon from '../shell/Icon.svelte';
@@ -46,6 +46,17 @@
   }
 
   // ---- Micio
+  // Il nome si salva mentre lo si scrive; uscendo dal campo si tolgono gli spazi in più.
+  function setName(e) {
+    pet.name = e.currentTarget.value.slice(0, NAME_MAX);
+    savePet();
+  }
+  function tidyName() {
+    const n = pet.name.trim().replace(/\s+/g, ' ');
+    if (n === pet.name) return;
+    pet.name = n;
+    savePet();
+  }
   function setCoat(c) {
     pet.coat = c;
     savePet();
@@ -172,8 +183,8 @@
 
 <div class="head">
   <div class="titles">
-    <h1>La stanza di Micio</h1>
-    <div class="sub" role="status">Micio {brain.act}</div>
+    <h1>La stanza di {petName()}</h1>
+    <div class="sub" role="status">{petName()} {brain.act}</div>
   </div>
   <div class="coins" title="{PER_ACTION} crocchette per ogni azione completata"><svg viewBox="0 0 5 5" width="15" height="15" aria-hidden="true"><path d="M1 0h3v5H1zM0 1h5v3H0z" fill="#E8A84A" /><path d="M2 1h1v3H2z" fill="#B97F2C" /></svg>{coins()} crocchette</div>
 </div>
@@ -205,8 +216,8 @@
       <span class="chip gold" role="status">{game.score} pesci</span>
     </div>
     <button class="pxbtn quit" type="button" onclick={() => endGame(false)}>Esci</button>
-    <button class="pxbtn arrow left" type="button" aria-label="Sposta Micio a sinistra" onclick={() => steer(game.tx - 14)}>&lt;</button>
-    <button class="pxbtn arrow right" type="button" aria-label="Sposta Micio a destra" onclick={() => steer(game.tx + 14)}>&gt;</button>
+    <button class="pxbtn arrow left" type="button" aria-label="Sposta {petName()} a sinistra" onclick={() => steer(game.tx - 14)}>&lt;</button>
+    <button class="pxbtn arrow right" type="button" aria-label="Sposta {petName()} a destra" onclick={() => steer(game.tx + 14)}>&gt;</button>
   {/if}
 
   {#if game.over}
@@ -242,8 +253,10 @@
   </section>
 
   <div class="side">
-    <section class="card" aria-label="Micio">
-      <h2>Micio</h2>
+    <section class="card" aria-label={petName()}>
+      <h2>{petName()}</h2>
+      <label class="lab" for="micio-name">Nome</label>
+      <input id="micio-name" class="name-in" type="text" maxlength={NAME_MAX} autocomplete="off" spellcheck="false" placeholder="Micio" value={pet.name} oninput={setName} onblur={tidyName} onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
       <div class="lab">Mantello</div>
       <div class="swatches" role="radiogroup" aria-label="Colore del mantello">
         {#each COATS as [name, hex] (hex)}
@@ -254,7 +267,7 @@
       <label class="lab row" for="micio-size"><span>Dimensione</span><span class="mono">{pet.scale}× · {32 * pet.scale} px</span></label>
       <input id="micio-size" type="range" min="2" max="6" step="1" value={pet.scale} oninput={setScale} />
       <div class="lab">Fuori dalla stanza, in fondo alle schede</div>
-      <div class="seg" role="radiogroup" aria-label="Cosa fa Micio fuori dalla stanza">
+      <div class="seg" role="radiogroup" aria-label="Cosa fa {petName()} fuori dalla stanza">
         {#each OUT as [v, label] (v)}
           <button type="button" role="radio" aria-checked={pet.out === v} class:on={pet.out === v} onclick={() => setOut(v)}>{label}</button>
         {/each}
@@ -263,7 +276,7 @@
 
     <section class="card" aria-label="Minigioco">
       <div class="ch"><h2>Pioggia di pesci</h2><span class="sub mono">record {pet.best}</span></div>
-      <p class="sub">30 secondi. Muovi Micio con il mouse o con le frecce: ogni pesce è una crocchetta, quello d’oro ne vale tre. Attento ai cetrioli.</p>
+      <p class="sub">30 secondi. Muovi {petName()} con il mouse o con le frecce: ogni pesce è una crocchetta, quello d’oro ne vale tre. Attento ai cetrioli.</p>
       <button class="pxbtn gold wide" type="button" disabled={game.on} onclick={startGame}>Gioca</button>
     </section>
   </div>
@@ -321,6 +334,8 @@
   .buy:disabled { color: var(--faint); cursor: default; }
   .lab { margin-top: 14px; font-size: 12px; color: var(--subtle); }
   .card > h2 + .lab { margin-top: 0; }
+  .name-in { display: block; width: 100%; height: 32px; margin-top: 6px; padding: 0 10px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13.5px; outline: none; }
+  .name-in:focus { border-color: var(--accent); }
   .lab.row { display: flex; justify-content: space-between; }
   .swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .sw { width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 1px solid var(--border3); }

@@ -93,9 +93,20 @@ export default async function (page, { cfg }) {
   await layer.locator('.cat-btn').waitFor();
   assert(true, 'in modalità Gioca torna in fondo alle schede');
 
+  // Il nome: vale nella stanza e in fondo alle schede; gli spazi in più si tolgono.
+  await page.getByRole('button', { name: 'Micio', exact: false }).first().click();
+  await page.locator('#micio-name').fill('  Briciola  ');
+  await page.locator('#micio-name').press('Enter');
+  assert((await page.locator('#micio-name').inputValue()) === 'Briciola', 'il nome perde gli spazi in più uscendo dal campo');
+  assert((await page.locator('h1').innerText()) === 'La stanza di Briciola', 'la stanza prende il nome del gatto');
+  await page.locator('.tab-main', { hasText: 'Oggi ·' }).click();
+  await page.locator('[role="region"][aria-label="Briciola"] .cat-btn').waitFor();
+  assert(true, 'in fondo alle schede il gatto si chiama Briciola');
+
   // Si ricorda tutto.
   await page.waitForTimeout(900);
   const conf = JSON.parse(readFileSync(join(cfg, 'config.json'), 'utf8'));
   const p = conf.ui?.pet;
   assert(p && p.coat === '#9A9FAD' && p.scale === 5 && p.out === 'play' && (coins0 < 10 || p.owned.ciotola), 'mantello, dimensione, modalità e oggetti sono salvati nelle preferenze');
+  assert(p.name === 'Briciola', 'il nome è salvato nelle preferenze');
 }

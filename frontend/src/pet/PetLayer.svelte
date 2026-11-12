@@ -4,7 +4,7 @@
   import { onMount, untrack } from 'svelte';
   import { app } from '../state/app.svelte.js';
   import { brain } from './brain.svelte.js';
-  import { PER_ACTION, coins, onEarned, pet, petCheck } from './store.svelte.js';
+  import { PER_ACTION, coins, onEarned, pet, petCheck, petName } from './store.svelte.js';
   import Cat from './Cat.svelte';
 
   $effect(() => {
@@ -26,7 +26,7 @@
 </script>
 
 {#if brain.context === 'app'}
-  <div class="layer" role="region" aria-label="Micio">
+  <div class="layer" role="region" aria-label={petName()}>
     <Cat onpoke={poke} />
   </div>
 {/if}
