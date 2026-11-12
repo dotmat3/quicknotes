@@ -118,6 +118,22 @@
   }
 </script>
 
+{#snippet projRow(p, areas, status)}
+  <!-- La riga intera apre il progetto (il ::after del pulsante la copre tutta); la freccia, sopra, apre le aree. -->
+  <div class="proj" class:on={active === `project:${p.key}`} class:faded={!!status} style="--pc:{tagColor(p.key)}">
+    <button class="proj-main" aria-current={active === `project:${p.key}` ? 'page' : undefined} onclick={() => openPage(`project:${p.key}`, p.title)}>
+      <span class="ptile" aria-hidden="true"><Icon name="folder" size={14} style="stroke-width:1.7;fill:color-mix(in srgb, var(--pc) 25%, transparent)" /></span>
+      <span class="grow clip">{p.title}</span>
+    </button>
+    {#if areas.length}
+      <button class="twist" aria-label={app.projOpen[p.key] ? `Chiudi le aree di ${p.title}` : `Mostra le aree di ${p.title}`} aria-expanded={!!app.projOpen[p.key]} onclick={() => toggleProject(p.key)}>
+        <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({app.projOpen[p.key] ? 90 : 0}deg)" />
+      </button>
+    {/if}
+    <span class="meta" class:mono={!status}>{status ?? (p.open || '')}</span>
+  </div>
+{/snippet}
+
 <aside aria-label="Navigazione" style="flex-basis:{app.sideW}px" class:resizing={dragging} bind:this={aside}>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div
@@ -169,36 +185,27 @@
     {/if}
     {#each live as p (p.key)}
       {@const areas = areasOf(p)}
-      <div class="proj">
-        {#if areas.length}
-          <button class="twist" aria-label={app.projOpen[p.key] ? `Chiudi le aree di ${p.title}` : `Mostra le aree di ${p.title}`} aria-expanded={!!app.projOpen[p.key]} onclick={() => toggleProject(p.key)}>
-            <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({app.projOpen[p.key] ? 90 : 0}deg)" />
-          </button>
-        {:else}<span class="twist" aria-hidden="true"></span>{/if}
-        <button class="row proj-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
-          <span class="pdot" style="background:{tagColor(p.key)}" aria-hidden="true"></span><span class="grow clip">{p.title}</span><span class="meta mono">{p.open || ''}</span>
-        </button>
-      </div>
-      {#if app.projOpen[p.key]}
-        {#each areas as a (a)}
-          <button class="row area-row" onclick={() => openArea(p, a)}>
-            <span class="grow clip">{a}</span><span class="meta mono">{p.open_by_area?.[a] || ''}</span>
-          </button>
-        {/each}
+      {@render projRow(p, areas)}
+      {#if areas.length && app.projOpen[p.key]}
+        <div class="areas" style="--pc:{tagColor(p.key)}">
+          {#each areas as a (a)}
+            <button class="row area-row" onclick={() => openArea(p, a)}>
+              <span class="grow clip">{a}</span><span class="meta mono">{p.open_by_area?.[a] || ''}</span>
+            </button>
+          {/each}
+        </div>
       {/if}
     {:else}
       {#if !app.newProject}<div class="empty">Nessun progetto</div>{/if}
     {/each}
     {#if resting.length}
       <button class="row resting" aria-expanded={showResting} onclick={() => (showResting = !showResting)}>
-        <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({showResting ? 90 : 0}deg)" /><span class="grow">In pausa o chiusi</span><span class="meta mono">{resting.length}</span>
+        <span class="rdots" aria-hidden="true">{#each resting.slice(0, 3) as p (p.key)}<span style="background:{tagColor(p.key)}"></span>{/each}</span>
+        <span class="grow">{resting.length} in pausa o chiusi</span>
+        <Icon name="right" size={11} style="transition:transform .12s;transform:rotate({showResting ? 90 : 0}deg)" />
       </button>
       {#if showResting}
-        {#each resting as p (p.key)}
-          <button class="row area-row rest-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
-            <span class="pdot faded" style="background:{tagColor(p.key)}" aria-hidden="true"></span><span class="grow clip">{p.title}</span><span class="meta">{p.status}</span>
-          </button>
-        {/each}
+        {#each resting as p (p.key)}{@render projRow(p, [], p.status)}{/each}
       {/if}
     {/if}
   </div>
@@ -255,15 +262,30 @@
   .pins-title { display: flex; align-items: center; gap: 6px; flex: none; padding: 22px 10px 6px; font-size: 12px; color: var(--subtle); }
   .pins { min-height: 0; overflow-y: auto; scrollbar-width: none; }
   .projects { flex: 0 1 auto; min-height: 60px; max-height: 40%; overflow-y: auto; scrollbar-width: none; }
-  .mini-add { width: 22px; height: 22px; margin-right: 4px; }
-  .proj { display: flex; align-items: center; }
-  .twist { flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--subtle); }
-  .proj-row { flex: 1; width: auto; min-width: 0; height: 30px; padding-left: 4px; gap: 8px; }
-  .pdot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
-  .pdot.faded { opacity: 0.5; }
-  .rest-row { padding-left: 22px; gap: 8px; }
-  .area-row { height: 28px; padding-left: 32px; font-size: 12.5px; }
-  .resting { height: 28px; gap: 6px; font-size: 12px; color: var(--subtle); }
+  /* Il + si allinea ai numeri delle righe e non allunga il titolo della sezione. */
+  .mini-add { width: 22px; height: 22px; margin: -5px -5px -5px 0; }
+  .proj { position: relative; display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 6px; border-radius: 8px; color: var(--text2); font-size: 13.5px; }
+  .proj:hover { background: var(--hover); }
+  .proj.on { background: color-mix(in srgb, var(--pc) 13%, transparent); color: var(--text); font-weight: 500; }
+  .proj.on .meta { color: var(--pc); }
+  .proj.faded { color: var(--muted); }
+  .proj.faded .ptile { opacity: 0.55; }
+  .proj-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+  .proj-main::after { content: ''; position: absolute; inset: 0; border-radius: 8px; }
+  .proj-main:focus-visible { outline: none; }
+  .proj-main:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .ptile { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: color-mix(in srgb, var(--pc) 18%, transparent); color: var(--pc); }
+  .proj.on .ptile { background: color-mix(in srgb, var(--pc) 24%, transparent); }
+  /* La freccia delle aree compare al passaggio del mouse, con la tastiera o quando le aree sono aperte. */
+  .twist { position: relative; z-index: 1; flex: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--subtle); opacity: 0; }
+  .twist:hover { background: var(--hover); color: var(--text); }
+  .proj:hover .twist, .twist:focus-visible, .twist[aria-expanded='true'] { opacity: 1; }
+  @media (hover: none) { .twist { opacity: 1; } }
+  .areas { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 4px 17px; padding-left: 12px; border-left: 1.5px solid color-mix(in srgb, var(--pc) 45%, transparent); }
+  .area-row { height: 28px; padding: 0 10px 0 8px; border-radius: 7px; font-size: 12.5px; }
+  .resting { height: 30px; padding: 0 10px 0 6px; font-size: 12px; color: var(--subtle); }
+  .rdots { flex: none; width: 24px; display: flex; justify-content: center; gap: 3px; }
+  .rdots span { width: 6px; height: 6px; border-radius: 50%; opacity: 0.6; }
   .new-project { width: 100%; height: 30px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; outline: none; }
   .tile { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 7px; }
   .type { flex: none; font-size: 11px; color: var(--faint); }
