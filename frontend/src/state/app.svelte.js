@@ -80,6 +80,12 @@ export function tagColor(tag) {
   return tagHex(tag, app.tagColors, theme.current.dark);
 }
 
+// Etichette e progetti condividono i colori: la chiave di un progetto è anche la sua etichetta (#chiave).
+export function setTagColor(tag, id) {
+  app.tagColors = { ...app.tagColors, [String(tag).trim().replace(/^#/, '').toLowerCase()]: id };
+  savePrefs();
+}
+
 export function setTheme(id) {
   app.themeId = id;
   applyTheme(resolveTheme(id, app.custom));

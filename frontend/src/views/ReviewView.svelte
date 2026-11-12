@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { call, listen } from '../api.js';
   import { board, setProjectStatus } from '../state/actions.svelte.js';
-  import { app, refreshCounts, savePrefs, showToast } from '../state/app.svelte.js';
+  import { app, refreshCounts, savePrefs, showToast, tagColor } from '../state/app.svelte.js';
   import { openAt, openPage } from '../state/layout.svelte.js';
   import ActionItem from './ActionItem.svelte';
   import DetailPopover from './DetailPopover.svelte';
@@ -87,7 +87,7 @@
         {:else if st.kind === 'projects'}
           {#each st.projects as p (p.key)}
             <div class="proj">
-              <Icon name="folder" size={14} /><span class="grow">{p.title}{#if p.open} · {p.open} aperte{/if}</span>
+              <Icon name="folder" size={14} style="color:{tagColor(p.key)}" /><span class="grow">{p.title}{#if p.open} · {p.open} aperte{/if}</span>
               <button class="q" onclick={() => openPage(`project:${p.key}`, p.title)}>Apri</button>
               {#if p.status === 'attivo'}
                 <button class="q" onclick={() => setProjectStatus(p.key, 'pausa')}>Metti in pausa</button>

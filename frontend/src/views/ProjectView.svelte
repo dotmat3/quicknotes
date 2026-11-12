@@ -5,6 +5,7 @@
   import { app, tagColor } from '../state/app.svelte.js';
   import { openAt, openPage } from '../state/layout.svelte.js';
   import ActionItem from './ActionItem.svelte';
+  import ColorChoice from './ColorChoice.svelte';
   import DetailPopover from './DetailPopover.svelte';
   import Icon from '../shell/Icon.svelte';
 
@@ -16,6 +17,7 @@
   let adding = $state(false);
   let draft = $state('');
   let area = $state('');
+  let picking = $state(false);
 
   async function load() {
     try {
@@ -35,7 +37,8 @@
   onDestroy(() => off.then((f) => f()));
 
   const STATUS = [['attivo', 'Attivo'], ['pausa', 'In pausa'], ['chiuso', 'Chiuso']];
-  const color = $derived(tagColor(slug));
+  // Il colore del progetto è quello della sua etichetta: lo stesso nelle note, in Azioni, in Agenda e nella barra.
+  const color = $derived(tagColor(p?.key ?? slug));
 
   async function add(e) {
     if (e.key === 'Escape') {
@@ -63,7 +66,7 @@
 {:else if p}
   <div class="head">
     <div class="titles">
-      <div class="kicker"><Icon name="folder" size={12} style="vertical-align:-1px" /> {`Progetto${p.aliases.length ? ` · anche ${p.aliases.join(', ')}` : ''}`}</div>
+      <div class="kicker"><Icon name="folder" size={12} style="vertical-align:-1px;color:{color}" /> {`Progetto${p.aliases.length ? ` · anche ${p.aliases.join(', ')}` : ''}`}</div>
       <h1 style="color:{color}">{p.title}</h1>
       <div class="sum">{p.open} {p.open === 1 ? 'azione aperta' : 'azioni aperte'} · {p.done_week} fatte negli ultimi 7 giorni{p.areas.length ? ` · aree: ${p.areas.join(', ')}` : ''}</div>
     </div>
@@ -76,10 +79,14 @@
 
   <div class="tools">
     <button class="btn" onclick={() => openPage(`note:${p.hub_id}`, p.title)}><Icon name="note" size={14} />Apri hub</button>
+    <button class="btn" aria-expanded={picking} onclick={() => (picking = !picking)}><span class="swatch" style="background:{color}" aria-hidden="true"></span>Colore</button>
     <button class="btn" disabled={!p.closed_in_hub} title="Sposta le azioni chiuse dalla nota di progetto all'archivio, per mese" onclick={() => archiveDone(p.key)}><Icon name="archive" size={14} />{`Archivia fatte${p.closed_in_hub ? ` (${p.closed_in_hub})` : ''}`}</button>
     {#if p.archive_id}<button class="btn" onclick={() => openPage(`note:${p.archive_id}`)}>Archivio</button>{/if}
     <button class="btn primary" aria-expanded={adding} onclick={() => (adding = !adding)}><Icon name="plus" size={14} />azione</button>
   </div>
+  {#if picking}
+    <div class="panel"><ColorChoice tag={p.key} label="Colore del progetto {p.title}" onpick={() => (picking = false)} /></div>
+  {/if}
   {#if adding}
     <div class="new">
       <!-- svelte-ignore a11y_autofocus -->
@@ -154,6 +161,8 @@
   .seg button.on { background: var(--border2); color: var(--text); }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .btn:disabled { opacity: 0.5; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; }
+  .panel { margin-top: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); }
   .new { display: flex; gap: 8px; margin-top: 10px; }
   .new input { flex: 1; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13.5px; outline: none; }
   .new select { height: 36px; padding: 0 8px; border: 1px solid var(--border2); border-radius: 8px; background: var(--raised); color: var(--text); font: inherit; font-size: 13px; }

@@ -71,7 +71,7 @@
       fly: [
         { label: 'Aspetto', hint: '', go: settingsTab('aspetto') },
         { label: 'Navigazione', hint: '', go: settingsTab('navigazione') },
-        { label: 'Etichette', hint: '', go: settingsTab('etichette') },
+        { label: 'Colori', hint: '', go: settingsTab('etichette') },
         { label: 'Claude', hint: '', go: settingsTab('claude') },
       ],
     },
@@ -87,7 +87,7 @@
   }
 
   const pinLabel = (id) => (id === todayPage ? app.today.title : pageKind(id) === 'tag' ? pageArg(id) : pageTitle(id, app.titles));
-  const pinColor = (id) => (pageKind(id) === 'tag' ? tagColor(pageArg(id)) : pageKind(id) === 'person' ? 'var(--person)' : 'var(--muted)');
+  const pinColor = (id) => (['tag', 'project'].includes(pageKind(id)) ? tagColor(pageArg(id)) : pageKind(id) === 'person' ? 'var(--person)' : 'var(--muted)');
 </script>
 
 <nav aria-label="Navigazione">

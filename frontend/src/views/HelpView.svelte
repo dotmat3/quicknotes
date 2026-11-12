@@ -104,7 +104,7 @@
         ['- [x] testo', 'Fatta'],
         ['    - [ ] testo', 'Sotto-attività: rientrata sotto un’azione, ne eredita progetto ed etichette'],
         ['@nome', 'Persona'],
-        ['#etichetta', 'Etichetta: il colore si sceglie dalla sua pagina. Se è un progetto apre la vista Progetto'],
+        ['#etichetta', 'Etichetta: il colore si sceglie dalla sua pagina. Se è un progetto apre la vista Progetto, che ha il suo pulsante Colore: lo stesso colore vale per #progetto/area'],
         ['#progetto/area', 'Etichetta gerarchica: progetto e area insieme, per esempio #llm-training/dedup'],
         ['scheduled:2026-11-12', 'Il giorno in cui farla: compare in Agenda quel giorno. È diverso da due:'],
         ['due:2026-11-10', 'Scadenza (anche entro: e scadenza:)'],

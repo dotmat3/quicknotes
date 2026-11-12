@@ -58,6 +58,7 @@
   const prio = $derived(PRIORITIES.find(([p]) => p === item.priority));
   const PRIO_COLOR = { alta: 'var(--late)', media: 'var(--accent)', bassa: 'var(--muted)' };
   const where = $derived(item.project ? `${item.project}${item.area ? ` / ${item.area}` : ''}` : '');
+  const pc = $derived(item.project ? tagColor(item.project) : null);
   const key = (kind, idx = 0) => `${item.note_id}:${item.line}:${kind}:${idx}`;
   const aria = (label) => `${label} · ${item.text}`;
   const openNote = () => openAt(`note:${item.note_id}`, item.line, app.titles[`note:${item.note_id}`] ?? item.note_title);
@@ -99,7 +100,7 @@
             <button class="pl" style="background:color-mix(in srgb, {tc} 14%, transparent);color:{tc}" aria-label={aria(`Etichetta ${tag}`)} aria-haspopup="dialog" aria-expanded={popKey === key('tag')} onclick={(e) => pop(e, item, 'tag', 0)}>#{tag}</button>
           {/if}
           {#if where && where !== tag}
-            <button class="pl" style="background:var(--border2);color:var(--muted)" title="Progetto e area" aria-label={aria(`Progetto ${where}`)} aria-haspopup="dialog" aria-expanded={popKey === key('move')} onclick={(e) => pop(e, item, 'move', 0)}><Icon name="folder" size={11} style="vertical-align:-1px;margin-right:3px" />{where}</button>
+            <button class="pl" style="background:color-mix(in srgb, {pc} 14%, transparent);color:{pc}" title="Progetto e area" aria-label={aria(`Progetto ${where}`)} aria-haspopup="dialog" aria-expanded={popKey === key('move')} onclick={(e) => pop(e, item, 'move', 0)}><Icon name="folder" size={11} style="vertical-align:-1px;margin-right:3px" />{where}</button>
           {/if}
           {#if item.description}
             <button class="pl" style="background:var(--border2);color:var(--muted)" aria-label={aria('Modifica la descrizione')} aria-haspopup="dialog" aria-expanded={popKey === key('description')} onclick={(e) => pop(e, item, 'description', 0)}>Descrizione</button>

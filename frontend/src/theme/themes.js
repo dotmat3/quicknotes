@@ -63,10 +63,15 @@ export const TAG_PALETTE = {
 
 const key = (tag) => String(tag).trim().replace(/^#/, '').toLowerCase();
 
-// Il colore scelto, oppure uno stabile ricavato dal nome.
+// Il colore scelto, oppure uno stabile ricavato dal nome. `#progetto/area` prende il colore di `#progetto`,
+// così un progetto ha un solo colore anche quando si scrive con l'area.
 export function tagColorId(tag, chosen = {}) {
-  const k = key(tag);
+  let k = key(tag);
   if (TAG_PALETTE[chosen[k]]) return chosen[k];
+  if (k.includes('/')) {
+    k = k.slice(0, k.indexOf('/'));
+    if (TAG_PALETTE[chosen[k]]) return chosen[k];
+  }
   const ids = Object.keys(TAG_PALETTE);
   let sum = 0;
   for (const c of k) sum += c.codePointAt(0);

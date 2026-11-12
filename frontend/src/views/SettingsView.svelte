@@ -2,12 +2,13 @@
   import { call } from '../api.js';
   import { app, savePrefs, setTheme, showToast, tagColor, theme } from '../state/app.svelte.js';
   import { applyLayout, layout, openPage } from '../state/layout.svelte.js';
-  import { TAG_PALETTE, THEMES, applyTheme, resolveTheme, tagColorId } from '../theme/themes.js';
+  import { THEMES, applyTheme, resolveTheme } from '../theme/themes.js';
   import { VIEWS } from '../shell/nav.js';
   import Icon from '../shell/Icon.svelte';
+  import ColorChoice from './ColorChoice.svelte';
   import SettingRow from './SettingRow.svelte';
 
-  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Etichette'], ['note', 'Note e registrazione'], ['claude', 'Claude'], ['info', 'Informazioni']];
+  const TABS = [['aspetto', 'Aspetto'], ['navigazione', 'Navigazione'], ['azioni', 'Azioni'], ['etichette', 'Colori'], ['note', 'Note e registrazione'], ['claude', 'Claude'], ['info', 'Informazioni']];
   const tab = $derived(app.settingsTab ?? 'aspetto');
 
   let tags = $state([]);
@@ -81,10 +82,9 @@
     set('viewOrder', o);
   }
 
-  function pickTag(tag, id) {
-    app.tagColors = { ...app.tagColors, [tag]: id };
-    savePrefs();
-  }
+  // I progetti hanno la loro sezione: la loro etichetta non si ripete tra le altre.
+  const projects = $derived(app.counts.projects ?? []);
+  const plainTags = $derived(tags.filter((t) => !projects.some((p) => p.key === t.toLowerCase())));
 
   function reset() {
     Object.assign(app, { custom: null, side: 'open', showPins: true, noteW: 'leggibile', viewW: 'intera', actView: 'bacheca', actGroup: 'scadenza', boardDone: true, tagColors: {} });
@@ -188,21 +188,28 @@
   </section>
 {:else if tab === 'etichette'}
   <section>
+    <h2>Colori dei progetti <span class="note">Valgono anche per #progetto e #progetto/area nelle note</span></h2>
+    <div class="box">
+      {#each projects as p (p.key)}
+        <div class="trow">
+          <button class="chip" style="background:color-mix(in srgb, {tagColor(p.key)} 14%, transparent);color:{tagColor(p.key)}" onclick={() => openPage(`project:${p.key}`, p.title)}><Icon name="folder" size={11} style="vertical-align:-1px;margin-right:4px" />{p.title}</button>
+          {#if p.status !== 'attivo'}<span class="note">{p.status}</span>{/if}
+          <span class="grow"></span>
+          <ColorChoice tag={p.key} label="Colore del progetto {p.title}" />
+        </div>
+      {:else}
+        <p class="empty">I progetti creati dalla barra laterale compaiono qui.</p>
+      {/each}
+    </div>
+  </section>
+  <section>
     <h2>Colori delle etichette <span class="note">Le tinte si adattano al tema · i file delle note non cambiano</span></h2>
     <div class="box">
-      {#each tags as t (t)}
+      {#each plainTags as t (t)}
         <div class="trow">
           <button class="chip" style="background:color-mix(in srgb, {tagColor(t)} 14%, transparent);color:{tagColor(t)}" onclick={() => openPage(`tag:${t}`)}>#{t}</button>
           <span class="grow"></span>
-          <div class="colors" role="radiogroup" aria-label="Colore di #{t}">
-            {#each Object.entries(TAG_PALETTE) as [id, [dark, light, label]] (id)}
-              {@const c = theme.current.dark ? dark : light}
-              {@const on = tagColorId(t, app.tagColors) === id}
-              <button class="color" class:on role="radio" aria-checked={on} aria-label={label} title={label} style="background:{c};--c:{c}" onclick={() => pickTag(t, id)}>
-                {#if on}<Icon name="check" size={13} style="stroke-width:3;color:{theme.current.dark ? '#141518' : '#fff'}" />{/if}
-              </button>
-            {/each}
-          </div>
+          <ColorChoice tag={t} label="Colore di #{t}" />
         </div>
       {:else}
         <p class="empty">Le etichette scritte con #nome compaiono qui.</p>
@@ -300,9 +307,6 @@
   .vfix { font-size: 12px; color: var(--faint); }
   .trow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 16px; }
   .chip { height: 24px; padding: 0 10px; border: 0; border-radius: 999px; font-size: 12px; }
-  .colors { display: flex; flex-wrap: wrap; gap: 8px; }
-  .color { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-  .color.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
   .empty { margin: 0; padding: 14px 16px; font-size: 13.5px; color: var(--subtle); }
   .intro { margin-bottom: 14px; font-size: 14px; color: var(--text2); }
   .warn { margin-bottom: 14px; font-size: 13.5px; color: var(--late); }

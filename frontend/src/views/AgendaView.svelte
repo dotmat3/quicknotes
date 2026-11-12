@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { call, listen } from '../api.js';
   import { board } from '../state/actions.svelte.js';
-  import { app, savePrefs } from '../state/app.svelte.js';
+  import { app, savePrefs, tagColor } from '../state/app.svelte.js';
   import { AGENDA_FILTERS, emptyFilters } from '../state/actionQuery.js';
   import { openPage } from '../state/layout.svelte.js';
   import ActionItem from './ActionItem.svelte';
@@ -77,7 +77,7 @@
   <div class="chips" role="radiogroup" aria-label="Progetto">
     <button class="chip" role="radio" aria-checked={!project} class:on={!project} onclick={() => (project = '')}>Tutti</button>
     {#each data.projects as p (p.key)}
-      <button class="chip" role="radio" aria-checked={project === p.key} class:on={project === p.key} onclick={() => (project = project === p.key ? '' : p.key)}>{p.title}<span class="mono n">{p.open}</span></button>
+      <button class="chip" role="radio" aria-checked={project === p.key} class:on={project === p.key} onclick={() => (project = project === p.key ? '' : p.key)}><span class="pdot" style="background:{tagColor(p.key)}" aria-hidden="true"></span>{p.title}<span class="mono n">{p.open}</span></button>
     {/each}
   </div>
 {/if}
@@ -127,6 +127,7 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .chip { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 1px solid var(--border2); border-radius: 999px; background: transparent; color: var(--muted); font-size: 12.5px; }
   .chip.on { background: var(--border2); color: var(--text); }
+  .pdot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
   .n { font-size: 11px; opacity: 0.75; }
   .sec { margin-top: 18px; }
   .sec-top { display: flex; align-items: flex-start; gap: 8px; }

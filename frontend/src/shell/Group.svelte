@@ -21,7 +21,7 @@
   const fav = $derived(!!g.active && app.favs.includes(g.active));
 
   const isDaily = (id) => pageKind(id) === 'note' && pageArg(id).endsWith('-giornata');
-  const iconColor = (id, on) => (pageKind(id) === 'tag' ? tagColor(pageArg(id)) : on ? 'var(--muted)' : 'var(--faint)');
+  const iconColor = (id, on) => (['tag', 'project'].includes(pageKind(id)) ? tagColor(pageArg(id)) : on ? 'var(--muted)' : 'var(--faint)');
 
   function toggleFav() {
     app.favs = fav ? app.favs.filter((x) => x !== g.active) : [...app.favs, g.active];

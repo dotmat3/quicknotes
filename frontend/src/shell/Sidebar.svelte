@@ -112,7 +112,7 @@
 
   function pinColor(id) {
     const kind = pageKind(id);
-    if (kind === 'tag') return tagColor(pageArg(id));
+    if (kind === 'tag' || kind === 'project') return tagColor(pageArg(id));
     if (kind === 'person') return 'var(--person)';
     return 'var(--muted)';
   }
@@ -176,7 +176,7 @@
           </button>
         {:else}<span class="twist" aria-hidden="true"></span>{/if}
         <button class="row proj-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
-          <span class="grow clip">{p.title}</span><span class="meta mono">{p.open || ''}</span>
+          <span class="pdot" style="background:{tagColor(p.key)}" aria-hidden="true"></span><span class="grow clip">{p.title}</span><span class="meta mono">{p.open || ''}</span>
         </button>
       </div>
       {#if app.projOpen[p.key]}
@@ -195,8 +195,8 @@
       </button>
       {#if showResting}
         {#each resting as p (p.key)}
-          <button class="row area-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
-            <span class="grow clip">{p.title}</span><span class="meta">{p.status}</span>
+          <button class="row area-row rest-row" class:on={active === `project:${p.key}`} onclick={() => openPage(`project:${p.key}`, p.title)}>
+            <span class="pdot faded" style="background:{tagColor(p.key)}" aria-hidden="true"></span><span class="grow clip">{p.title}</span><span class="meta">{p.status}</span>
           </button>
         {/each}
       {/if}
@@ -258,7 +258,10 @@
   .mini-add { width: 22px; height: 22px; margin-right: 4px; }
   .proj { display: flex; align-items: center; }
   .twist { flex: none; display: flex; align-items: center; justify-content: center; width: 18px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--subtle); }
-  .proj-row { flex: 1; width: auto; min-width: 0; height: 30px; padding-left: 4px; }
+  .proj-row { flex: 1; width: auto; min-width: 0; height: 30px; padding-left: 4px; gap: 8px; }
+  .pdot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  .pdot.faded { opacity: 0.5; }
+  .rest-row { padding-left: 22px; gap: 8px; }
   .area-row { height: 28px; padding-left: 32px; font-size: 12.5px; }
   .resting { height: 28px; gap: 6px; font-size: 12px; color: var(--subtle); }
   .new-project { width: 100%; height: 30px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; outline: none; }
