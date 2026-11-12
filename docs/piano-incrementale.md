@@ -10,7 +10,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 Stato al 3 novembre 2026, dopo la chiusura delle tappe dalla 5 alla 11. Resta la tappa 12 (audio, video e spazio su disco), poi file, schizzi e rilascio.
 
-**Git:** il lavoro è sul ramo `rust-tauri`. `main` resta al commit `eb05f3e`, quello della versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`. Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
+**Git:** il lavoro è sul ramo `main`, il principale (fino al 13 novembre 2026 si chiamava `rust-tauri`; il vecchio `main` era fermo al commit `eb05f3e`, quello della prima versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`). Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
 
 **Per ripartire:**
 
