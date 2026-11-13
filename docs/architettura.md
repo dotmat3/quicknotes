@@ -122,9 +122,7 @@ Tre esempi che attraversano tutti gli strati. I dettagli di ciascuno sono nelle 
 2. Dopo 350 ms senza altri tasti parte `save_note(id, base, body)`, dove `base` è il testo da cui era partita la modifica. Un solo salvataggio per nota alla volta; ciò che arriva nel frattempo riparte alla fine.
 3. `api.js` lo passa a `window.pywebview.api.invoke`, che pywebview esegue in un thread nuovo. `Commands.dispatch` chiama `store.save_if_unchanged`.
 4. Lo store, sotto il lock delle modifiche, rilegge il file. Se non contiene più `base`, il file è cambiato fuori dall'app: non scrive e restituisce il testo del disco; la pagina salva il testo dell'utente in una nota "(conflitto HH:MM)" e mostra quello del disco. Altrimenti scrive il file in modo atomico e aggiorna l'indice nello stesso passaggio.
-5. La pagina aggiorna `base` e chiede a Micio di ricontare le azioni fatte (`pet_done`), che valgono crocchette.
-
-Il salvataggio dall'editor non emette `index-updated`: i contatori della barra laterale e le viste già aperte non si aggiornano finché non arriva un altro evento (vedi i difetti noti in [stato.md](stato.md)).
+5. La pagina aggiorna `base`. Python non annuncia i salvataggi dall'editor, quindi se tra il testo vecchio e quello nuovo sono cambiate le righe d'azione o le intestazioni (che decidono il progetto) la pagina emette da sé `index-updated` (`emit` di `api.js`): contatori della barra laterale, viste aperte e Micio, che riconta le azioni fatte (`pet_done`), si aggiornano come per una modifica esterna. Un salvataggio che tocca solo il testo normale non ricarica nulla.
 
 **2. Cambiare un'azione da una vista** (spunta, stato, `scheduled:`, sposta nel progetto).
 
@@ -279,7 +277,7 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 | `.venv/Scripts/python scripts/genera_note.py <cartella vuota> 1000` | Genera le note e misura indicizzazione, allineamento, ricerca e azioni |
 | `node scripts/misura-avvio.mjs <cartella> [ripetizioni]` | Avvio a freddo: `dati pronti`, `indice allineato`, `prima pittura` e la riapertura da una seconda istanza. Usa `QUICKNOTES_TRACE=<file>`, in cui l'app scrive le tappe in ms dalla creazione del processo |
 | `node scripts/cdp.mjs <cartella con 1000 note> "" scripts/misura-ricerca.mjs` | Ricerca Ctrl K a ogni tasto |
-| `node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` | Scrittura (dalla traccia della timeline), cambio scheda e memoria. Il passaggio sulla lista unica di 500 righe oggi si blocca: aspetta che l'ultima riga compaia nel testo dell'editor, ma CodeMirror disegna solo le righe visibili |
+| `node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` | Scrittura (dalla traccia della timeline), cambio scheda e memoria. Il passaggio sulla lista unica di 500 righe oggi non è affidabile, vedi i difetti noti in [stato.md](stato.md) |
 
 Con l'app dell'utente aperta, le misure e le prove si avviano con `USERNAME=qn-prova` davanti al comando: l'istanza di prova non finisce nella finestra dell'utente (non avrà i tasti globali, già presi).
 

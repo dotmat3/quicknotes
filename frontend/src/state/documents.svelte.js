@@ -1,9 +1,8 @@
 // Documenti aperti: testo, salvataggio e viste. La stessa nota può stare in più gruppi.
 import { tick } from 'svelte';
-import { call } from '../api.js';
+import { call, emit } from '../api.js';
 import { app, showToast } from './app.svelte.js';
 import { replacePage } from './layout.svelte.js';
-import { petCheck } from '../pet/store.svelte.js';
 
 export const docs = $state({});
 
@@ -58,9 +57,11 @@ export async function save(id) {
     else {
       // Se cambiano i [[link]], cambiano anche le note collegate mostrate nell'intestazione.
       if (wikiLinks(text) !== wikiLinks(d.base)) d.note = await call('read_note', { id });
+      // Python non annuncia i salvataggi dall'editor. Se sono cambiate le azioni o le intestazioni (che decidono
+      // il progetto), contatori, viste aperte e Micio si aggiornano come per una modifica esterna.
+      const changed = outline(text) !== outline(d.base);
       d.base = text;
-      // Un'azione spuntata nell'editor vale crocchette: Micio lo nota al salvataggio.
-      petCheck();
+      if (changed) emit('index-updated', 1);
     }
   } catch (e) {
     d.dirty = true;
@@ -81,6 +82,8 @@ async function resolveConflict(id, mine, disk) {
   showToast(`La nota è cambiata fuori dall'app. Il tuo testo è in «${copy.title}».`);
 }
 
+// Le righe che decidono azioni e progetti: le azioni (con il loro stato e i campi) e le intestazioni.
+const outline = (text) => (text.match(/^(?:\s*[-*+] \[.\].*|#{1,6} .*)$/gm) ?? []).join('\n');
 const wikiLinks = (text) => (text.match(/\[\[[^\]\n]+\]\]/g) ?? []).join('\n');
 
 export async function saveAll() {

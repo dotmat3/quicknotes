@@ -44,6 +44,11 @@ export async function listen(event, handler) {
   return () => handlers.get(event).delete(handler);
 }
 
+// Lo stesso evento, partito dalla pagina: per ciò che Python non annuncia, come un salvataggio dall'editor.
+export function emit(event, payload) {
+  window.__qnEmit(event, payload);
+}
+
 export function appReady() {
   if (hasBackend) invoke('app_ready', {});
 }

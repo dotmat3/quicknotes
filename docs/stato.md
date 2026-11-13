@@ -5,7 +5,7 @@ Aggiornato al 13 novembre 2026. Come è costruita l'app è in [architettura.md](
 ## Dove siamo
 
 - **Ultima versione pubblicata:** 0.6.0 (10 novembre 2026, tag `v0.6.0`): progetti, stati delle azioni, Agenda e Revisione settimanale.
-- **Su `main` dopo la 0.6.0, non ancora rilasciato:** azioni rapide di Agenda e Revisione sulla riga della nota, cattura veloce tolta da Agenda, barra laterale ridimensionabile, colori dei progetti con le tessere colorate nella barra laterale, nome di Micio.
+- **Su `main` dopo la 0.6.0, non ancora rilasciato:** azioni rapide di Agenda e Revisione sulla riga della nota, cattura veloce tolta da Agenda, barra laterale ridimensionabile, colori dei progetti con le tessere colorate nella barra laterale, nome di Micio, contatori aggiornati dopo un salvataggio dall'editor.
 - **Git:** si lavora su `main`, il ramo principale (fino al 13 novembre si chiamava `rust-tauri`). Il primo `main`, fermo al commit `eb05f3e` della prima versione Python, è nella storia: il codice cancellato si legge con `git show eb05f3e:<percorso>`. Il branch `progetti-riepilogo` non è unito, vedi sotto.
 
 ## Per ripartire
@@ -49,7 +49,7 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 ## Prossimi passi
 
 1. **Dall'utente, sul PC aziendale:** migrare le note vere con la vista Migrazione, usare la 0.6.0 per una settimana, poi regolare le soglie di Agenda e Revisione in `quicknotes/views.py` (2, 7 e 14 giorni).
-2. **Prossima versione:** rilasciare quello che è su `main` dopo la 0.6.0, dopo aver corretto i contatori della barra laterale (primo difetto qui sotto).
+2. **Prossima versione:** rilasciare quello che è su `main` dopo la 0.6.0.
 
 ## Da decidere con l'utente
 
@@ -63,9 +63,8 @@ Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando t
 
 Verificati il 13 novembre 2026:
 
-- **Contatori dopo un salvataggio dall'editor:** scrivendo o spuntando un'azione nella nota, il salvataggio non emette `index-updated`, quindi i contatori della barra laterale (Oggi, Azioni) e le viste già aperte restano vecchi finché non arriva un altro evento. Provato: "Oggi 1/4" resta tale dopo aver aggiunto un'azione, anche cambiando pagina. Le modifiche fatte dalle viste e quelle esterne invece aggiornano tutto.
 - **Registrazione:** il pulsante Registra della barra laterale aperta non fa nulla; Ctrl Alt R e Registra della striscia compressa mostrano solo un avviso. Il tasto viene comunque tolto alle altre app.
-- **`misura-latenza.mjs`:** il passaggio sulla lista unica di 500 righe aspetta che l'ultima riga compaia nel testo dell'editor, ma CodeMirror disegna solo le righe visibili, e la misura si blocca. Le misure precedenti a quel passaggio sono valide.
+- **`misura-latenza.mjs`:** il passaggio sulla lista unica di 500 righe non è affidabile. Aspetta che l'ultima riga compaia nel testo dell'editor, ma CodeMirror disegna solo le righe visibili; scorrere in fondo non basta, perché la misura aggiunge righe al file mentre la nota ha ancora modifiche da salvare, e la modifica esterna passa dal controllo del conflitto. A volte si blocca lì, a volte la pagina si chiude all'avvio. Le misure precedenti a quel passaggio sono valide.
 - **Indicizzazione completa** sopra l'obiettivo dei 2 secondi (2,5 s con 1000 note), ma uguale per la 0.4.0 misurata lo stesso giorno: dipende dallo stato del PC. Vedi [architettura.md](architettura.md#limiti-misurabili).
 
 Ereditati dalla versione Rust (l'interfaccia è la stessa), non ricontrollati uno per uno dopo il passaggio a Python:
