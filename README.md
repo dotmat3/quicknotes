@@ -83,6 +83,9 @@ tipo di nota, e una combinazione si può salvare come vista.
 Tasti globali, anche con l'app nascosta: **Ctrl+Alt+N** nota rapida, **Ctrl+Alt+D** nota del giorno. Si
 cambiano in `config.json`, sotto `"hotkeys"`.
 
+**La registrazione audio non è disponibile in questa versione.** Il pulsante Registra e Ctrl+Alt+R ci sono
+ancora, ma non registrano; le registrazioni e le trascrizioni già presenti nelle note si leggono e si cercano.
+
 ## Struttura dei dati
 
 ```
@@ -91,7 +94,11 @@ cambiano in `config.json`, sotto `"hotkeys"`.
     2026-11-03-giornata.md
     2026-11-03-1000-kickoff-cliente-x.md
     images\2026-11-03-101530.png
-  .quicknotes\index-v4.db        indice di ricerca, si ricostruisce dai file
+  progetti\
+    llm-training.md                una nota per progetto
+    llm-training.archivio.md       le azioni chiuse tolte con "Archivia fatte"
+  da-smistare.md                   le azioni aggiunte senza progetto
+  .quicknotes\index-v4.db          indice di ricerca, si ricostruisce dai file
 ```
 
 ### Progetti, Agenda e Revisione
@@ -114,14 +121,15 @@ l'app la ricarica.
 ## Micio
 
 Un gatto in pixel art che cammina o gioca in fondo alle schede, sopra le note. La vista Micio è la sua stanza:
-ci sono un negozio di oggetti, la scelta di mantello e dimensione e il minigioco «Pioggia di pesci».
+ci sono un negozio di oggetti, la scelta di nome, mantello e dimensione e il minigioco «Pioggia di pesci».
 Ogni azione completata da quando c'è Micio vale 5 crocchette, che si contano dall'indice. Valgono quindi anche
 le azioni spuntate in Obsidian o da Claude. Preferenze, oggetti e crocchette spese stanno in `config.json`
 (chiave `ui.pet`).
 
 Lo sprite viene dal [Cat Pack di Glem](https://octopusinkus.itch.io/cat-pack), versione gratuita. Il gatto nero
 è diviso in tre livelli (corpo da tingere, dettagli, occhi) in `frontend/src/pet/sprite/`. Le animazioni sono in
-`frontend/src/pet/animazioni.js` e si calibrano fotogramma per fotogramma con il Banco animazioni.
+`frontend/src/pet/animazioni.js` e si calibrano fotogramma per fotogramma con il
+[Banco animazioni](https://claude.ai/artifact/TkpC2pyZyf74JhJhn9fuUr).
 
 ## Sviluppo
 
@@ -140,7 +148,7 @@ Prove:
 
 ```bash
 .venv/Scripts/python -m unittest discover -s tests            # formato, archivio, viste, server MCP
-cd frontend && npx vitest run && cd ..                        # regole dell'editor
+cd frontend && npx vitest run && cd ..                        # regole dell'editor, filtri della vista Azioni
 node scripts/prova-python.mjs                                 # l'app vera, su note di prova
 node scripts/demo-note.mjs <cartella>                         # note di esempio per le prove sotto
 node scripts/cdp.mjs <cartella> foto.png scripts/prova-viste.mjs
@@ -150,26 +158,15 @@ node scripts/demo-migrazione.mjs <cartella>                   # note nel formato
 node scripts/cdp.mjs <cartella> foto.png scripts/prova-migrazione.mjs
 ```
 
-Le prove `scripts/prova-*.mjs` guidano l'app vera tramite CDP. `prova-sistema.mjs` e l'ultimo passaggio
-di `prova-immagini.mjs` usano mouse, tastiera e appunti veri: durante quelle il PC non va usato.
+Le prove `scripts/prova-*.mjs` guidano l'app vera tramite CDP; l'elenco completo, con la cartella da
+preparare per ciascuna, è in [docs/stato.md](docs/stato.md). `prova-sistema.mjs` e l'ultimo passaggio di
+`prova-immagini.mjs` usano mouse, tastiera e appunti veri: durante quelle il PC non va usato. Con QuickNotes
+già aperta, avvia le prove con `USERNAME=qn-prova` davanti al comando.
 
 Rilascio: `node scripts/rilascio.mjs` costruisce `QuickNotes.zip` (con `scripts/costruisci.py`) e la
 descrizione della release in `rilasci/v<versione>/`. Vedi [docs/rilascio.md](docs/rilascio.md).
 
-```
-quicknotes/
-  parser.py      formato delle note: frontmatter, @persone, #etichette, azioni, decisioni, link
-  edit.py        modifiche a una riga o a una sezione (spunta, scadenza, persona, etichetta, descrizione)
-  index.py       indice SQLite con ricerca a testo pieno (FTS5)
-  store.py       file e indice: lettura, scrittura atomica, allineamento, azioni, immagini
-  views.py       dati per le viste: bacheca, calendario, persone, etichette, grafo, Ctrl K
-  commands.py    i comandi chiamati dalla pagina
-  app.py         finestre pywebview, server locale, area di notifica, nota rapida, tasti globali
-  mcp.py         server MCP su stdio
-  check.py       python -m quicknotes verifica
-frontend/        interfaccia: Svelte 5 + CodeMirror 6, compilata in quicknotes/webui/
-scripts/         prove dal vivo, misure, costruzione e rilascio
-tests/           prove del nucleo e del server MCP
-```
-
-L'architettura è descritta in [docs/architettura.md](docs/architettura.md).
+Il codice sta in `quicknotes/` (il pacchetto Python: nucleo, app e server MCP) e in `frontend/` (l'interfaccia,
+Svelte 5 + CodeMirror 6, compilata in `quicknotes/webui/`). Moduli, percorso dei dati, scelte tecniche e misure
+sono descritti in [docs/architettura.md](docs/architettura.md); lo stato del lavoro, con difetti noti e decisioni
+aperte, in [docs/stato.md](docs/stato.md).

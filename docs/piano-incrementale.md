@@ -1,6 +1,6 @@
 # Piano incrementale
 
-> **Dalla 0.4.0 QuickNotes è in Python** (pywebview), con la stessa interfaccia: questo piano è il registro delle tappe fatte con la versione Rust e resta valido come elenco delle funzionalità. Comandi, prove e misure attuali sono in [architettura.md](architettura.md).
+> **Registro storico.** Questo piano è l'ordine di lavoro della versione Rust, fino alla 0.3.1, e non si aggiorna più. Dalla 0.4.0 QuickNotes è in Python (pywebview), con la stessa interfaccia: le tappe restano valide come elenco delle funzionalità e il registro delle decisioni come storia delle scelte. Lo stato attuale è in [stato.md](stato.md), comandi, prove e misure in [architettura.md](architettura.md).
 
 Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è qualcosa che funziona e si può provare. Le regole di prodotto sono in [piano-implementazione-design.md](piano-implementazione-design.md), le scelte tecniche in [architettura.md](architettura.md).
 
@@ -8,84 +8,7 @@ Ordine di lavoro per costruire QuickNotes in Rust. Alla fine di ogni tappa c'è 
 
 ## Come riprendere il lavoro
 
-Stato al 3 novembre 2026, dopo la chiusura delle tappe dalla 5 alla 11. Resta la tappa 12 (audio, video e spazio su disco), poi file, schizzi e rilascio.
-
-**Git:** il lavoro è sul ramo `main`, il principale (fino al 13 novembre 2026 si chiamava `rust-tauri`; il vecchio `main` era fermo al commit `eb05f3e`, quello della prima versione Python, il cui codice cancellato si legge con `git show eb05f3e:<percorso>`). Le modifiche locali a `README.md` sono dell'utente: non vanno incluse nei commit e non vanno perse.
-
-**Per ripartire:**
-
-1. Leggere questo file, [architettura.md](architettura.md) e [piano-implementazione-design.md](piano-implementazione-design.md). Il riferimento visivo è la tavola Home del [design](https://claude.ai/artifact/1ZCTE9XczJ49BE4LQyGN2h), che si legge con l'azione `read` dello strumento Artifact e `path: "project/Home.dc.html"`.
-2. In Git Bash Rust non è nel `PATH`: serve `export PATH="$HOME/.cargo/bin:$PATH"`.
-3. Controllare che tutto sia ancora verde:
-
-```bash
-cargo test --workspace --exclude quicknotes-app
-npm --prefix frontend test
-npm --prefix frontend run build
-cargo build --release -p quicknotes-app -p quicknotes-mcp
-node scripts/demo-note.mjs <cartella di prova vuota>
-node scripts/cdp.mjs <cartella di prova> foto.png scripts/prova-azioni.mjs
-```
-
-**Le prove nell'app vera** (`node scripts/cdp.mjs <cartella> "" scripts/<prova>`), da usare sempre con una cartella di prova nuova:
-
-| Prova | Cartella | Note |
-|---|---|---|
-| `prova-editor.mjs` | Vuota | |
-| `prova-azioni.mjs`, `prova-viste.mjs`, `prova-desktop.mjs`, `prova-modalita.mjs`, `prova-gruppi.mjs`, `prova-collegamenti.mjs`, `prova-gfm.mjs`, `prova-guida.mjs`, `prova-ricerca.mjs` | Con `demo-note.mjs` | |
-| `prova-immagini.mjs` | Con `demo-note.mjs` | L'ultimo passaggio mette un'immagine negli appunti di Windows e preme Ctrl V davvero: sostituisce gli appunti, e per qualche secondo il PC non va usato |
-| `prova-sistema.mjs` | Con `demo-note.mjs` | Tasti e mouse veri per circa 20 secondi: il PC non va usato. Nessun'altra QuickNotes aperta. Alla fine esce dall'app dal menu |
-| `misura-latenza.mjs` | Con `demo-note.mjs` | Stampa le misure di scrittura, cambio scheda e memoria |
-| `misura-ricerca.mjs` | Con 1000 note di `genera_note` | Stampa i tempi di `search_all` e di Ctrl K a ogni tasto |
-| `prova-schede.mjs`, poi `prova-riavvio.mjs` | Con `demo-note.mjs` | Stessa cartella e stesso `QN_CFG=<cartella cfg>`. La prima chiude l'app, quindi aspettare 2 secondi prima della seconda |
-
-Se una prova stampa `ERRORI DELLA PAGINA`, va considerata fallita anche quando tutti i controlli `ok:` sono passati. Una prova può dichiarare gli errori che provoca di proposito con `export const expectedErrors`: `cdp.mjs` li conta a parte.
-
-**Strumenti già installati su questo PC:** Rust 1.99 con Rustup, Visual Studio Build Tools 2022, Node 23. Non ci sono CMake né libclang, che serviranno a `whisper-rs` alla tappa 12.
-
-**Prima delle prove:** se `quicknotes.exe` è già aperto (per esempio dall'utente, sulle note vere), va chiuso. Con l'istanza singola una prova finirebbe nella sua finestra, e la build non può sostituire l'eseguibile.
-
-**Dati reali:** `~/QuickNotes` e `~/.quicknotes` contengono le note vere dell'utente e finora non sono stati toccati. Ogni prova deve usare `QUICKNOTES_DIR` e `QUICKNOTES_CONFIG_DIR`, come fanno gli script. Avviare `target/release/quicknotes.exe` a mano, senza queste variabili, lavora sulle note vere e crea la nota del giorno.
-
-**Limiti dell'ambiente:** in Git Bash i comandi molto lunghi con heredoc possono fallire con `unexpected EOF`; meglio scrivere i file con lo strumento apposito. `ln -s` copia le cartelle invece di collegarle.
-
-### Prossimi passi, in ordine
-
-1. **Prima versione da distribuire (tappa 15, avviata):** creare il repository GitHub pubblico per le release e pubblicare `QuickNotes.exe` e `quicknotes-mcp.exe` costruiti con `scripts/rilascio.mjs`. Passi in [rilascio.md](rilascio.md).
-2. **Tappa 12, audio, video e spazio su disco**, compresa la finestra di registrazione spostata qui dalla tappa 11. Prima delle righe di codice servono le risposte su video e soglie (vedi "Da decidere") e la scelta di come compilare `whisper-rs`, che richiede CMake e libclang (non installati).
-3. **Da provare a mano, l'unica cosa che le prove non raggiungono:** il clic fisico sull'icona dell'area di notifica (la prova manda all'icona lo stesso messaggio di Esplora risorse) e i tasti laterali di un mouse vero.
-4. **Tappe 13-15:** file ed esportazione (le immagini incollate ci sono già), schizzi, rilascio.
-
-### Da decidere con l'utente
-
-- **Branch `progetti-riepilogo`, non unito:** pagina con tutti i progetti, sezione `## Stato` scritta nelle note hub, panoramica dei progetti via MCP. Cosa contiene, le scelte da rivalutare e come provarlo in [branch-progetti-riepilogo.md](branch-progetti-riepilogo.md).
-- **Pulsanti `+` delle pillole:** nascosti lasciano a volte una riga vuota nelle schede; mostrandoli al passaggio del mouse senza riservare spazio, le schede si sposterebbero sotto il puntatore.
-- **Proposte ancora non confermate** in [piano-implementazione-design.md](piano-implementazione-design.md#proposte-non-ancora-confermate), tra cui figlia in ritardo e figlie in Calendario.
-- **Note del giorno vuote:** l'app le crea a ogni avvio e con le frecce, e il Calendario con "Crea la nota del giorno".
-- **Video, tappa 12:** cosa si registra (tutto lo schermo, una finestra scelta, la webcam), quale audio (microfono, audio del sistema, entrambi) e con quale qualità (risoluzione e fotogrammi, che decidono i MB al minuto).
-- **Fine della registrazione, tappa 12:** se il riquadro deve comparire sempre o si può dire "Non chiedere più, fai sempre così"; se "Elimina dopo la trascrizione" vale anche per l'audio o solo per i video.
-- **Note non collegate, tappa 12:** se la regola proposta va bene (nessun link, persona, etichetta o azione, come le "Note isolate" del Grafo) o se una nota con solo testo, ma citata da nessuno, conta già come non collegata.
-- **Soglie dello spazio, tappa 12:** quelle proposte (10 GB per la cartella, 5 GB di video, 10% o 5 GB liberi sul disco) e se l'utente le può cambiare dalle Impostazioni.
-
-### Difetti e limiti noti
-
-- **Nota rapida subito dopo l'avvio:** la finestra si prepara dopo circa 1,5 secondi. Prima di allora Ctrl Alt N apre la finestra principale.
-- **Calendario:** "Ieri" e "domani" non sono nel pannello rapido di Oggi, a differenza della tavola Home. Una registrazione aggiunta giorni dopo a una nota compare nel giorno della nota, non in quello della registrazione: il nome del WAV non ha la data.
-- **Ctrl K:** ci sono i tipi Note, Azioni, Decisioni e Trascrizioni; mancano il filtro "Ultimi 90 giorni" e l'ordinamento della tavola Ricerca. Le trascrizioni si cercano solo nelle 15 note trovate dalla ricerca a testo pieno.
-- **Impostazioni › Note e registrazione:** modello, lingua, file audio e minutaggio si salvano in `config.json` ma servono solo dalla tappa 12. La cartella delle note si apre ma non si cambia dall'app.
-- **Pagina Persona:** le azioni si possono solo leggere, senza spunta né pillole. Il piano del design prevede le pillole solo in bacheca, elenco e pagina etichetta.
-- **Scorciatoia Ctrl K W** non implementata, come proposto nel piano del design. Ctrl W e Ctrl 1…6 funzionano in WebView2: la pagina li riceve prima del browser.
-- **Tema all'avvio:** lo sfondo iniziale della finestra è sempre scuro, ma non si vede perché la finestra resta nascosta fino alla prima pittura.
-- **`quicknotes-mcp.exe`** è un file a parte nella release; le Impostazioni avvisano se manca accanto all'app.
-- **README** descrive ancora la versione Python. Contiene modifiche locali dell'utente non salvate in Git: va aggiornato insieme a lui.
-- **Eseguibile senza firma del codice:** al primo avvio Windows mostra SmartScreen ("Esegui comunque"); alcune politiche aziendali bloccano i programmi non firmati. Serve un certificato, dell'azienda o un servizio come Azure Trusted Signing.
-- **Barra del titolo:** passando sul pulsante Ingrandisci non compare il menu dei layout a scatto di Windows 11, che richiede la cornice di sistema.
-- **File trascinati da Esplora risorse:** con il gestore di Tauri disattivato, la pagina riceve i file senza percorso. Le immagini si leggono già come contenuto e si salvano in `images/`; gli altri allegati, alla tappa 13, si leggeranno allo stesso modo oppure si aggiungeranno dal menu `⋯`. Un file lasciato fuori dall'editor si ignora.
-- **Grafo:** le note del giorno vuote sono nascoste con "Note isolate" spento, che è il valore iniziale. I link verso note inesistenti non diventano nodi.
-- **Anteprima e tabelle:** i file collegati che non sono immagini mostrano solo il nome, finché la tappa 13 non porta l'apertura sicura dei file. I link a file non si aprono. Le immagini dal web restano un segnaposto con il nome, per scelta.
-- **Immagini:** il nome è data e ora (`AAAA-MM-GG-HHMMSS.png`); sopra i 10 MB l'app chiede conferma, sopra i 50 MB rifiuta. Non si ridimensionano né si comprimono. Un'immagine mancante fa comparire in console un 404 prima del segnaposto.
-- **Menu `⋯`:** contiene solo le modalità. Esporta, Allega un file e Inserisci uno schizzo arrivano con le tappe 13 e 14.
-- **Dipendenze di sviluppo:** `npm audit` segnala avvisi su `vitest` e sul plugin Svelte di Vite. Non finiscono nel pacchetto dell'app.
+Questa sezione descriveva lo stato della versione Rust al 3 novembre 2026. Lo stato attuale (prove, prossimi passi, decisioni aperte, difetti noti) è in [stato.md](stato.md).
 
 ## Criteri validi per ogni tappa
 

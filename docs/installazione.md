@@ -24,6 +24,7 @@ Per ritrovarla facilmente: tasto destro su `QuickNotes.cmd` › Mostra altre opz
 - **Chiudere la finestra non chiude l'app:** QuickNotes resta nell'area di notifica, vicino all'orologio. Per uscire davvero: clic destro sull'icona › Esci.
 - **Tasti utili ovunque in Windows:** Ctrl Alt N per una nota rapida, Ctrl Alt D per la nota del giorno.
 - **Dentro l'app:** il pulsante **?** in basso a destra (o F1) apre la guida con tutti i comandi; Ctrl K cerca ovunque.
+- **Registrazione audio:** per ora non c'è. Il pulsante Registra e Ctrl Alt R sono già nell'app ma non registrano.
 - **Avvio con Windows:** in Impostazioni › Informazioni puoi farla partire con Windows, nascosta nell'area di notifica, così i tasti rapidi sono sempre pronti. Se poi sposti la cartella, riattivalo.
 
 ## Versioni nuove

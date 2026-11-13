@@ -1,8 +1,10 @@
 # Architettura di QuickNotes
 
-Questo documento descrive come è costruita l'app. Cosa deve fare è in [piano-implementazione-design.md](piano-implementazione-design.md), l'ordine di lavoro seguito è in [piano-incrementale.md](piano-incrementale.md) (scritto per la versione Rust, che fino alla 0.3.1 ha preceduto quella Python).
+Questo documento descrive come è costruita l'app. Cosa deve fare è in [piano-implementazione-design.md](piano-implementazione-design.md). Lo stato del lavoro, con le prove, i difetti noti e le decisioni aperte, è in [stato.md](stato.md). Il registro delle tappe fatte con la versione Rust, che fino alla 0.3.1 ha preceduto quella Python, è in [piano-incrementale.md](piano-incrementale.md).
 
 Il riferimento visivo è la tavola **Home** del [design](https://claude.ai/artifact/1ZCTE9XczJ49BE4LQyGN2h) ("Homepage · icone, schede VS Code, contenuto in riquadro").
+
+Le sezioni dalle **Scelte tecniche** alla **Sicurezza** spiegano il perché delle cose e cambiano di rado. Gli elenchi che invecchiano a ogni versione (struttura del frontend, chiavi delle preferenze, misure) stanno solo qui e portano la data o la versione.
 
 ## Obiettivi
 
@@ -15,18 +17,20 @@ In ordine di priorità:
 
 ### Limiti misurabili
 
-Riferimento: questo PC, 1000 note generate da `scripts/genera_note.py` (o le note di `scripts/demo-note.mjs` dove serve). Misure del 4 novembre 2026.
+Riferimento: questo PC, 1000 note generate da `scripts/genera_note.py` (o le note di `scripts/demo-note.mjs` dove serve). I comandi sono nella sezione [Misure](#misure).
 
-| Misura | Obiettivo | Misurato |
-|---|---|---|
-| Avvio a freddo fino alla nota di oggi disegnata, dalla creazione del processo | < 1,5 s | 1,33 s |
-| Finestra già attiva nell'area di notifica, seconda apertura visibile | < 300 ms | 0,27 s |
-| Tasto premuto, carattere a schermo | < 16 ms | 4–6 ms |
-| Cambio scheda | < 50 ms | 28 ms |
-| Ricerca Ctrl K, risultati a ogni tasto | < 30 ms | mediana 20 ms, 95° percentile 31 ms |
-| Allineamento dell'indice senza modifiche | < 100 ms, senza bloccare l'interfaccia | 50 ms |
-| Indicizzazione completa (primo avvio) | < 2 s | 0,82 s |
-| Memoria del processo a riposo, escluso WebView2 | < 100 MB | 76 MB |
+| Misura | Obiettivo | 0.4.0 · 4 novembre 2026 | `main` dopo la 0.6.0 · 13 novembre 2026 |
+|---|---|---|---|
+| Avvio a freddo fino alla nota di oggi disegnata, dalla creazione del processo | < 1,5 s | 1,33 s | 1,52 s |
+| Finestra già attiva nell'area di notifica, seconda apertura visibile | < 300 ms | 0,27 s | 0,49 s |
+| Tasto premuto, carattere a schermo | < 16 ms | 4–6 ms | 4–6 ms, anche con 2000 righe in più |
+| Cambio scheda | < 50 ms | 28 ms | 26 ms |
+| Ricerca Ctrl K, risultati a ogni tasto | < 30 ms | mediana 20 ms, 95° percentile 31 ms | mediana 20 ms, 95° percentile 25 ms |
+| Allineamento dell'indice senza modifiche | < 100 ms, senza bloccare l'interfaccia | 50 ms | 50 ms |
+| Indicizzazione completa (primo avvio) | < 2 s | 0,82 s | 2,5 s |
+| Memoria del processo a riposo, escluso WebView2 | < 100 MB | 76 MB | 73 MB |
+
+**Le due colonne non sono confrontabili per intero.** Il 13 novembre il codice della 0.4.0, misurato di nuovo, ha impiegato anch'esso 2,5 s per l'indicizzazione completa: la differenza su quella riga viene dallo stato del PC (antivirus, alimentazione, cache del disco), non dal codice. Avvio e riapertura non sono stati confrontati allo stesso modo. Prima di cercare un rallentamento vanno misurate le due versioni nello stesso momento.
 
 La versione Rust aveva obiettivi più stretti sull'avvio (400 ms) e sulla memoria (40 MB): l'avvio di Python e di .NET costa circa un secondo e una quarantina di MB. È il prezzo della portabilità, vedi sotto.
 
@@ -49,19 +53,20 @@ Come si riducono i costi dell'avvio:
 - **Una sola istanza, residente nell'area di notifica.** Chiudere la finestra la nasconde: riaprirla è quasi immediato.
 - **Finestra con lo sfondo del tema già impostato**, visibile da subito: pywebview non carica la pagina in una finestra nascosta. Con l'avvio con Windows (`--nascosta`) la finestra si mostra trasparente finché la pagina non è pronta, poi si nasconde.
 - **Dati pronti prima della pagina.** Python inietta tema, preferenze e nota di oggi nella pagina (`window.__QN__`), quindi la prima schermata non aspetta nessuna chiamata.
-- **Prima la struttura, poi l'editor**, in blocchi separati compilati da Vite.
+- **Prima la struttura, poi l'editor**, in blocchi separati compilati da Vite. Le viste si caricano solo quando si aprono.
 - **Indice in sottofondo.** Nessuna operazione su disco blocca la finestra.
 - **La nota rapida si prepara nascosta** 1,5 secondi dopo l'avvio, così Ctrl Alt N è immediato.
 
 ### Struttura del repository
 
 ```
-quicknotes/                pacchetto Python: nucleo, app, server MCP
+quicknotes/                pacchetto Python: nucleo, app, server MCP (moduli nella sezione Backend)
   webui/                   interfaccia compilata (npm run build), non versionata
-frontend/                  Svelte 5 + CodeMirror 6, compilato da Vite
-scripts/                   prove dal vivo, misure, costruzione dello zip e rilascio
+frontend/                  Svelte 5 + CodeMirror 6, compilato da Vite (cartelle nella sezione Frontend)
+scripts/                   prove dal vivo, misure, note di prova, costruzione dello zip e rilascio
 tests/                     prove del nucleo e del server MCP (unittest)
-docs/
+docs/                      questo documento, stato del lavoro, design, rilascio, guida per i colleghi
+rilasci/                   zip e descrizione di ogni versione, preparati da scripts/rilascio.mjs, non versionata
 ```
 
 Il server MCP è lo stesso pacchetto avviato come `python -m quicknotes mcp`: lo avvia Claude a ogni sessione e non carica né pywebview né .NET.
@@ -73,7 +78,7 @@ Il server MCP è lo stesso pacchetto avviato come `python -m quicknotes mcp`: lo
 | Finestre | `pywebview` 6 (WinForms + WebView2, tramite `pythonnet`) | |
 | Area di notifica | `NotifyIcon` di .NET, con il menu nativo `ContextMenu` | pythonnet è già caricato da pywebview: nessuna dipendenza in più |
 | Tasti globali | `RegisterHotKey` di Windows, con `ctypes` | Niente hook sulla tastiera, che un antivirus potrebbe scambiare per un keylogger |
-| Istanza singola | Named pipe (`multiprocessing.connection`) | |
+| Istanza singola | Named pipe (`multiprocessing.connection`) | Il nome viene dall'utente di Windows: con `USERNAME=qn-prova` una prova gira accanto all'app aperta |
 | Modifiche esterne ai file | `FindFirstChangeNotification` di Windows, con `ctypes` | Più un controllo ogni 10 secondi per le cartelle che non avvisano |
 | Indice e ricerca | `sqlite3` della libreria standard, con FTS5 | |
 | Frontmatter | `PyYAML` con libyaml | Solo per leggere e per scrivere i metadati modificati |
@@ -93,17 +98,46 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 | Id di una nota | Il nome del file senza estensione |
 | Nota del giorno | `AAAA/MM/AAAA-MM-GG-giornata.md`, senza rinominare nulla |
 | Meeting e note | `AAAA/MM/AAAA-MM-GG-HHMM-titolo.md` |
+| Progetti | `progetti/<chiave>.md` con `type: project`; le azioni chiuse archiviate vanno in `progetti/<chiave>.archivio.md` |
+| Azioni da smistare | `da-smistare.md` in cima alla cartella, con `type: inbox` |
 | Rinomina | Cambia `title` (o il primo `# Titolo`, se il frontmatter non lo ha) e il nome del file, che conserva data e ora in testa. I `[[link]]` delle altre note che la citano, per id o per titolo, vengono riscritti; quelli nei blocchi di codice no. La nota del giorno non si rinomina |
 | Elimina | Il file va nel Cestino di Windows. Dove il Cestino non c'è (cartelle di rete) va in `.quicknotes/cestino/`. Le immagini restano. La nota di oggi non si elimina |
-| Sintassi | `@persona`, `#tag`, `- [ ]`, `due:` (anche `entro:` e `scadenza:`), `done:`, `prio:alta|media|bassa` (anche `priorità:`, `priority:` e `high`, `medium`, `low`), `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`, `![[….excalidraw]]` |
-| Audio | `AAAA/MM/audio/<id>-HHMMSS.wav` e righe `🎙️ [Registrazione HH:MM (durata)](file)` |
+| Sintassi | `@persona`, `#tag`, `#progetto/area`, `- [ ]` con gli stati `[/]`, `[w]`, `[?]`, `[-]`, `[x]`, `due:` (anche `entro:` e `scadenza:`), `scheduled:`, `done:`, `prio:alta|media|bassa` (anche `priorità:`, `priority:` e `high`, `medium`, `low`), `!decisione` (anche `!decision`, `!dec`), `[[id\|Titolo]]`, `[[Titolo]]`, `![[….excalidraw]]` |
+| Audio | `AAAA/MM/audio/<id>-HHMMSS.wav` e righe `🎙️ [Registrazione HH:MM (durata)](file)`, scritti dalla versione Rust. Le righe si leggono, ma i file non si riproducono e **la versione Python non registra**: vedi [Registrazione](#registrazione-non-disponibile) |
 | Trascrizioni | `### Trascrizione HH:MM`, con paragrafi `[mm:ss]`. `parser.recordings` e `parser.transcript_lines` le leggono per Calendario e Ctrl K; una registrazione cade nel giorno della nota che la contiene |
 | Immagini | `images/` accanto alla nota, con `![](images/…)`. Incollate o trascinate: `images/AAAA-MM-GG-HHMMSS.png`. La pagina le carica dal server locale, che serve solo immagini vere dentro la cartella delle note |
-| Indice | File `<note>/.quicknotes/index-v4.db`. Gli indici delle versioni precedenti (`index.db`, `index-v3.db`) non vengono toccati |
+| Indice | File `<note>/.quicknotes/index-v4.db`. Il nome del file è rimasto quello della 0.4.0: la versione dello schema (oggi 7) sta in `PRAGMA user_version`, e se non corrisponde l'indice si ricostruisce. Gli indici delle versioni Rust (`index.db`, `index-v3.db`) non vengono toccati |
 
 **Un salvataggio non riscrive ciò che non è cambiato.** Il frontmatter resta testo esattamente com'era finché non si modificano i metadati, e gli a capo restano quelli del file (anche `\r\n`). I file si leggono senza conversione degli a capo e si scrivono in modo atomico.
 
 **Isolamento durante lo sviluppo:** ogni prova usa cartelle temporanee, tramite `QUICKNOTES_DIR` e `QUICKNOTES_CONFIG_DIR`.
+
+## Il percorso di un dato
+
+Tre esempi che attraversano tutti gli strati. I dettagli di ciascuno sono nelle sezioni Backend e Frontend.
+
+**1. Scrivere in una nota.**
+
+1. CodeMirror aggiorna il testo in `docs[id]` (`state/documents.svelte.js`, `setText`). Il tasto è già a schermo: niente aspetta il disco.
+2. Dopo 350 ms senza altri tasti parte `save_note(id, base, body)`, dove `base` è il testo da cui era partita la modifica. Un solo salvataggio per nota alla volta; ciò che arriva nel frattempo riparte alla fine.
+3. `api.js` lo passa a `window.pywebview.api.invoke`, che pywebview esegue in un thread nuovo. `Commands.dispatch` chiama `store.save_if_unchanged`.
+4. Lo store, sotto il lock delle modifiche, rilegge il file. Se non contiene più `base`, il file è cambiato fuori dall'app: non scrive e restituisce il testo del disco; la pagina salva il testo dell'utente in una nota "(conflitto HH:MM)" e mostra quello del disco. Altrimenti scrive il file in modo atomico e aggiorna l'indice nello stesso passaggio.
+5. La pagina aggiorna `base` e chiede a Micio di ricontare le azioni fatte (`pet_done`), che valgono crocchette.
+
+Il salvataggio dall'editor non emette `index-updated`: i contatori della barra laterale e le viste già aperte non si aggiornano finché non arriva un altro evento (vedi i difetti noti in [stato.md](stato.md)).
+
+**2. Cambiare un'azione da una vista** (spunta, stato, `scheduled:`, sposta nel progetto).
+
+1. La vista chiama una funzione di `state/actions.svelte.js`. `mutate` salva prima la nota se è aperta con modifiche in sospeso, altrimenti la riga attesa non corrisponderebbe.
+2. Il comando (`set_action_done`, `set_action_status`, `move_action`…) riceve nota, riga e testo della riga. Lo store controlla che la riga contenga ancora quel testo, la riscrive con le funzioni pure di `edit` e aggiorna l'indice. I comandi che toccano più note emettono `index-updated`.
+3. Se la nota è aperta in una scheda, il testo nuovo arriva all'editor come differenza (`onExternalChange`): la modifica resta annullabile con Ctrl Z.
+4. La pagina ricarica la bacheca e i contatori, e Micio riconta.
+
+**3. Una modifica fuori dall'app** (Claude via MCP, Obsidian, una sincronizzazione).
+
+1. Windows avvisa che qualcosa è cambiato nella cartella; dopo 200 ms senza altri avvisi un thread allinea l'indice ai file.
+2. Se qualche nota è cambiata, la pagina riceve `note-changed` con gli id e `index-updated`.
+3. Le note aperte senza modifiche in sospeso prendono il testo nuovo come differenza; quelle con modifiche passano dal controllo del conflitto al salvataggio successivo. Barra laterale, viste aperte e Micio si ricaricano su `index-updated`.
 
 ## Backend
 
@@ -117,10 +151,10 @@ In `~/QuickNotes` e `~/.quicknotes` ci sono note e configurazione reali, scritte
 | `store` | Lettura e scrittura atomica dei file, allineamento dell'indice, operazioni sulle azioni (stato, `scheduled:`, sposta nel progetto), progetti (crea, stato, archivia fatte), rinomina ed eliminazione, immagini |
 | `dates` | Titolo del giorno, etichette e colonne delle scadenze |
 | `views` | Dati pronti per le viste: `agenda`, `project_page`, `weekly_review`, `action_board`, `calendar_data`, `person_page`, `people_list`, `tag_page`, `full_graph`, `search_all` |
-| `commands` | I comandi della pagina |
+| `commands` | I comandi della pagina: `cmd_<nome>`, con gli argomenti da camelCase a snake_case |
 | `app` | Finestre, server locale, area di notifica, nota rapida, tasti globali, istanza singola, modifiche esterne |
 | `system` | Link e cartelle, Cestino di Windows, avvio con Windows (`HKCU\…\Run`), percorsi di `python.exe` e `pythonw.exe` |
-| `mcp` | Server MCP su stdio |
+| `mcp` | Server MCP su stdio: 15 strumenti e 2 prompt (`riepilogo_settimanale`, `briefing_meeting`) |
 | `check` | `python -m quicknotes verifica` |
 | `config` | Lettura e scrittura della configurazione |
 
@@ -155,27 +189,78 @@ Il riconoscimento di `@` e `#` è scritto a mano: le regole guardano il caratter
 
 ## Frontend
 
+Elenco aggiornato al 13 novembre 2026.
+
 ```
 frontend/src/
-  main.js                 sceglie la finestra (principale o nota rapida)
-  api.js                  chiamate al backend Python
-  theme/                  6 temi, Personalizzato, Automatico, tinte delle etichette
-  state/                  documenti, disposizione, preferenze
-  shell/                  barra laterale, striscia compressa, gruppi, schede
-  note/                   pagina della nota, editor, Anteprima
-  views/                  Azioni, Calendario, Persone, Persona, Etichetta, Grafo, Impostazioni
-  overlays/               ricerca, nota rapida, avvisi
+  main.js                 sceglie la finestra: principale o nota rapida
+  App.svelte              guscio della finestra principale: tasti, eventi da Python, livelli sopra le schede
+  api.js                  chiamate al backend ed eventi; senza Python (npm run dev) restituisce valori di ripiego
+  theme/                  6 temi, Personalizzato, Automatico, tinte delle etichette e dei progetti
+  state/                  stato condiviso, vedi sotto
+  shell/                  barra laterale e striscia compressa, titolo, gruppi e schede, pagina, icone, nav.js
+  note/                   pagina della nota, editor (regole, suggerimenti, tabelle, anteprima viva), Anteprima
+  views/                  Agenda, Azioni, Revisione, Progetto, Calendario, Persone, Persona, Etichetta, Grafo,
+                          Micio, Migrazione, Guida, Impostazioni, più i componenti che condividono
+  overlays/               ricerca Ctrl K, nota rapida, finestra di conferma
+  pet/                    Micio: comportamento, sprite, oggetti della stanza, preferenze
 ```
 
-La finestra principale usa la cornice di Windows: in WinForms una finestra senza cornice non si ridimensiona dai bordi. La nota rapida è senza cornice e si trascina dall'intestazione (`pywebview-drag-region`).
+### Stato condiviso
 
-Regole per la fluidità:
+| Modulo | Contenuto |
+|---|---|
+| `state/app.svelte.js` | Preferenze salvate in `config.ui`, tema, colori di etichette e progetti, contatori della barra laterale (comando `sidebar`), avvisi, finestra di conferma |
+| `state/layout.svelte.js` | Gruppi di schede (fino a 4), schede chiuse da riaprire, cronologia Indietro/Avanti, dimensioni dei gruppi |
+| `state/documents.svelte.js` | Testo delle note aperte, salvataggio con controllo del conflitto, modalità di ogni scheda, rinomina, eliminazione, modifiche esterne |
+| `state/actions.svelte.js` | Bacheca delle azioni e tutte le modifiche alle azioni e ai progetti |
+| `state/actionQuery.js` | Il campo Filtra e i filtri a scelta multipla della vista Azioni. Funzioni pure, con prove (`actionQuery.test.js`) |
+| `pet/store.svelte.js` | Micio: nome, mantello, dimensione, crocchette, oggetti |
+
+**Pagine.** Ogni scheda è l'id di una pagina: `note:<id>`, `project:<chiave>`, `person:<nome>`, `tag:<nome>`, `view:<nome>` o `settings`. `shell/Page.svelte` sceglie il componente: la pagina della nota è sempre caricata, le viste arrivano con `import()` la prima volta che si aprono. Titoli e icone delle pagine sono in `shell/nav.js`.
+
+**Preferenze.** Tutto ciò che l'interfaccia ricorda sta in `config.json` sotto `ui`, salvato dal comando `save_ui` 400 ms dopo l'ultima modifica. Python le inietta nella pagina all'avvio, quindi non servono chiamate per leggerle.
+
+| Chiavi di `ui` | Cosa ricordano |
+|---|---|
+| `theme`, `custom` | Tema scelto e colori del tema Personalizzato |
+| `side`, `sideW`, `showPins`, `favs`, `viewOrder`, `viewVis`, `projOpen` | Barra laterale: aperta o compressa, larghezza, preferiti, ordine e visibilità delle viste, progetti aperti |
+| `layout`, `titles` | Gruppi, schede e loro dimensioni; ultimi titoli noti delle pagine |
+| `noteW`, `viewW` | Larghezza del testo nelle note e nelle viste |
+| `actView`, `actGroup`, `actGroupV`, `boardDone`, `actF`, `actPaused`, `actViews` | Vista Azioni: bacheca o elenco, raggruppamento, fatte visibili, filtri, progetti in pausa, viste salvate |
+| `tagColors` | Colore scelto per etichette e progetti |
+| `lastReview` | Data dell'ultima Revisione settimanale |
+| `pet` | Micio, vedi sotto |
+
+**Colori di etichette e progetti.** `theme/themes.js` ha una tavolozza di tinte, ognuna con una versione per i temi scuri e una per quelli chiari. Senza una scelta, un'etichetta prende una tinta stabile ricavata dal nome. La chiave di un progetto è anche la sua etichetta (`#chiave`), quindi progetti ed etichette condividono `tagColors`, e `#progetto/area` prende il colore di `#progetto`. La scelta si fa con un solo componente, `views/ColorChoice.svelte`, dalla vista Progetto, dalla vista Etichetta e da Impostazioni › Colori.
+
+### Micio
+
+Un solo gatto per tutta l'app, con quattro contesti (`pet/brain.svelte.js`): **app**, in fondo alle schede (`PetLayer.svelte`, un livello che lascia passare i clic tranne sul gatto); **room**, nella sua stanza mentre la vista Micio è aperta; **game**, durante il minigioco; **off**, nascosto.
+
+- **Sprite:** il Cat Pack di Glem, diviso in tre livelli (corpo da tingere, dettagli, occhi) in `pet/sprite/`. `pet/tinta.js` compone su un canvas il foglio già colorato per il mantello scelto, una volta per colore. Le animazioni sono classi CSS generate da `pet/animazioni.js`, calibrate fotogramma per fotogramma nel [Banco animazioni](https://claude.ai/artifact/TkpC2pyZyf74JhJhn9fuUr).
+- **Crocchette:** non si contano a parte. Il comando `pet_done` conta nell'indice le azioni completate da `since`, il giorno in cui è arrivato Micio: 5 crocchette ciascuna, quindi valgono anche quelle spuntate in Obsidian o da Claude. Si aggiungono quelle vinte al minigioco (`bonus`) e si tolgono quelle spese nel negozio (`spent`).
+- **Preferenze** in `ui.pet`: `name` (vuoto: si chiama Micio), `since`, `bonus`, `spent`, `owned`, `placed`, `coat`, `scale`, `out` (passeggia, gioca o nascosto), `best`.
+
+### Regole per la fluidità
 
 - **Nessuna libreria di componenti.** CSS semplice con variabili per i temi. Nei gruppi di schede, cambiare tema cambia solo le variabili.
 - **Le schede restano montate solo se servono:** l'`EditorState` di ogni scheda si conserva, ma esiste una sola vista CodeMirror per gruppo. L'`EditorState` sopravvive al componente: i suoi callback non devono leggere proprietà del componente, ma valori copiati alla creazione.
 - **Elenchi lunghi virtualizzati:** obiettivo non ancora realizzato. Oggi bacheca e ricerca disegnano tutto; le azioni fatte senza data sono limitate a 30.
 - **Salvataggio con un breve ritardo** e invio in sottofondo: scrivere non aspetta mai il disco.
-- **Animazioni solo su `transform` e `opacity`**, disattivabili con `animations: false`.
+- **Animazioni solo su `transform` e `opacity`.** Micio, i minigiochi e le nuvolette rispettano `prefers-reduced-motion`; non c'è un'impostazione dell'app per spegnere le animazioni.
+
+La finestra principale usa la cornice di Windows: in WinForms una finestra senza cornice non si ridimensiona dai bordi. `shell/TitleBar.svelte` mostra solo il titolo della scheda attiva. La nota rapida è senza cornice e si trascina dall'intestazione (`pywebview-drag-region`).
+
+## Registrazione (non disponibile)
+
+La registrazione audio con trascrizione era la tappa 12 della versione Rust ([piano-incrementale.md](piano-incrementale.md)), mai completata, e **la versione Python non la ha**. Restano nell'interfaccia alcune tracce:
+
+- il tasto globale **Ctrl Alt R** (`hotkeys.toggle_recording`): l'app lo registra, quindi le altre app non lo ricevono, e premendolo apre la finestra con l'avviso "La registrazione arriva con la tappa dell'audio";
+- **Registra** nella striscia compressa mostra lo stesso avviso; il pulsante **Registra** in fondo alla barra laterale aperta non fa nulla;
+- in Impostazioni › Note e registrazione, modello, lingua e minutaggio si salvano in `config.json` senza effetto.
+
+Le righe delle registrazioni e le trascrizioni già scritte nelle note si leggono e si cercano normalmente. I file audio non si riproducono dall'app: l'Anteprima non ammette `<audio>` e il server locale serve solo immagini.
 
 ## Sicurezza
 
@@ -194,7 +279,9 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 | `.venv/Scripts/python scripts/genera_note.py <cartella vuota> 1000` | Genera le note e misura indicizzazione, allineamento, ricerca e azioni |
 | `node scripts/misura-avvio.mjs <cartella> [ripetizioni]` | Avvio a freddo: `dati pronti`, `indice allineato`, `prima pittura` e la riapertura da una seconda istanza. Usa `QUICKNOTES_TRACE=<file>`, in cui l'app scrive le tappe in ms dalla creazione del processo |
 | `node scripts/cdp.mjs <cartella con 1000 note> "" scripts/misura-ricerca.mjs` | Ricerca Ctrl K a ogni tasto |
-| `node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` | Scrittura (dalla traccia della timeline), cambio scheda e memoria |
+| `node scripts/cdp.mjs <cartella con demo-note.mjs> "" scripts/misura-latenza.mjs` | Scrittura (dalla traccia della timeline), cambio scheda e memoria. Il passaggio sulla lista unica di 500 righe oggi si blocca: aspetta che l'ultima riga compaia nel testo dell'editor, ma CodeMirror disegna solo le righe visibili |
+
+Con l'app dell'utente aperta, le misure e le prove si avviano con `USERNAME=qn-prova` davanti al comando: l'istanza di prova non finisce nella finestra dell'utente (non avrà i tasti globali, già presi).
 
 **Prova con input di sistema veri:** `scripts/prova-sistema.mjs` usa `scripts/win.mjs`, che tiene aperto un PowerShell con poche funzioni Win32: elenca le finestre del processo, preme tasti e muove il mouse come una persona, manda all'icona dell'area di notifica il messaggio che WinForms riceve quando la si clicca (la sua finestra nascosta si chiama `QuickNotes · area di notifica`) e legge le voci del menu aperto per cliccarle. Così prova tasti globali, primo piano, Alt F4, menu, barra del titolo, bordi e trascinamento delle schede. Mentre gira il PC non va usato, e non deve esserci un'altra QuickNotes aperta.
 
@@ -203,10 +290,12 @@ Le note possono arrivare da Claude o da una cartella sincronizzata, quindi il lo
 | Comando | Effetto |
 |---|---|
 | `.venv/Scripts/python -m unittest discover -s tests` | Prove del nucleo e del server MCP, in cartelle temporanee |
-| `npm --prefix frontend test` | Prove del frontend |
+| `npm --prefix frontend test` | Prove del frontend: regole dell'editor e filtri della vista Azioni |
 | `npm --prefix frontend run build` | Interfaccia compilata in `quicknotes/webui/` |
 | `.venv/Scripts/python -m quicknotes [--debug]` | L'app, con gli strumenti di sviluppo se `--debug` |
-| `node scripts/demo-note.mjs <cartella>` | Note di prova simili a quelle del design |
+| `node scripts/demo-note.mjs <cartella>` | Note di prova simili a quelle del design (anche `demo-progetti.mjs` e `demo-migrazione.mjs`, vedi [stato.md](stato.md)) |
 | `node scripts/cdp.mjs <cartella> <foto.png> [script.mjs]` | Avvia l'app in cartelle di prova, la guida via CDP, fotografa e segnala gli errori della pagina. `scripts/prova-*.mjs` sono le prove da usare come `script.mjs`; se una prova fallisce, stampa lo stato della pagina e la coda del registro |
 | `node scripts/prova-python.mjs` | Prova completa dell'app su note di prova, senza altri preparativi |
 | `node scripts/rilascio.mjs --note "…"` | `QuickNotes.zip` e la descrizione della release in `rilasci/v<versione>/`. Vedi [rilascio.md](rilascio.md) |
+
+Per ogni prova serve una cartella diversa: quale preparare per ciascuna è nella tabella delle prove di [stato.md](stato.md).
