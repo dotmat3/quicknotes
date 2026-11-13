@@ -1,6 +1,7 @@
 // Stato dell'app: preferenze, tema, barra laterale. Le preferenze vanno in config.json, chiave `ui`.
 import { boot, call } from '../api.js';
 import { applyTheme, resolveTheme, tagHex } from '../theme/themes.js';
+import { findProject } from './actionQuery.js';
 
 const ui = boot.ui ?? {};
 
@@ -76,8 +77,11 @@ export const theme = {
   },
 };
 
+// Un'etichetta che è un alias di un progetto (#llm per LLM Training) prende il colore del progetto.
 export function tagColor(tag) {
-  return tagHex(tag, app.tagColors, theme.current.dark);
+  const head = String(tag).trim().replace(/^#/, '').split('/')[0];
+  const project = head ? findProject(head, app.counts?.projects ?? []) : null;
+  return tagHex(project ? project.key : tag, app.tagColors, theme.current.dark);
 }
 
 // Etichette e progetti condividono i colori: la chiave di un progetto è anche la sua etichetta (#chiave).

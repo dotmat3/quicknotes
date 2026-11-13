@@ -122,7 +122,7 @@ function inlineParts(text, ctx) {
       s.dataset.person = m[1];
       frag.append(s);
     } else if (kind === 'tag') {
-      const s = el('span', 'pv-tag', m[0]);
+      const s = el('span', 'pv-tag tag-chip', m[0]);
       s.dataset.tag = m[1];
       s.style.color = ctx.tagColor(m[1]);
       frag.append(s);
@@ -131,7 +131,7 @@ function inlineParts(text, ctx) {
       frag.append(el('span', `pv-due ${level}`, label));
     } else if (kind === 'sched') {
       const { label, level } = dueLabel(m[1]);
-      const s = el('span', `pv-due pv-sched ${level}`, `◷ ${label}`);
+      const s = el('span', `pv-due pv-sched ${level}`, label);
       s.title = `Da fare ${label}`;
       frag.append(s);
     } else if (kind === 'prio') {

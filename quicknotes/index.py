@@ -355,14 +355,23 @@ def actions(db: sqlite3.Connection, status: str | list[str] = "open", owner: str
         "LEFT JOIN (SELECT key, max(status) AS status FROM projects GROUP BY key) p ON p.key = a.project "
         f"LEFT JOIN action_seen s ON s.key = a.seen_key {_where(parts)} "
         "ORDER BY a.due IS NULL, a.due, n.date DESC, a.line_no LIMIT ?", [*args, limit]).fetchall()
+    reg = registry(db)
+
+    def written(tags: list[str], project: str | None) -> bool:
+        """Il progetto è scritto nella riga come etichetta (anche con un alias o come `#progetto/area`)."""
+        heads = (t.partition("/")[0] for t in tags)
+        return bool(project) and any((reg.match(h) or prj.key_of(h)) == project for h in heads)
+
     out = []
     for r in rows:
         topics = r["topics"].split() if r["topics"] else []
+        tags = r["tags"].split()
         out.append({
             "text": r["text"], "done": bool(r["done"]), "owner": r["owner"], "due": r["due"], "done_on": r["done_on"],
             "note_id": r["id"], "note_title": r["title"], "note_date": r["date"], "line": r["line_no"],
             "parent_line": r["parent_line"], "description": r["description"], "people": r["people"].split(),
-            "tags": r["tags"].split(), "project": r["project"] or None, "priority": r["priority"],
+            "tags": tags, "project": r["project"] or None, "project_in_text": written(tags, r["project"]),
+            "priority": r["priority"],
             "status": r["status"], "scheduled": r["scheduled"], "topics": topics,
             "area": topics[0] if topics else None, "project_status": r["project_status"],
             "note_type": r["note_type"], "first_seen": r["first_seen"], "status_since": r["status_since"],

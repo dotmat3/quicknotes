@@ -65,5 +65,5 @@ export default async function (page, { notes }) {
   assert((await page.locator('article .proj').count()) === 0, 'dopo la migrazione non resta nulla da proporre');
   await page.getByRole('button', { name: 'Agenda' }).last().click();
   await page.waitForSelector('.sec');
-  assert((await page.locator('.act', { hasText: 'Serve rifare i filtri' }).locator('.pl', { hasText: 'Domanda' }).count()) === 1, 'in Agenda la domanda ha il suo stato');
+  assert((await page.locator('.act', { hasText: 'Serve rifare i filtri' }).getByRole('checkbox', { name: /· Domanda$/ }).count()) === 1, 'in Agenda la domanda ha il suo stato');
 }

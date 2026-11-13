@@ -29,15 +29,17 @@
 .pv .pv-mention { color: var(--person); cursor: pointer; }
 .pv .pv-tag { cursor: pointer; }
 .pv .pv-decision { color: var(--dec); font-weight: 600; }
-.pv .pv-due { font-family: 'Geist Mono', monospace; font-size: 12px; margin-left: 2px; color: var(--subtle); }
-.pv .pv-due.late { color: var(--late); }
+/* Date e priorità: le stesse mini pillole dell'editor e delle viste. */
+.pv .pv-due, .pv .pv-prio { display: inline-block; margin-left: 4px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 5px; font-size: 11.5px; line-height: 18px; vertical-align: middle; text-decoration: none; font-variant-numeric: tabular-nums; }
+.pv .pv-due { color: var(--muted); border-color: var(--border3); }
+.pv .pv-due.late { color: var(--late); border-color: color-mix(in srgb, var(--late) 40%, transparent); }
 .pv .pv-due.soon { color: var(--text); }
-.pv li.pv-task-done .pv-due { color: var(--faint); }
-.pv .pv-prio { font-size: 12px; font-weight: 600; margin-left: 2px; }
-.pv .pv-prio.alta { color: var(--late); }
+.pv li.pv-task-done .pv-due { color: var(--faint); border-color: var(--border2); }
+.pv .pv-prio { font-weight: 600; }
+.pv .pv-prio.alta { border-color: var(--late); background: var(--late); color: var(--surface); }
 .pv .pv-prio.media { color: var(--accent); }
-.pv .pv-prio.bassa { color: var(--subtle); }
-.pv li.pv-task-done .pv-prio { color: var(--faint); }
+.pv .pv-prio.bassa { color: var(--subtle); border-color: var(--border3); }
+.pv li.pv-task-done .pv-prio { color: var(--faint); background: transparent; border-color: var(--border2); }
 .pv .pv-embed { display: inline-block; padding: 1px 8px; border: 1px dashed var(--border3); border-radius: 6px; font-size: 13px; color: var(--subtle); }
 .pv .pv-alert { padding: 2px 0 2px 16px; border-left: 3px solid var(--alert); }
 .pv .pv-alert > :last-child { margin-bottom: 0; }
@@ -82,4 +84,5 @@
 .pv .pv-status-question { border-color: var(--dec); color: var(--dec); }
 .pv .pv-status-cancelled { color: var(--faint); }
 .pv li.pv-task-cancelled { color: var(--faint); }
-.pv .pv-sched { color: var(--text); }
+.pv .pv-sched { color: var(--text); border-color: var(--border3); }
+.pv .pv-sched.late { color: var(--late); border-color: color-mix(in srgb, var(--late) 40%, transparent); }

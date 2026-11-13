@@ -212,6 +212,8 @@
     </div>
     {#if kind === 'tag' && item.tag}
       <button class="link" onclick={() => { openPage(`tag:${item.tag}`); close(); }}>Apri la pagina di #{item.tag}</button>
+    {:else if kind === 'person' && current}
+      <button class="link" onclick={() => { openPage(`person:${current}`); close(); }}>Apri la pagina di @{current}</button>
     {/if}
   {/if}
 </div>

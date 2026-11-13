@@ -52,9 +52,11 @@
 .cm-task-box.st-question svg { stroke: var(--dec); }
 .cm-task-box.st-cancelled svg { stroke: var(--faint); }
 .cm-task-cancelled, .cm-task-cancelled .cm-line { color: var(--faint); }
-.cm-sched { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 0.86em; line-height: 1.5; text-indent: 0; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text); }
-.cm-sched.late { background: color-mix(in srgb, var(--late) 14%, transparent); color: var(--late); }
-.cm-sched.done { background: transparent; color: var(--faint); }
+/* Date e priorità fuori dalla riga del cursore: mini pillole come nelle viste (.chip in app.css). */
+.cm-sched, .cm-due, .cm-prio { display: inline-block; margin-left: 4px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 5px; font-size: 11.5px; line-height: 18px; text-indent: 0; vertical-align: middle; background: transparent; font-variant-numeric: tabular-nums; }
+.cm-sched { color: var(--text); border-color: var(--border3); }
+.cm-sched.late { color: var(--late); border-color: color-mix(in srgb, var(--late) 40%, transparent); }
+.cm-sched.done { color: var(--faint); border-color: var(--border2); }
 .cm-status-menu { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 190px; padding: 6px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border3); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); }
 .cm-status-item { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
 .cm-status-item span:nth-child(2) { flex: 1; }
@@ -66,18 +68,21 @@
 .cm-desc { color: var(--muted); font-size: 13.5px; }
 .cm-mention { color: var(--person); }
 .cm-tag { color: var(--accent); }
+.cm-tag-edit { border-color: transparent; }
 .cm-decision { color: var(--dec); font-weight: 600; }
-/* Priorità: alta in rosso, media nel colore dell'app, bassa smorzata. */
-.cm-prio { font-size: 12px; font-weight: 600; margin-left: 4px; display: inline-block; text-indent: 0; }
-.cm-prio.alta, .cm-prio-raw.alta { color: var(--late); }
+/* Priorità: alta piena, l'unica pillola piena; media nel colore dell'app, bassa smorzata. */
+.cm-prio { font-weight: 600; }
+.cm-prio.alta { border-color: var(--late); background: var(--late); color: var(--surface); }
+.cm-prio-raw.alta { color: var(--late); }
 .cm-prio.media, .cm-prio-raw.media { color: var(--accent); }
 .cm-prio.bassa, .cm-prio-raw.bassa { color: var(--subtle); }
-.cm-prio.done { color: var(--faint); }
+.cm-prio.bassa { border-color: var(--border3); }
+.cm-prio.done { color: var(--faint); background: transparent; border-color: var(--border2); }
 .cm-date-raw { font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--subtle); }
-.cm-due { font-family: 'Geist Mono', monospace; font-size: 12px; margin-left: 4px; color: var(--subtle); display: inline-block; text-indent: 0; }
-.cm-due.late { color: var(--late); }
+.cm-due { color: var(--muted); border-color: var(--border3); }
+.cm-due.late { color: var(--late); border-color: color-mix(in srgb, var(--late) 40%, transparent); }
 .cm-due.soon { color: var(--text); }
-.cm-due.done { color: var(--faint); }
+.cm-due.done { color: var(--faint); border-color: var(--border2); }
 
 .cm-alert { padding-left: 16px !important; border-left: 3px solid var(--alert); color: var(--text2); }
 .cm-alert-head { color: var(--alert); font-weight: 500; }

@@ -68,6 +68,21 @@ class Risoluzione(Base):
         self.assertEqual(a["Dedup fineweb_edu"]["area"], "dedup", "nella nota di progetto l'area viene dal ### dedup")
         self.assertEqual(a["Rivedere il parser"]["project"], "ekm", "chiave dal titolo, senza campo project")
 
+    def test_progetto_scritto_nella_riga(self):
+        """Serve all'interfaccia: la pillola del progetto compare solo se il progetto non è già scritto."""
+        self.setup_notes()
+        self.write("2026/11/2026-11-05-giornata.md", "---\ntype: daily\ndate: 2026-11-05\n---\n"
+                   "- [ ] Con alias #llm\n- [ ] Con area #mario #ekm\n")
+        self.store.refresh()
+        a = self.by_text()
+        written = {t: a[t]["project_in_text"] for t in ("Lanciare dedup e filtri", "Controllare #filter",
+                                                       "Riga a parte #ekm", "Esplicita #llm-training/eval",
+                                                       "Con alias #llm", "Con area #mario #ekm", "Comprare il caffè")}
+        self.assertEqual(written, {"Lanciare dedup e filtri": False, "Controllare #filter": False,
+                                   "Riga a parte #ekm": True, "Esplicita #llm-training/eval": True,
+                                   "Con alias #llm": True, "Con area #mario #ekm": True, "Comprare il caffè": False})
+        self.assertEqual(a["Con area #mario #ekm"]["area"], "mario", "l'altra etichetta resta un'area")
+
     def test_frontmatter_della_nota(self):
         self.write("note/argomento.md", "---\ntitle: Dedup fineweb_edu OOM\nproject: llm-training\n---\n- [ ] Ridurre i batch\n")
         self.write("progetti/llm-training.md", HUB)

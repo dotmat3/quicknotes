@@ -14,16 +14,6 @@ from .store import NoteStore
 UNDATED_DONE_LIMIT = 30
 
 
-def _clean_text(raw: str, tag: str | None) -> str:
-    display = parser.action_display_text(raw)
-    # L'etichetta è mostrata dalla pillola: nel testo resta solo se è dentro la frase.
-    if tag:
-        marker = f"#{tag}"
-        if display.lower().endswith(marker):
-            return display[:len(display) - len(marker)].rstrip()
-    return display
-
-
 def _children_of(rows: list[dict]) -> dict[tuple[str, int], list[dict]]:
     children: dict[tuple[str, int], list[dict]] = {}
     for row in rows:
@@ -52,12 +42,14 @@ def _board_item(row: dict, children: dict, today: date) -> dict:
     tag = row["tags"][0] if row["tags"] else None
     return {
         "note_id": row["note_id"], "note_title": row["note_title"], "line": row["line"], "raw": row["text"],
-        "text": _clean_text(row["text"], tag), "done": row["done"], "done_on": row["done_on"], "due": row["due"],
+        # Le #etichette restano dove sono scritte: l'interfaccia le mostra come mini pillole dentro il testo.
+        "text": parser.action_display_text(row["text"]), "done": row["done"], "done_on": row["done_on"], "due": row["due"],
         "due_label": label[0] if label else None, "due_level": label[1] if label else None,
         "group": dates.due_group(dates.parse_day(row["due"]), today), "people": row["people"],
         "priority": row["priority"], "status": row["status"], "closed": _closed(row),
         "scheduled": row["scheduled"], "scheduled_label": planned[0] if planned else None,
-        "project": row["project"], "topics": row["topics"], "area": row["area"],
+        "project": row["project"], "project_in_text": row.get("project_in_text", False),
+        "topics": row["topics"], "area": row["area"],
         "project_status": row["project_status"], "is_daily": _is_daily(row), "note_type": row["note_type"],
         "inbox": _is_inbox(row, today),
         "tag": tag or row["project"], "description": row["description"], "subs": subs,

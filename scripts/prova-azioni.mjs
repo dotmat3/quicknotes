@@ -52,7 +52,7 @@ export default async function (page, { notes }) {
   assert(read().includes('\n    Usare la riunione del budget\n'), 'la descrizione è una riga rientrata');
 
   const mother = page.locator('.act', { hasText: 'Mandare a' }).first();
-  assert((await mother.locator('.progress').innerText()).includes('1 di 3'), 'la madre mostra l\'avanzamento');
+  assert((await mother.getByRole('button', { name: /Sotto-azioni: 1 fatte su 3/ }).innerText()).includes('1/3'), 'la madre mostra l\'avanzamento');
   await mother.getByRole('checkbox', { name: /^Mandare/ }).click();
   await page.waitForTimeout(150);
   assert((await mother.getByRole('alert').innerText()).includes('Restano 2 aperte'), 'chiudere una madre con figlie aperte chiede conferma');

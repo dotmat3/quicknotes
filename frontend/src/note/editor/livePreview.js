@@ -389,7 +389,8 @@ function build(view, focused, tagColor) {
       for (const m of text.matchAll(TAG)) {
         if (skip(m.index)) continue;
         const color = done ? undefined : `color:${tagColor(m[1])}`;
-        decos.push(Decoration.mark({ class: 'cm-tag', attributes: { 'data-tag': m[1], ...CTRL, ...(color ? { style: color } : {}) } }).range(line.from + m.index, line.from + m.index + m[0].length));
+        // Una mini pillola; sulla riga del cursore il bordo sparisce ma lo spazio resta, così il testo non si sposta.
+        decos.push(Decoration.mark({ class: lineActive ? 'cm-tag tag-chip cm-tag-edit' : 'cm-tag tag-chip', attributes: { 'data-tag': m[1], ...CTRL, ...(color ? { style: color } : {}) } }).range(line.from + m.index, line.from + m.index + m[0].length));
       }
       for (const m of text.matchAll(WIKI)) {
         if (m[1] || skip(m.index)) continue;
@@ -420,7 +421,7 @@ function build(view, focused, tagColor) {
         if (lineActive) decos.push(mark('cm-date-raw').range(a, b));
         else {
           const { label, level } = dueLabel(m[1]);
-          replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-sched ${done ? 'done' : level}`, `◷ ${label}`) }));
+          replace(a, b, Decoration.replace({ widget: new LabelWidget(`cm-sched ${done ? 'done' : level}`, label) }));
         }
       }
       for (const m of text.matchAll(PRIO)) {

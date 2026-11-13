@@ -115,7 +115,7 @@ class Mcp(unittest.TestCase):
         self.assertEqual(c.call("list_action_items", {"scheduled_before": "2026-11-12"})[0]["scheduled"], "2026-11-12")
         agenda = c.call("agenda", {"date": "2026-11-12"})
         today = next(s for s in agenda["sections"] if s["key"] == "today")
-        self.assertEqual([i["text"] for g in today["groups"] for i in g["items"]], ["Comprare il caffè"])
+        self.assertEqual([i["text"] for g in today["groups"] for i in g["items"]], ["Comprare il caffè #casa"])
         review = c.call("weekly_review", {"date": "2026-11-12"})
         self.assertEqual([p["key"] for p in next(s for s in review["steps"] if s["key"] == "paused")["projects"]], ["ekm"])
         bad = c.send("tools/call", {"name": "set_action_status", "arguments": {"note_id": hub["id"], "action_text": "caffè", "status": "boh"}})

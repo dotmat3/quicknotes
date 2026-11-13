@@ -44,6 +44,7 @@
     move: '<path d="M4 12h11M11 7l5 5-5 5M20 4v16"/>',
     archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
     down: '<path d="m6 9 6 6 6-6"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   };
 </script>
 
